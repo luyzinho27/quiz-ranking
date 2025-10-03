@@ -1,4 +1,4 @@
-// Configuração do Firebase (SUBSTITUA COM SUAS CONFIGURAÇÕES)
+// Configuração do Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyD3e5rXGWsaeHHHx5YO3lwKz5poIwZbLiM",
     authDomain: "quiz-informatica-2025.firebaseapp.com",
@@ -25,321 +25,385 @@ let userAnswers = [];
 let quizStartTime = null;
 let timerInterval = null;
 
-// Pool de questões de Fundamentos da Informática
-const questionsPool = {
-    'base-binaria': [
-        {
-            text: "Qual é a base do sistema binário?",
-            options: ["2", "8", "10", "16"],
-            correctAnswer: 0
-        },
-        {
-            text: "Como é representado o número decimal 10 em binário?",
-            options: ["1010", "1100", "1001", "1110"],
-            correctAnswer: 0
-        },
-        {
-            text: "Qual é o valor do número binário 1101 em decimal?",
-            options: ["11", "12", "13", "14"],
-            correctAnswer: 2
-        },
-        {
-            text: "Quantos bits são necessários para representar o número decimal 255?",
-            options: ["4", "6", "8", "10"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual é a principal vantagem do sistema hexadecimal?",
-            options: ["É mais fácil de calcular", "Representa números grandes com menos dígitos", "É usado apenas em matemática", "É o sistema mais antigo"],
-            correctAnswer: 1
-        },
-        {
-            text: "Como é representado o número decimal 15 em hexadecimal?",
-            options: ["A", "B", "E", "F"],
-            correctAnswer: 3
-        },
-        {
-            text: "Qual é o valor do número octal 77 em decimal?",
-            options: ["63", "77", "49", "55"],
-            correctAnswer: 0
-        },
-        {
-            text: "Quantos valores diferentes podem ser representados com 4 bits?",
-            options: ["8", "16", "32", "64"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual operação bit a bit é usada para verificar se um bit específico está ativo?",
-            options: ["AND", "OR", "XOR", "NOT"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é um nibble em computação?",
-            options: ["8 bits", "16 bits", "32 bits", "4 bits"],
-            correctAnswer: 3
-        }
-    ],
-    'historia-computadores': [
-        {
-            text: "Qual foi o primeiro computador programável?",
-            options: ["ENIAC", "Mark I", "Z1", "Colossus"],
-            correctAnswer: 2
-        },
-        {
-            text: "Em que década surgiu a primeira geração de computadores?",
-            options: ["1930-1940", "1940-1950", "1950-1960", "1960-1970"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual tecnologia foi usada na primeira geração de computadores?",
-            options: ["Transistores", "Circuitos integrados", "Válvulas termiônicas", "Microprocessadores"],
-            correctAnswer: 2
-        },
-        {
-            text: "Quem é considerado o pai da computação?",
-            options: ["Bill Gates", "Alan Turing", "Charles Babbage", "Steve Jobs"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual foi o primeiro computador pessoal comercialmente bem-sucedido?",
-            options: ["IBM PC", "Apple II", "Altair 8800", "Commodore 64"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que caracterizou a terceira geração de computadores?",
-            options: ["Uso de circuitos integrados", "Uso de transistores", "Uso de válvulas", "Inteligência artificial"],
-            correctAnswer: 0
-        },
-        {
-            text: "Qual empresa desenvolveu o primeiro microprocessador?",
-            options: ["IBM", "Intel", "AMD", "Motorola"],
-            correctAnswer: 1
-        },
-        {
-            text: "Em que ano foi lançado o IBM PC?",
-            options: ["1975", "1981", "1984", "1990"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual foi a principal inovação da quarta geração de computadores?",
-            options: ["Válvulas termiônicas", "Transistores", "Circuitos integrados", "Microprocessadores"],
-            correctAnswer: 3
-        },
-        {
-            text: "O que é o ENIAC?",
-            options: ["Primeiro computador pessoal", "Primeiro supercomputador", "Primeiro computador eletrônico de grande escala", "Primeiro laptop"],
-            correctAnswer: 2
-        }
-    ],
-    'arquitetura-von-neumann': [
-        {
-            text: "Qual é o conceito fundamental da Arquitetura de Von Neumann?",
-            options: ["Programas e dados armazenados separadamente", "Programas e dados armazenados na mesma memória", "Uso exclusivo de memória ROM", "Processamento paralelo"],
-            correctAnswer: 1
-        },
-        {
-            text: "Quais são os componentes principais da Arquitetura de Von Neumann?",
-            options: ["CPU, Memória, Dispositivos E/S", "CPU, GPU, RAM", "Processador, Placa-mãe, HD", "Monitor, Teclado, Mouse"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é o barramento (bus) na arquitetura de Von Neumann?",
-            options: ["Um tipo de memória", "Um componente de processamento", "Um sistema de comunicação entre componentes", "Um dispositivo de entrada"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual componente é responsável por executar instruções na arquitetura de Von Neumann?",
-            options: ["Memória Principal", "Unidade de Controle", "Unidade Lógica e Aritmética", "Dispositivos de E/S"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que significa o termo 'stored-program concept'?",
-            options: ["Programas armazenados em disco rígido", "Programas e dados na mesma memória", "Programas em memória somente leitura", "Programas executados da internet"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual é a função da Unidade Lógica e Aritmética (ULA)?",
-            options: ["Controlar o fluxo de dados", "Armazenar programas", "Executar operações matemáticas e lógicas", "Gerenciar dispositivos de E/S"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é o 'Von Neumann bottleneck'?",
-            options: ["Limitação na velocidade do processador", "Limitação na comunicação entre CPU e memória", "Falta de memória RAM", "Problemas com dispositivos de E/S"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual componente armazena o endereço da próxima instrução a ser executada?",
-            options: ["Accumulator", "Program Counter", "Instruction Register", "Memory Address Register"],
-            correctAnswer: 1
-        },
-        {
-            text: "Como as instruções são executadas na arquitetura de Von Neumann?",
-            options: ["Em paralelo", "Sequencialmente", "Aleatoriamente", "Dependendo da prioridade"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a principal diferença entre a arquitetura Harvard e Von Neumann?",
-            options: ["Uso de memórias separadas para dados e instruções", "Velocidade de processamento", "Tipo de processador usado", "Método de execução de instruções"],
-            correctAnswer: 0
-        }
-    ],
-    'componentes-computador': [
-        {
-            text: "Qual componente é considerado o 'cérebro' do computador?",
-            options: ["Memória RAM", "Processador (CPU)", "Disco Rígido", "Placa-mãe"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é a memória RAM?",
-            options: ["Memória de armazenamento permanente", "Memória de armazenamento temporário", "Memória somente leitura", "Memória de backup"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a função da placa-mãe (motherboard)?",
-            options: ["Processar dados", "Armazenar arquivos", "Conectar todos os componentes do computador", "Exibir imagens na tela"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é um SSD?",
-            options: ["Unidade de processamento gráfico", "Memória de acesso aleatório", "Disco de estado sólido", "Sistema operacional"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual componente é responsável pelo processamento gráfico?",
-            options: ["CPU", "GPU", "RAM", "HDD"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é a BIOS?",
-            options: ["Sistema operacional", "Software básico de inicialização", "Programa de edição de texto", "Antivirus"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a diferença entre memória RAM e ROM?",
-            options: ["RAM é mais rápida que ROM", "RAM é volátil, ROM é não volátil", "ROM é usada para processamento, RAM para armazenamento", "Não há diferença"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um barramento (bus) em um computador?",
-            options: ["Um tipo de memória", "Um caminho para transmissão de dados", "Um processador auxiliar", "Um dispositivo de entrada"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual componente controla o fluxo de dados entre a CPU e a memória?",
-            options: ["Northbridge", "Southbridge", "BIOS", "Cache"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é cache L1, L2, L3 em um processador?",
-            options: ["Diferentes tipos de memória RAM", "Níveis de memória rápida dentro do processador", "Tipos de disco rígido", "Velocidades de clock do processador"],
-            correctAnswer: 1
-        }
-    ],
-    'instrucoes-maquina': [
-        {
-            text: "O que é uma instrução de máquina?",
-            options: ["Um comando em linguagem de alto nível", "Um comando que o processador pode executar diretamente", "Um programa completo", "Um arquivo de configuração"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual é o formato básico de uma instrução de máquina?",
-            options: ["Opcode + Operandos", "Nome da instrução + Parâmetros", "Endereço + Valor", "Registrador + Memória"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é um opcode?",
-            options: ["O endereço de memória", "O código da operação a ser executada", "O valor do operando", "O registrador usado"],
-            correctAnswer: 1
-        },
-        {
-            text: "Quantos operandos uma instrução LOAD normalmente tem?",
-            options: ["0", "1", "2", "3"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que faz a instrução ADD?",
-            options: ["Carrega um valor da memória", "Armazena um valor na memória", "Soma dois valores", "Compara dois valores"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual instrução é usada para desvio condicional?",
-            options: ["JMP", "CMP + JZ", "MOV", "NOP"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é o conjunto de instruções (instruction set) de um processador?",
-            options: ["A velocidade do processador", "Todas as instruções que o processador pode executar", "A quantidade de memória cache", "O número de núcleos do processador"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que significa CISC em arquitetura de processadores?",
-            options: ["Complex Instruction Set Computer", "Compact Instruction Set Computer", "Central Instruction Set Computer", "Complete Instruction Set Computer"],
-            correctAnswer: 0
-        },
-        {
-            text: "Qual a principal característica da arquitetura RISC?",
-            options: ["Instruções complexas e variadas", "Instruções simples e de execução rápida", "Muitos modos de endereçamento", "Instruções de tamanho variável"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um ciclo de instrução?",
-            options: ["A velocidade do processador em GHz", "O processo de buscar, decodificar e executar uma instrução", "O tempo para acessar a memória RAM", "A quantidade de instruções por segundo"],
-            correctAnswer: 1
-        }
-    ],
-    'traducao-instrucoes': [
-        {
-            text: "O que é um compilador?",
-            options: ["Um programa que traduz código assembly para máquina", "Um programa que traduz código de alto nível para máquina", "Um programa que executa código diretamente", "Um tipo de processador"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a diferença entre compilação e interpretação?",
-            options: ["Compilação é mais lenta que interpretação", "Compilação gera código executável, interpretação executa linha a linha", "Interpretação gera código executável", "Não há diferença"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um assembler?",
-            options: ["Um compilador para linguagem C", "Um tradutor de assembly para código de máquina", "Um interpretador de Python", "Um tipo de memória"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que são linguagens de baixo nível?",
-            options: ["Linguagens como Python e Java", "Linguagens próximas à linguagem de máquina", "Linguagens para desenvolvimento web", "Linguagens com muitas abstrações"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual é a vantagem das linguagens de alto nível?",
-            options: ["Execução mais rápida", "Maior controle sobre o hardware", "Facilidade de programação e portabilidade", "Acesso direto à memória"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é código objeto?",
-            options: ["Código fonte em linguagem de alto nível", "Código em linguagem assembly", "Código de máquina gerado pelo compilador", "Código HTML"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que faz o linker (ligador)?",
-            options: ["Traduz código fonte para assembly", "Combina múltiplos arquivos objeto em um executável", "Executa o programa", "Depura o código"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um bytecode?",
-            options: ["Código de máquina nativo", "Código intermediário executado por uma máquina virtual", "Código assembly", "Código fonte"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual linguagem usa compilação JIT (Just-In-Time)?",
-            options: ["C", "C++", "Java", "Assembly"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é cross-compilation?",
-            options: ["Compilação otimizada para velocidade", "Compilação para uma plataforma diferente da atual", "Compilação com múltiplos arquivos", "Compilação incremental"],
-            correctAnswer: 1
-        }
-    ]
-};
+// Pool de questões baseadas nos PDFs
+function generateQuestionsFromPDFs() {
+    return {
+        'base-binaria': [
+            {
+                text: "Qual é a base do sistema binário?",
+                options: ["2", "8", "10", "16"],
+                correctAnswer: 0,
+                explanation: "O sistema binário utiliza base 2, representando números apenas com os dígitos 0 e 1."
+            },
+            {
+                text: "Como é representado o número decimal 10 em binário?",
+                options: ["1010", "1100", "1001", "1110"],
+                correctAnswer: 0,
+                explanation: "10 em decimal equivale a 1010 em binário (8 + 0 + 2 + 0)."
+            },
+            {
+                text: "Qual é o valor do número binário 1101 em decimal?",
+                options: ["11", "12", "13", "14"],
+                correctAnswer: 2,
+                explanation: "1101 em binário = 1×8 + 1×4 + 0×2 + 1×1 = 13 em decimal."
+            },
+            {
+                text: "Quantos bits são necessários para representar o número decimal 255?",
+                options: ["4", "6", "8", "10"],
+                correctAnswer: 2,
+                explanation: "255 em decimal equivale a 11111111 em binário, que requer 8 bits."
+            },
+            {
+                text: "Qual é a principal vantagem do sistema hexadecimal?",
+                options: ["É mais fácil de calcular", "Representa números grandes com menos dígitos", "É usado apenas em matemática", "É o sistema mais antigo"],
+                correctAnswer: 1,
+                explanation: "O hexadecimal permite representar números grandes de forma mais compacta, sendo útil em programação."
+            },
+            {
+                text: "Como é representado o número decimal 15 em hexadecimal?",
+                options: ["A", "B", "E", "F"],
+                correctAnswer: 3,
+                explanation: "15 em decimal equivale a F em hexadecimal."
+            },
+            {
+                text: "Qual é o valor do número octal 77 em decimal?",
+                options: ["63", "77", "49", "55"],
+                correctAnswer: 0,
+                explanation: "77 em octal = 7×8 + 7×1 = 63 em decimal."
+            },
+            {
+                text: "Quantos valores diferentes podem ser representados com 4 bits?",
+                options: ["8", "16", "32", "64"],
+                correctAnswer: 1,
+                explanation: "4 bits podem representar 2⁴ = 16 valores diferentes (de 0 a 15)."
+            },
+            {
+                text: "Qual operação bit a bit é usada para verificar se um bit específico está ativo?",
+                options: ["AND", "OR", "XOR", "NOT"],
+                correctAnswer: 0,
+                explanation: "A operação AND com uma máscara de bits permite verificar se bits específicos estão ativos."
+            },
+            {
+                text: "O que é um nibble em computação?",
+                options: ["8 bits", "16 bits", "32 bits", "4 bits"],
+                correctAnswer: 3,
+                explanation: "Um nibble corresponde a 4 bits, ou metade de um byte."
+            }
+        ],
+        'historia-computadores': [
+            {
+                text: "Qual foi considerado o primeiro computador programável?",
+                options: ["ENIAC", "Mark I", "Z1", "Colossus"],
+                correctAnswer: 2,
+                explanation: "O Z1, desenvolvido por Konrad Zuse em 1938, é considerado o primeiro computador programável."
+            },
+            {
+                text: "Em que década surgiu a primeira geração de computadores?",
+                options: ["1930-1940", "1940-1950", "1950-1960", "1960-1970"],
+                correctAnswer: 1,
+                explanation: "A primeira geração (1940-1950) utilizava válvulas termiônicas."
+            },
+            {
+                text: "Qual tecnologia foi usada na primeira geração de computadores?",
+                options: ["Transistores", "Circuitos integrados", "Válvulas termiônicas", "Microprocessadores"],
+                correctAnswer: 2,
+                explanation: "A primeira geração utilizava válvulas termiônicas como componente principal."
+            },
+            {
+                text: "Quem é considerado o pai da computação?",
+                options: ["Bill Gates", "Alan Turing", "Charles Babbage", "Steve Jobs"],
+                correctAnswer: 2,
+                explanation: "Charles Babbage é considerado o pai da computação por projetar a Máquina Analítica."
+            },
+            {
+                text: "Qual caracterizou a segunda geração de computadores?",
+                options: ["Válvulas termiônicas", "Transistores", "Circuitos integrados", "Inteligência artificial"],
+                correctAnswer: 1,
+                explanation: "A segunda geração (1959-1964) substituiu as válvulas por transistores."
+            },
+            {
+                text: "O que caracterizou a terceira geração de computadores?",
+                options: ["Uso de circuitos integrados", "Uso de transistores", "Uso de válvulas", "Inteligência artificial"],
+                correctAnswer: 0,
+                explanation: "A terceira geração (1964-1970) introduziu os circuitos integrados."
+            },
+            {
+                text: "Qual empresa desenvolveu o primeiro microprocessador?",
+                options: ["IBM", "Intel", "AMD", "Motorola"],
+                correctAnswer: 1,
+                explanation: "A Intel desenvolveu o primeiro microprocessador, o Intel 4004, em 1971."
+            },
+            {
+                text: "Em que ano foi lançado o IBM PC?",
+                options: ["1975", "1981", "1984", "1990"],
+                correctAnswer: 1,
+                explanation: "O IBM PC foi lançado em 1981, revolucionando o mercado de computadores pessoais."
+            },
+            {
+                text: "Qual foi a principal inovação da quarta geração de computadores?",
+                options: ["Válvulas termiônicas", "Transistores", "Circuitos integrados", "Microprocessadores"],
+                correctAnswer: 3,
+                explanation: "A quarta geração (a partir de 1970) caracterizou-se pelo uso de microprocessadores."
+            },
+            {
+                text: "O que é o ENIAC?",
+                options: ["Primeiro computador pessoal", "Primeiro supercomputador", "Primeiro computador eletrônico de grande escala", "Primeiro laptop"],
+                correctAnswer: 2,
+                explanation: "O ENIAC foi o primeiro computador eletrônico digital de grande escala, desenvolvido em 1946."
+            }
+        ],
+        'arquitetura-von-neumann': [
+            {
+                text: "Qual é o conceito fundamental da Arquitetura de Von Neumann?",
+                options: ["Programas e dados armazenados separadamente", "Programas e dados armazenados na mesma memória", "Uso exclusivo de memória ROM", "Processamento paralelo"],
+                correctAnswer: 1,
+                explanation: "O conceito de 'programa armazenado' permite que programas e dados compartilhem a mesma memória."
+            },
+            {
+                text: "Quais são os componentes principais da Arquitetura de Von Neumann?",
+                options: ["CPU, Memória, Dispositivos E/S", "CPU, GPU, RAM", "Processador, Placa-mãe, HD", "Monitor, Teclado, Mouse"],
+                correctAnswer: 0,
+                explanation: "Os componentes principais são: CPU, Memória Principal e Dispositivos de Entrada/Saída."
+            },
+            {
+                text: "O que é o barramento (bus) na arquitetura de Von Neumann?",
+                options: ["Um tipo de memória", "Um componente de processamento", "Um sistema de comunicação entre componentes", "Um dispositivo de entrada"],
+                correctAnswer: 2,
+                explanation: "O barramento é o sistema de comunicação que interconecta os componentes do computador."
+            },
+            {
+                text: "Qual componente é responsável por executar instruções?",
+                options: ["Memória Principal", "Unidade de Controle", "Unidade Lógica e Aritmética", "Dispositivos de E/S"],
+                correctAnswer: 1,
+                explanation: "A Unidade de Controle é responsável por buscar, decodificar e executar instruções."
+            },
+            {
+                text: "O que significa 'stored-program concept'?",
+                options: ["Programas armazenados em disco rígido", "Programas e dados na mesma memória", "Programas em memória somente leitura", "Programas executados da internet"],
+                correctAnswer: 1,
+                explanation: "O conceito de programa armazenado permite que programas sejam tratados como dados."
+            },
+            {
+                text: "Qual é a função da Unidade Lógica e Aritmética (ULA)?",
+                options: ["Controlar o fluxo de dados", "Armazenar programas", "Executar operações matemáticas e lógicas", "Gerenciar dispositivos de E/S"],
+                correctAnswer: 2,
+                explanation: "A ULA executa todas as operações aritméticas e lógicas do processador."
+            },
+            {
+                text: "O que é o 'Von Neumann bottleneck'?",
+                options: ["Limitação na velocidade do processador", "Limitação na comunicação entre CPU e memória", "Falta de memória RAM", "Problemas com dispositivos de E/S"],
+                correctAnswer: 1,
+                explanation: "É a limitação de desempenho causada pelo barramento entre CPU e memória."
+            },
+            {
+                text: "Qual componente armazena o endereço da próxima instrução?",
+                options: ["Accumulator", "Program Counter", "Instruction Register", "Memory Address Register"],
+                correctAnswer: 1,
+                explanation: "O Program Counter (PC) armazena o endereço da próxima instrução a ser executada."
+            },
+            {
+                text: "Como as instruções são executadas na arquitetura de Von Neumann?",
+                options: ["Em paralelo", "Sequencialmente", "Aleatoriamente", "Dependendo da prioridade"],
+                correctAnswer: 1,
+                explanation: "As instruções são executadas sequencialmente, uma após a outra."
+            },
+            {
+                text: "Qual a principal diferença entre arquitetura Harvard e Von Neumann?",
+                options: ["Uso de memórias separadas para dados e instruções", "Velocidade de processamento", "Tipo de processador usado", "Método de execução de instruções"],
+                correctAnswer: 0,
+                explanation: "Harvard usa memórias separadas para dados e instruções, enquanto Von Neumann usa memória unificada."
+            }
+        ],
+        'componentes-computador': [
+            {
+                text: "Qual componente é considerado o 'cérebro' do computador?",
+                options: ["Memória RAM", "Processador (CPU)", "Disco Rígido", "Placa-mãe"],
+                correctAnswer: 1,
+                explanation: "A CPU é o cérebro do computador, responsável por processar instruções."
+            },
+            {
+                text: "O que é a memória RAM?",
+                options: ["Memória de armazenamento permanente", "Memória de armazenamento temporário", "Memória somente leitura", "Memória de backup"],
+                correctAnswer: 1,
+                explanation: "RAM é memória volátil de acesso aleatório usada para armazenamento temporário."
+            },
+            {
+                text: "Qual a função da placa-mãe (motherboard)?",
+                options: ["Processar dados", "Armazenar arquivos", "Conectar todos os componentes do computador", "Exibir imagens na tela"],
+                correctAnswer: 2,
+                explanation: "A placa-mãe interconecta todos os componentes do computador."
+            },
+            {
+                text: "O que é um SSD?",
+                options: ["Unidade de processamento gráfico", "Memória de acesso aleatório", "Disco de estado sólido", "Sistema operacional"],
+                correctAnswer: 2,
+                explanation: "SSD é um dispositivo de armazenamento que usa memória flash, mais rápido que HDs tradicionais."
+            },
+            {
+                text: "Qual componente é responsável pelo processamento gráfico?",
+                options: ["CPU", "GPU", "RAM", "HDD"],
+                correctAnswer: 1,
+                explanation: "A GPU (Unidade de Processamento Gráfico) é especializada em processamento de gráficos."
+            },
+            {
+                text: "O que é a BIOS?",
+                options: ["Sistema operacional", "Software básico de inicialização", "Programa de edição de texto", "Antivirus"],
+                correctAnswer: 1,
+                explanation: "BIOS é o firmware responsável pela inicialização do computador e configuração de hardware."
+            },
+            {
+                text: "Qual a diferença entre memória RAM e ROM?",
+                options: ["RAM é mais rápida que ROM", "RAM é volátil, ROM é não volátil", "ROM é usada para processamento, RAM para armazenamento", "Não há diferença"],
+                correctAnswer: 1,
+                explanation: "RAM é volátil (perde dados sem energia), ROM é não volátil (mantém dados sem energia)."
+            },
+            {
+                text: "O que é um barramento (bus) em um computador?",
+                options: ["Um tipo de memória", "Um caminho para transmissão de dados", "Um processador auxiliar", "Um dispositivo de entrada"],
+                correctAnswer: 1,
+                explanation: "Barramento é o sistema de comunicação que permite a transferência de dados entre componentes."
+            },
+            {
+                text: "Qual componente controla o fluxo de dados entre CPU e memória?",
+                options: ["Northbridge", "Southbridge", "BIOS", "Cache"],
+                correctAnswer: 0,
+                explanation: "O Northbridge gerencia a comunicação entre CPU, RAM e GPU."
+            },
+            {
+                text: "O que é cache L1, L2, L3 em um processador?",
+                options: ["Diferentes tipos de memória RAM", "Níveis de memória rápida dentro do processador", "Tipos de disco rígido", "Velocidades de clock do processador"],
+                correctAnswer: 1,
+                explanation: "São memórias cache internas do processador, com L1 sendo a mais rápida e próxima do núcleo."
+            }
+        ],
+        'instrucoes-maquina': [
+            {
+                text: "O que é uma instrução de máquina?",
+                options: ["Um comando em linguagem de alto nível", "Um comando que o processador pode executar diretamente", "Um programa completo", "Um arquivo de configuração"],
+                correctAnswer: 1,
+                explanation: "Instruções de máquina são comandos binários que o processador executa diretamente."
+            },
+            {
+                text: "Qual é o formato básico de uma instrução de máquina?",
+                options: ["Opcode + Operandos", "Nome da instrução + Parâmetros", "Endereço + Valor", "Registrador + Memória"],
+                correctAnswer: 0,
+                explanation: "Uma instrução básica contém o opcode (código da operação) e os operandos (dados)."
+            },
+            {
+                text: "O que é um opcode?",
+                options: ["O endereço de memória", "O código da operação a ser executada", "O valor do operando", "O registrador usado"],
+                correctAnswer: 1,
+                explanation: "Opcode especifica qual operação a CPU deve executar."
+            },
+            {
+                text: "Quantos operandos uma instrução LOAD normalmente tem?",
+                options: ["0", "1", "2", "3"],
+                correctAnswer: 2,
+                explanation: "LOAD geralmente tem dois operandos: origem dos dados e destino."
+            },
+            {
+                text: "O que faz a instrução ADD?",
+                options: ["Carrega um valor da memória", "Armazena um valor na memória", "Soma dois valores", "Compara dois valores"],
+                correctAnswer: 2,
+                explanation: "ADD realiza a operação de adição entre dois valores."
+            },
+            {
+                text: "Qual instrução é usada para desvio condicional?",
+                options: ["JMP", "CMP + JZ", "MOV", "NOP"],
+                correctAnswer: 1,
+                explanation: "Desvios condicionais usam comparação (CMP) seguida de jump condicional (JZ, JNZ, etc)."
+            },
+            {
+                text: "O que é o conjunto de instruções (instruction set) de um processador?",
+                options: ["A velocidade do processador", "Todas as instruções que o processador pode executar", "A quantidade de memória cache", "O número de núcleos do processador"],
+                correctAnswer: 1,
+                explanation: "É o repertório completo de instruções que uma CPU pode executar."
+            },
+            {
+                text: "O que significa CISC em arquitetura de processadores?",
+                options: ["Complex Instruction Set Computer", "Compact Instruction Set Computer", "Central Instruction Set Computer", "Complete Instruction Set Computer"],
+                correctAnswer: 0,
+                explanation: "CISC usa instruções complexas que realizam múltiplas operações."
+            },
+            {
+                text: "Qual a principal característica da arquitetura RISC?",
+                options: ["Instruções complexas e variadas", "Instruções simples e de execução rápida", "Muitos modos de endereçamento", "Instruções de tamanho variável"],
+                correctAnswer: 1,
+                explanation: "RISC usa instruções simples e de execução rápida."
+            },
+            {
+                text: "O que é um ciclo de instrução?",
+                options: ["A velocidade do processador em GHz", "O processo de buscar, decodificar e executar uma instrução", "O tempo para acessar a memória RAM", "A quantidade de instruções por segundo"],
+                correctAnswer: 1,
+                explanation: "Ciclo de instrução compreende: busca, decodificação, execução e armazenamento do resultado."
+            }
+        ],
+        'traducao-instrucoes': [
+            {
+                text: "O que é um compilador?",
+                options: ["Um programa que traduz código assembly para máquina", "Um programa que traduz código de alto nível para máquina", "Um programa que executa código diretamente", "Um tipo de processador"],
+                correctAnswer: 1,
+                explanation: "Compilador traduz código de alto nível para linguagem de máquina."
+            },
+            {
+                text: "Qual a diferença entre compilação e interpretação?",
+                options: ["Compilação é mais lenta que interpretação", "Compilação gera código executável, interpretação executa linha a linha", "Interpretação gera código executável", "Não há diferença"],
+                correctAnswer: 1,
+                explanation: "Compilação gera código executável antecipadamente, interpretação executa instrução por instrução."
+            },
+            {
+                text: "O que é um assembler?",
+                options: ["Um compilador para linguagem C", "Um tradutor de assembly para código de máquina", "Um interpretador de Python", "Um tipo de memória"],
+                correctAnswer: 1,
+                explanation: "Assembler converte código assembly em código de máquina."
+            },
+            {
+                text: "O que são linguagens de baixo nível?",
+                options: ["Linguagens como Python e Java", "Linguagens próximas à linguagem de máquina", "Linguagens para desenvolvimento web", "Linguagens com muitas abstrações"],
+                correctAnswer: 1,
+                explanation: "Linguagens de baixo nível são próximas do hardware, como assembly."
+            },
+            {
+                text: "Qual é a vantagem das linguagens de alto nível?",
+                options: ["Execução mais rápida", "Maior controle sobre o hardware", "Facilidade de programação e portabilidade", "Acesso direto à memória"],
+                correctAnswer: 2,
+                explanation: "Linguagens de alto nível são mais fáceis de usar e portáveis entre diferentes plataformas."
+            },
+            {
+                text: "O que é código objeto?",
+                options: ["Código fonte em linguagem de alto nível", "Código em linguagem assembly", "Código de máquina gerado pelo compilador", "Código HTML"],
+                correctAnswer: 2,
+                explanation: "Código objeto é o código de máquina gerado pelo compilador a partir do código fonte."
+            },
+            {
+                text: "O que faz o linker (ligador)?",
+                options: ["Traduz código fonte para assembly", "Combina múltiplos arquivos objeto em um executável", "Executa o programa", "Depura o código"],
+                correctAnswer: 1,
+                explanation: "Linker combina múltiplos arquivos objeto e bibliotecas em um único executável."
+            },
+            {
+                text: "O que é um bytecode?",
+                options: ["Código de máquina nativo", "Código intermediário executado por uma máquina virtual", "Código assembly", "Código fonte"],
+                correctAnswer: 1,
+                explanation: "Bytecode é código intermediário executado por uma máquina virtual, como na Java VM."
+            },
+            {
+                text: "Qual linguagem usa compilação JIT (Just-In-Time)?",
+                options: ["C", "C++", "Java", "Assembly"],
+                correctAnswer: 2,
+                explanation: "Java usa compilação JIT, que compila bytecode para código nativo durante a execução."
+            },
+            {
+                text: "O que é cross-compilation?",
+                options: ["Compilação otimizada para velocidade", "Compilação para uma plataforma diferente da atual", "Compilação com múltiplos arquivos", "Compilação incremental"],
+                correctAnswer: 1,
+                explanation: "Cross-compilation gera código para uma plataforma diferente daquela em que o compilador está rodando."
+            }
+        ]
+    };
+}
+
+const questionsPool = generateQuestionsFromPDFs();
 
 // ========== FUNÇÕES DE AUTENTICAÇÃO ==========
 
@@ -378,6 +442,28 @@ function showMessage(message, type) {
         authMessage.className = 'message';
     }, 5000);
 }
+
+// Funcionalidade Mostrar/Ocultar Senha
+document.getElementById('toggle-login-password').addEventListener('click', function() {
+    const passwordInput = document.getElementById('login-password');
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    this.textContent = type === 'password' ? '👁️' : '🙈';
+});
+
+document.getElementById('toggle-register-password').addEventListener('click', function() {
+    const passwordInput = document.getElementById('register-password');
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    this.textContent = type === 'password' ? '👁️' : '🙈';
+});
+
+document.getElementById('toggle-user-password').addEventListener('click', function() {
+    const passwordInput = document.getElementById('user-form-password');
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    this.textContent = type === 'password' ? '👁️' : '🙈';
+});
 
 // Login
 document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -573,7 +659,8 @@ async function loadRanking() {
         const rankingSnapshot = await db.collection('userProgress')
             .where('completed', '==', true)
             .orderBy('score', 'desc')
-            .limit(20)
+            .orderBy('completedAt', 'asc')
+            .limit(50)
             .get();
         
         const rankingList = document.getElementById('ranking-list');
@@ -584,29 +671,53 @@ async function loadRanking() {
             return;
         }
         
+        // Agrupar por usuário e pegar melhor pontuação
+        const userBestScores = new Map();
+        
+        rankingSnapshot.forEach(doc => {
+            const progress = doc.data();
+            if (!userBestScores.has(progress.userId) || userBestScores.get(progress.userId).score < progress.score) {
+                userBestScores.set(progress.userId, {
+                    score: progress.score,
+                    totalQuestions: progress.totalQuestions,
+                    completedAt: progress.completedAt,
+                    progressId: doc.id
+                });
+            }
+        });
+        
+        // Ordenar por pontuação
+        const sortedRanking = Array.from(userBestScores.entries())
+            .sort((a, b) => b[1].score - a[1].score);
+        
         let position = 1;
         
-        for (const doc of rankingSnapshot.docs) {
-            const progress = doc.data();
-            const userDoc = await db.collection('users').doc(progress.userId).get();
+        for (const [userId, data] of sortedRanking) {
+            const userDoc = await db.collection('users').doc(userId).get();
             
             if (userDoc.exists) {
                 const userData = userDoc.data();
                 
                 const rankingItem = document.createElement('div');
-                rankingItem.className = 'ranking-item';
+                rankingItem.className = `ranking-item ${userId === currentUser.uid ? 'current-user' : ''}`;
+                
                 rankingItem.innerHTML = `
                     <div class="ranking-position">${position}</div>
-                    <div class="ranking-name">${userData.name}</div>
-                    <div class="ranking-score">${progress.score}/${progress.totalQuestions}</div>
+                    <div class="ranking-name">${userData.name} ${userId === currentUser.uid ? '(Você)' : ''}</div>
+                    <div class="ranking-score">${data.score}/${data.totalQuestions}</div>
+                    <div class="ranking-percentage">${((data.score / data.totalQuestions) * 100).toFixed(1)}%</div>
                 `;
                 
                 rankingList.appendChild(rankingItem);
                 position++;
+                
+                // Limitar a 20 posições no ranking
+                if (position > 20) break;
             }
         }
     } catch (error) {
         console.error('Erro ao carregar ranking:', error);
+        document.getElementById('ranking-list').innerHTML = '<p>Erro ao carregar ranking.</p>';
     }
 }
 
@@ -630,6 +741,7 @@ function displayUserProgress() {
             progressItem.innerHTML = `
                 <h3>${quiz.title}</h3>
                 <p><strong>Pontuação:</strong> ${progress.score}/${progress.totalQuestions}</p>
+                <p><strong>Acertos:</strong> ${progress.score} | <strong>Erros:</strong> ${progress.totalQuestions - progress.score}</p>
                 <p><strong>Data de Conclusão:</strong> ${new Date(progress.completedAt.toDate()).toLocaleDateString()}</p>
                 <button onclick="showQuizResults(${JSON.stringify(progress).replace(/'/g, "\\'")})" class="action-btn" style="margin-top: 1rem;">Ver Detalhes</button>
             `;
@@ -828,7 +940,7 @@ async function submitQuiz() {
             score: score,
             totalQuestions: currentQuiz.questions.length,
             answers: userAnswers
-        });
+        }, currentQuiz);
     } catch (error) {
         console.error('Erro ao submeter quiz:', error);
         alert('Erro ao finalizar o quiz. Tente novamente.');
@@ -836,7 +948,7 @@ async function submitQuiz() {
 }
 
 // Mostrar resultados
-function showQuizResults(progress) {
+function showQuizResults(progress, quizDetails = null) {
     showScreen('results-screen');
     
     const scoreDisplay = document.getElementById('score-display');
@@ -860,15 +972,49 @@ function showQuizResults(progress) {
         scoreDisplay.style.color = '#e74c3c';
     }
     
+    // Mostrar detalhes das questões
+    let questionsDetails = '';
+    if (quizDetails && quizDetails.questions) {
+        questionsDetails = '<div class="questions-review">';
+        questionsDetails += '<h3>Revisão das Questões:</h3>';
+        
+        quizDetails.questions.forEach((question, index) => {
+            const userAnswer = progress.answers[index];
+            const isCorrect = userAnswer === question.correctAnswer;
+            const isAnswered = userAnswer !== null;
+            
+            questionsDetails += `
+                <div class="question-review ${isCorrect ? 'correct' : 'incorrect'}">
+                    <p><strong>Questão ${index + 1}:</strong> ${question.text}</p>
+                    <p><strong>Sua resposta:</strong> ${isAnswered ? question.options[userAnswer] : 'Não respondida'} ${isCorrect ? '✅' : '❌'}</p>
+                    ${!isCorrect ? `<p><strong>Resposta correta:</strong> ${question.options[question.correctAnswer]}</p>` : ''}
+                    <p><strong>Explicação:</strong> ${question.explanation}</p>
+                </div>
+            `;
+        });
+        
+        questionsDetails += '</div>';
+    }
+    
     quizFeedback.innerHTML = `
         <p>${feedback}</p>
-        <p>Tempo gasto: ${calculateTimeSpent()}</p>
+        <p><strong>Acertos:</strong> ${progress.score} | <strong>Erros:</strong> ${progress.totalQuestions - progress.score}</p>
+        <p><strong>Tempo gasto:</strong> ${calculateTimeSpent()}</p>
+        ${questionsDetails}
     `;
     
     // Configurar botões de ação
     document.getElementById('back-to-quizzes-btn').onclick = () => {
         showScreen('student-screen');
-        loadStudentData(); // Recarregar dados para atualizar o progresso
+        loadStudentData();
+    };
+    
+    document.getElementById('review-quiz-btn').onclick = () => {
+        // Rolar para a seção de revisão
+        const reviewSection = document.querySelector('.questions-review');
+        if (reviewSection) {
+            reviewSection.scrollIntoView({ behavior: 'smooth' });
+        }
     };
 }
 
@@ -898,17 +1044,6 @@ function startTimer(minutes) {
     let timeLeft = minutes * 60;
     const timerDisplay = document.createElement('div');
     timerDisplay.id = 'quiz-timer';
-    timerDisplay.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        background: #e74c3c;
-        color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
-        font-weight: bold;
-        z-index: 1000;
-    `;
     
     document.getElementById('quiz-screen').appendChild(timerDisplay);
     
@@ -965,6 +1100,16 @@ async function loadAdminData() {
             });
         });
         
+        // Verificar se é o primeiro administrador
+        const adminUsers = allUsers.filter(u => u.role === 'admin');
+        const isFirstAdmin = adminUsers.length === 1 && adminUsers[0].id === currentUser.uid;
+        
+        // Mostrar/ocultar opção de administrador no modal
+        const adminOption = document.getElementById('admin-option');
+        if (adminOption) {
+            adminOption.style.display = isFirstAdmin ? 'block' : 'none';
+        }
+        
         displayUsers();
         displayQuizzesAdmin();
         loadAdminStats();
@@ -989,7 +1134,7 @@ function displayUsers() {
             </div>
             <div class="admin-actions">
                 <button onclick="editUser('${user.id}')" class="action-btn">Editar</button>
-                <button onclick="deleteUser('${user.id}')" class="delete-btn">Excluir</button>
+                ${user.id !== currentUser.uid ? `<button onclick="deleteUser('${user.id}')" class="delete-btn">Excluir</button>` : ''}
             </div>
         `;
         
@@ -1045,11 +1190,16 @@ async function loadAdminStats() {
         
         const completedQuizzes = progressSnapshot.size;
         let totalScore = 0;
+        let totalQuestions = 0;
+        
         progressSnapshot.forEach(doc => {
-            totalScore += doc.data().score;
+            const progress = doc.data();
+            totalScore += progress.score;
+            totalQuestions += progress.totalQuestions;
         });
         
         const averageScore = completedQuizzes > 0 ? (totalScore / completedQuizzes).toFixed(1) : 0;
+        const averagePercentage = totalQuestions > 0 ? ((totalScore / totalQuestions) * 100).toFixed(1) : 0;
         
         statsContainer.innerHTML = `
             <div class="stats-grid">
@@ -1070,6 +1220,7 @@ async function loadAdminStats() {
                     <p class="stat-number">${completedQuizzes}</p>
                     <p>quizzes completados</p>
                     <p>Pontuação média: ${averageScore}</p>
+                    <p>Taxa de acerto: ${averagePercentage}%</p>
                 </div>
             </div>
         `;
@@ -1169,9 +1320,8 @@ async function updateUser(e, userId) {
         
         // Se uma nova senha foi fornecida, atualizar no Auth
         if (password) {
-            // Nota: Em produção, você precisaria reautenticar o usuário para alterar a senha
-            // Esta é uma simplificação para demonstração
-            alert('Para alterar senhas em produção, é necessário implementar reautenticação.');
+            // Em produção, seria necessário implementar reautenticação
+            alert('Para alterar senhas, o usuário deve fazer isso através da funcionalidade de redefinição de senha.');
         }
         
         await db.collection('users').doc(userId).update(updateData);
@@ -1189,7 +1339,7 @@ function editUser(userId) {
 }
 
 async function deleteUser(userId) {
-    if (confirm('Tem certeza que deseja excluir este usuário?')) {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
         try {
             await db.collection('users').doc(userId).delete();
             loadAdminData();
@@ -1304,7 +1454,7 @@ async function toggleQuizStatus(quizId, active) {
 }
 
 async function deleteQuiz(quizId) {
-    if (confirm('Tem certeza que deseja excluir este quiz?')) {
+    if (confirm('Tem certeza que deseja excluir este quiz? Esta ação não pode ser desfeita.')) {
         try {
             await db.collection('quizzes').doc(quizId).delete();
             loadAdminData();
@@ -1330,67 +1480,5 @@ function getTopicName(topic) {
     return topics[topic] || topic;
 }
 
-// Inicializar quizzes padrão se não existirem
-async function initializeDefaultQuizzes() {
-    const quizzesSnapshot = await db.collection('quizzes').get();
-    
-    if (quizzesSnapshot.empty) {
-        const defaultQuizzes = [
-            {
-                title: "Sistemas Numéricos",
-                description: "Teste seus conhecimentos sobre bases numéricas: binária, octal, decimal e hexadecimal",
-                topic: "base-binaria",
-                timeLimit: 15,
-                active: true
-            },
-            {
-                title: "História da Computação",
-                description: "Conheça a evolução dos computadores através das gerações",
-                topic: "historia-computadores",
-                timeLimit: 15,
-                active: true
-            },
-            {
-                title: "Arquitetura de Von Neumann",
-                description: "Entenda os fundamentos da arquitetura que revolucionou a computação",
-                topic: "arquitetura-von-neumann",
-                timeLimit: 20,
-                active: true
-            },
-            {
-                title: "Componentes do Computador",
-                description: "Aprenda sobre os principais componentes de hardware",
-                topic: "componentes-computador",
-                timeLimit: 15,
-                active: true
-            },
-            {
-                title: "Instruções de Máquina",
-                description: "Compreenda como o processador executa instruções",
-                topic: "instrucoes-maquina",
-                timeLimit: 20,
-                active: true
-            },
-            {
-                title: "Tradução de Instruções",
-                description: "Entenda como as linguagens de programação são traduzidas para código de máquina",
-                topic: "traducao-instrucoes",
-                timeLimit: 15,
-                active: true
-            }
-        ];
-        
-        for (const quiz of defaultQuizzes) {
-            await db.collection('quizzes').add({
-                ...quiz,
-                questions: questionsPool[quiz.topic] || [],
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        }
-        
-        console.log('Quizzes padrão criados com sucesso!');
-    }
-}
-
 // Inicializar a aplicação
-initializeDefaultQuizzes();
+console.log('Sistema de Quiz de Fundamentos da Informática inicializado!');
