@@ -20,18 +20,25 @@
                     <button class="tab-button active" onclick="showAuthTab('login')">Login</button>
                     <button class="tab-button" onclick="showAuthTab('register')">Cadastro</button>
                 </div>
+                
                 <form id="login-form" class="auth-tab active">
                     <input type="email" id="login-email" placeholder="E-mail" required>
-                    <input type="password" id="login-password" placeholder="Senha" required>
+                    <div class="password-container">
+                        <input type="password" id="login-password" placeholder="Senha" required>
+                        <button type="button" id="toggle-login-password" class="toggle-password">👁️</button>
+                    </div>
                     <button type="submit">Entrar</button>
                 </form>
+                
                 <form id="register-form" class="auth-tab">
                     <input type="text" id="register-name" placeholder="Nome completo" required>
                     <input type="email" id="register-email" placeholder="E-mail" required>
-                    <input type="password" id="register-password" placeholder="Senha" required>
+                    <div class="password-container">
+                        <input type="password" id="register-password" placeholder="Senha" required>
+                        <button type="button" id="toggle-register-password" class="toggle-password">👁️</button>
+                    </div>
                     <select id="register-role">
                         <option value="student">Aluno</option>
-                        <option value="admin">Administrador</option>
                     </select>
                     <button type="submit">Cadastrar</button>
                 </form>
@@ -153,10 +160,13 @@
             <form id="user-form">
                 <input type="text" id="user-form-name" placeholder="Nome completo" required>
                 <input type="email" id="user-form-email" placeholder="E-mail" required>
-                <input type="password" id="user-form-password" placeholder="Senha" required>
+                <div class="password-container">
+                    <input type="password" id="user-form-password" placeholder="Senha" required>
+                    <button type="button" id="toggle-user-password" class="toggle-password">👁️</button>
+                </div>
                 <select id="user-form-role" required>
                     <option value="student">Aluno</option>
-                    <option value="admin">Administrador</option>
+                    <option value="admin" id="admin-option" style="display: none;">Administrador</option>
                 </select>
                 <div class="modal-actions">
                     <button type="button" id="cancel-user-btn">Cancelar</button>
