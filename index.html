@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz de Fundamentos da Informática</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <!-- Tela de Login/Cadastro -->
+    <div id="auth-screen" class="screen active">
+        <div class="auth-container">
+            <h1>Quiz de Fundamentos da Informática</h1>
+            <div class="auth-form">
+                <h2 id="auth-title">Login</h2>
+                <div class="tabs">
+                    <button class="tab-button active" onclick="showAuthTab('login')">Login</button>
+                    <button class="tab-button" onclick="showAuthTab('register')">Cadastro</button>
+                </div>
+                <form id="login-form" class="auth-tab active">
+                    <input type="email" id="login-email" placeholder="E-mail" required>
+                    <input type="password" id="login-password" placeholder="Senha" required>
+                    <button type="submit">Entrar</button>
+                </form>
+                <form id="register-form" class="auth-tab">
+                    <input type="text" id="register-name" placeholder="Nome completo" required>
+                    <input type="email" id="register-email" placeholder="E-mail" required>
+                    <input type="password" id="register-password" placeholder="Senha" required>
+                    <select id="register-role">
+                        <option value="student">Aluno</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                    <button type="submit">Cadastrar</button>
+                </form>
+                <div id="auth-message" class="message"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela Principal do Aluno -->
+    <div id="student-screen" class="screen">
+        <header>
+            <h1>Quiz de Fundamentos da Informática</h1>
+            <div class="user-info">
+                <span id="user-name"></span>
+                <button id="logout-btn">Sair</button>
+            </div>
+        </header>
+        
+        <main>
+            <div class="tabs">
+                <button class="tab-button active" onclick="showStudentTab('quizzes')">Quizzes</button>
+                <button class="tab-button" onclick="showStudentTab('ranking')">Ranking</button>
+                <button class="tab-button" onclick="showStudentTab('progress')">Meu Progresso</button>
+            </div>
+            
+            <div id="quizzes-tab" class="tab-content active">
+                <h2>Quizzes Disponíveis</h2>
+                <div id="quizzes-list" class="quizzes-container"></div>
+            </div>
+            
+            <div id="ranking-tab" class="tab-content">
+                <h2>Ranking Geral</h2>
+                <div id="ranking-list" class="ranking-container"></div>
+            </div>
+            
+            <div id="progress-tab" class="tab-content">
+                <h2>Meu Progresso</h2>
+                <div id="user-progress" class="progress-container"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tela do Quiz -->
+    <div id="quiz-screen" class="screen">
+        <header>
+            <h1 id="quiz-title"></h1>
+            <div class="quiz-info">
+                <span id="quiz-progress">Questão 1 de 10</span>
+                <button id="exit-quiz-btn">Sair do Quiz</button>
+            </div>
+        </header>
+        
+        <main class="quiz-container">
+            <div id="question-container">
+                <h2 id="question-text"></h2>
+                <div id="options-container" class="options"></div>
+                <div class="quiz-navigation">
+                    <button id="prev-btn" class="nav-btn">Anterior</button>
+                    <button id="next-btn" class="nav-btn">Próxima</button>
+                    <button id="submit-quiz-btn" class="submit-btn">Finalizar Quiz</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tela de Resultados -->
+    <div id="results-screen" class="screen">
+        <div class="results-container">
+            <h2>Resultado do Quiz</h2>
+            <div id="score-display" class="score"></div>
+            <div id="quiz-feedback"></div>
+            <div class="results-actions">
+                <button id="review-quiz-btn">Revisar Respostas</button>
+                <button id="back-to-quizzes-btn">Voltar aos Quizzes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tela do Administrador -->
+    <div id="admin-screen" class="screen">
+        <header>
+            <h1>Painel de Administração</h1>
+            <div class="user-info">
+                <span id="admin-name"></span>
+                <button id="admin-logout-btn">Sair</button>
+            </div>
+        </header>
+        
+        <main>
+            <div class="tabs">
+                <button class="tab-button active" onclick="showAdminTab('users')">Usuários</button>
+                <button class="tab-button" onclick="showAdminTab('quizzes-admin')">Quizzes</button>
+                <button class="tab-button" onclick="showAdminTab('stats')">Estatísticas</button>
+            </div>
+            
+            <div id="users-tab" class="tab-content active">
+                <h2>Gerenciar Usuários</h2>
+                <button id="add-user-btn" class="action-btn">Adicionar Usuário</button>
+                <div id="users-list" class="admin-list"></div>
+            </div>
+            
+            <div id="quizzes-admin-tab" class="tab-content">
+                <h2>Gerenciar Quizzes</h2>
+                <button id="add-quiz-btn" class="action-btn">Criar Quiz</button>
+                <div id="quizzes-admin-list" class="admin-list"></div>
+            </div>
+            
+            <div id="stats-tab" class="tab-content">
+                <h2>Estatísticas Gerais</h2>
+                <div id="admin-stats" class="stats-container"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal para Adicionar/Editar Usuário -->
+    <div id="user-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="user-modal-title">Adicionar Usuário</h2>
+            <form id="user-form">
+                <input type="text" id="user-form-name" placeholder="Nome completo" required>
+                <input type="email" id="user-form-email" placeholder="E-mail" required>
+                <input type="password" id="user-form-password" placeholder="Senha" required>
+                <select id="user-form-role" required>
+                    <option value="student">Aluno</option>
+                    <option value="admin">Administrador</option>
+                </select>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-user-btn">Cancelar</button>
+                    <button type="submit">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar/Editar Quiz -->
+    <div id="quiz-modal" class="modal">
+        <div class="modal-content">
+            <h2 id="quiz-modal-title">Criar Quiz</h2>
+            <form id="quiz-form">
+                <input type="text" id="quiz-form-title" placeholder="Título do Quiz" required>
+                <textarea id="quiz-form-description" placeholder="Descrição" required></textarea>
+                <select id="quiz-form-topic" required>
+                    <option value="">Selecione um tópico</option>
+                    <option value="base-binaria">Base Binária, Octal, Decimal e Hexadecimal</option>
+                    <option value="historia-computadores">História dos Computadores</option>
+                    <option value="arquitetura-von-neumann">Arquitetura de John Von Neumann</option>
+                    <option value="componentes-computador">Componentes de um Computador</option>
+                    <option value="instrucoes-maquina">Instruções de Máquina</option>
+                    <option value="traducao-instrucoes">Tradução de Instruções de Máquina</option>
+                </select>
+                <input type="number" id="quiz-form-time" placeholder="Tempo em minutos (0 para sem limite)" min="0">
+                <div class="modal-actions">
+                    <button type="button" id="cancel-quiz-btn">Cancelar</button>
+                    <button type="submit">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
