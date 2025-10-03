@@ -4,203 +4,465 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz de Fundamentos da Informática</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header Styles */
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logout-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+
+        /* Main Content Styles */
+        .main-content {
+            display: flex;
+            flex: 1;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: 250px;
+            background-color: #34495e;
+            color: white;
+            padding: 20px 0;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+        }
+
+        .sidebar-menu li {
+            padding: 12px 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .sidebar-menu li:hover, .sidebar-menu li.active {
+            background-color: #2c3e50;
+        }
+
+        /* Content Area Styles */
+        .content {
+            flex: 1;
+            padding: 20px;
+            background-color: white;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .content-title {
+            font-size: 1.5rem;
+            color: #2c3e50;
+        }
+
+        .create-quiz-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .create-quiz-btn:hover {
+            background-color: #2980b9;
+        }
+
+        /* Quiz List Styles */
+        .quiz-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .quiz-item {
+            background-color: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .quiz-info h3 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .quiz-info p {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .quiz-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: opacity 0.3s;
+        }
+
+        .edit-btn {
+            background-color: #f39c12;
+            color: white;
+        }
+
+        .activate-btn {
+            background-color: #27ae60;
+            color: white;
+        }
+
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .action-btn:hover {
+            opacity: 0.9;
+        }
+
+        /* Login Styles */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+
+        .login-box {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        .login-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .login-tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .login-tab.active {
+            border-bottom: 2px solid #3498db;
+            color: #3498db;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .login-btn {
+            width: 100%;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s;
+        }
+
+        .login-btn:hover {
+            background-color: #2980b9;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <!-- Tela de Login/Cadastro -->
-    <div id="auth-screen" class="screen active">
-        <div class="auth-container">
-            <h1>Quiz de Fundamentos da Informática</h1>
-            <div class="auth-form">
-                <h2 id="auth-title">Login</h2>
-                <div class="tabs">
-                    <button class="tab-button active" onclick="showAuthTab('login')">Login</button>
-                    <button class="tab-button" onclick="showAuthTab('register')">Cadastro</button>
+    <!-- Tela de Login (inicialmente visível) -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <h1 class="login-title">Quiz de Fundamentos da Informática</h1>
+            <div class="login-tabs">
+                <div class="login-tab active" id="loginTab">Login</div>
+                <div class="login-tab" id="registerTab">Cadastro</div>
+            </div>
+            
+            <!-- Formulário de Login -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" placeholder="luizynho27@gmail.com" required>
                 </div>
-                
-                <form id="login-form" class="auth-tab active">
-                    <input type="email" id="login-email" placeholder="E-mail" required>
-                    <div class="password-container">
-                        <input type="password" id="login-password" placeholder="Senha" required>
-                        <button type="button" id="toggle-login-password" class="toggle-password">👁️</button>
-                    </div>
-                    <button type="submit">Entrar</button>
-                </form>
-                
-                <form id="register-form" class="auth-tab">
-                    <input type="text" id="register-name" placeholder="Nome completo" required>
-                    <input type="email" id="register-email" placeholder="E-mail" required>
-                    <div class="password-container">
-                        <input type="password" id="register-password" placeholder="Senha" required>
-                        <button type="button" id="toggle-register-password" class="toggle-password">👁️</button>
-                    </div>
-                    <select id="register-role">
-                        <option value="student">Aluno</option>
+                <div class="form-group">
+                    <label for="password">Senha</label>
+                    <input type="password" id="password" placeholder="••••••" required>
+                </div>
+                <button type="submit" class="login-btn">Entrar</button>
+            </form>
+            
+            <!-- Formulário de Cadastro (inicialmente oculto) -->
+            <form id="registerForm" class="hidden">
+                <div class="form-group">
+                    <label for="regName">Nome Completo</label>
+                    <input type="text" id="regName" placeholder="Luiz Sergio Garcia Carvalhão" required>
+                </div>
+                <div class="form-group">
+                    <label for="regEmail">E-mail</label>
+                    <input type="email" id="regEmail" placeholder="exemplo@email.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="regPassword">Senha</label>
+                    <input type="password" id="regPassword" placeholder="••••••" required>
+                </div>
+                <div class="form-group">
+                    <label for="userType">Tipo de Usuário</label>
+                    <select id="userType">
+                        <option value="user">Usuário</option>
+                        <option value="admin">Administrador</option>
                     </select>
-                    <button type="submit">Cadastrar</button>
-                </form>
-                <div id="auth-message" class="message"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tela Principal do Aluno -->
-    <div id="student-screen" class="screen">
-        <header>
-            <h1>Quiz de Fundamentos da Informática</h1>
-            <div class="user-info">
-                <span id="user-name"></span>
-                <button id="logout-btn">Sair</button>
-            </div>
-        </header>
-        
-        <main>
-            <div class="tabs">
-                <button class="tab-button active" onclick="showStudentTab('quizzes')">Quizzes</button>
-                <button class="tab-button" onclick="showStudentTab('ranking')">Ranking</button>
-                <button class="tab-button" onclick="showStudentTab('progress')">Meu Progresso</button>
-            </div>
-            
-            <div id="quizzes-tab" class="tab-content active">
-                <h2>Quizzes Disponíveis</h2>
-                <div id="quizzes-list" class="quizzes-container"></div>
-            </div>
-            
-            <div id="ranking-tab" class="tab-content">
-                <h2>Ranking Geral</h2>
-                <div id="ranking-list" class="ranking-container"></div>
-            </div>
-            
-            <div id="progress-tab" class="tab-content">
-                <h2>Meu Progresso</h2>
-                <div id="user-progress" class="progress-container"></div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Tela do Quiz -->
-    <div id="quiz-screen" class="screen">
-        <header>
-            <h1 id="quiz-title"></h1>
-            <div class="quiz-info">
-                <span id="quiz-progress">Questão 1 de 10</span>
-                <button id="exit-quiz-btn">Sair do Quiz</button>
-            </div>
-        </header>
-        
-        <main class="quiz-container">
-            <div id="question-container">
-                <h2 id="question-text"></h2>
-                <div id="options-container" class="options"></div>
-                <div class="quiz-navigation">
-                    <button id="prev-btn" class="nav-btn">Anterior</button>
-                    <button id="next-btn" class="nav-btn">Próxima</button>
-                    <button id="submit-quiz-btn" class="submit-btn">Finalizar Quiz</button>
                 </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Tela de Resultados -->
-    <div id="results-screen" class="screen">
-        <div class="results-container">
-            <h2>Resultado do Quiz</h2>
-            <div id="score-display" class="score"></div>
-            <div id="quiz-feedback"></div>
-            <div class="results-actions">
-                <button id="review-quiz-btn">Revisar Respostas</button>
-                <button id="back-to-quizzes-btn">Voltar aos Quizzes</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tela do Administrador -->
-    <div id="admin-screen" class="screen">
-        <header>
-            <h1>Painel de Administração</h1>
-            <div class="user-info">
-                <span id="admin-name"></span>
-                <button id="admin-logout-btn">Sair</button>
-            </div>
-        </header>
-        
-        <main>
-            <div class="tabs">
-                <button class="tab-button active" onclick="showAdminTab('users')">Usuários</button>
-                <button class="tab-button" onclick="showAdminTab('quizzes-admin')">Quizzes</button>
-                <button class="tab-button" onclick="showAdminTab('stats')">Estatísticas</button>
-            </div>
-            
-            <div id="users-tab" class="tab-content active">
-                <h2>Gerenciar Usuários</h2>
-                <button id="add-user-btn" class="action-btn">Adicionar Usuário</button>
-                <div id="users-list" class="admin-list"></div>
-            </div>
-            
-            <div id="quizzes-admin-tab" class="tab-content">
-                <h2>Gerenciar Quizzes</h2>
-                <button id="add-quiz-btn" class="action-btn">Criar Quiz</button>
-                <div id="quizzes-admin-list" class="admin-list"></div>
-            </div>
-            
-            <div id="stats-tab" class="tab-content">
-                <h2>Estatísticas Gerais</h2>
-                <div id="admin-stats" class="stats-container"></div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Modal para Adicionar/Editar Usuário -->
-    <div id="user-modal" class="modal">
-        <div class="modal-content">
-            <h2 id="user-modal-title">Adicionar Usuário</h2>
-            <form id="user-form">
-                <input type="text" id="user-form-name" placeholder="Nome completo" required>
-                <input type="email" id="user-form-email" placeholder="E-mail" required>
-                <div class="password-container">
-                    <input type="password" id="user-form-password" placeholder="Senha" required>
-                    <button type="button" id="toggle-user-password" class="toggle-password">👁️</button>
-                </div>
-                <select id="user-form-role" required>
-                    <option value="student">Aluno</option>
-                    <option value="admin" id="admin-option" style="display: none;">Administrador</option>
-                </select>
-                <div class="modal-actions">
-                    <button type="button" id="cancel-user-btn">Cancelar</button>
-                    <button type="submit">Salvar</button>
-                </div>
+                <button type="submit" class="login-btn">Cadastrar</button>
             </form>
         </div>
     </div>
 
-    <!-- Modal para Adicionar/Editar Quiz -->
-    <div id="quiz-modal" class="modal">
-        <div class="modal-content">
-            <h2 id="quiz-modal-title">Criar Quiz</h2>
-            <form id="quiz-form">
-                <input type="text" id="quiz-form-title" placeholder="Título do Quiz" required>
-                <textarea id="quiz-form-description" placeholder="Descrição" required></textarea>
-                <select id="quiz-form-topic" required>
-                    <option value="">Selecione um tópico</option>
-                    <option value="base-binaria">Base Binária, Octal, Decimal e Hexadecimal</option>
-                    <option value="historia-computadores">História dos Computadores</option>
-                    <option value="arquitetura-von-neumann">Arquitetura de John Von Neumann</option>
-                    <option value="componentes-computador">Componentes de um Computador</option>
-                    <option value="instrucoes-maquina">Instruções de Máquina</option>
-                    <option value="traducao-instrucoes">Tradução de Instruções de Máquina</option>
-                </select>
-                <input type="number" id="quiz-form-time" placeholder="Tempo em minutos (0 para sem limite)" min="0">
-                <div class="modal-actions">
-                    <button type="button" id="cancel-quiz-btn">Cancelar</button>
-                    <button type="submit">Salvar</button>
+    <!-- Painel Administrativo (inicialmente oculto) -->
+    <div id="adminPanel" class="container hidden">
+        <header>
+            <div class="header-content">
+                <div class="logo">Quiz de Fundamentos da Informática</div>
+                <div class="user-info">
+                    <span>Luiz Sergio Garcia Carvalhão</span>
+                    <button class="logout-btn" id="logoutBtn">Sair</button>
                 </div>
-            </form>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <nav class="sidebar">
+                <ul class="sidebar-menu">
+                    <li class="active">Usuários</li>
+                    <li>Quizzes</li>
+                    <li>Estatísticas</li>
+                </ul>
+            </nav>
+
+            <main class="content">
+                <div class="content-header">
+                    <h2 class="content-title">Gerenciar Quizzes</h2>
+                    <button class="create-quiz-btn">Criar Quiz</button>
+                </div>
+
+                <div class="quiz-list">
+                    <div class="quiz-item">
+                        <div class="quiz-info">
+                            <h3>Arquitetura de Von Neumann</h3>
+                            <p>Arquitetura de John Von Neumann | 10 questões | Inativo</p>
+                        </div>
+                        <div class="quiz-actions">
+                            <button class="action-btn edit-btn">Editar</button>
+                            <button class="action-btn activate-btn">Ativar</button>
+                            <button class="action-btn delete-btn">Excluir</button>
+                        </div>
+                    </div>
+
+                    <div class="quiz-item">
+                        <div class="quiz-info">
+                            <h3>Sistemas Numéricos</h3>
+                            <p>Base Binária, Octal, Decimal e Hexadecimal | 10 questões | Inativo</p>
+                        </div>
+                        <div class="quiz-actions">
+                            <button class="action-btn edit-btn">Editar</button>
+                            <button class="action-btn activate-btn">Ativar</button>
+                            <button class="action-btn delete-btn">Excluir</button>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos da interface
+            const loginScreen = document.getElementById('loginScreen');
+            const adminPanel = document.getElementById('adminPanel');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const loginTab = document.getElementById('loginTab');
+            const registerTab = document.getElementById('registerTab');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const userTypeSelect = document.getElementById('userType');
+            
+            // Verificar se já existe um administrador no sistema
+            // Em uma aplicação real, isso viria de uma API/banco de dados
+            // Por enquanto, vamos simular com localStorage
+            function checkAdminExists() {
+                const adminExists = localStorage.getItem('adminExists');
+                if (adminExists === 'true') {
+                    userTypeSelect.disabled = true;
+                    // Remover a opção de administrador se já existe um
+                    const adminOption = userTypeSelect.querySelector('option[value="admin"]');
+                    if (adminOption) {
+                        adminOption.disabled = true;
+                        // Selecionar automaticamente "Usuário"
+                        userTypeSelect.value = 'user';
+                    }
+                }
+            }
+            
+            // Inicializar verificação de administrador
+            checkAdminExists();
+            
+            // Alternar entre login e cadastro
+            loginTab.addEventListener('click', function() {
+                loginTab.classList.add('active');
+                registerTab.classList.remove('active');
+                loginForm.classList.remove('hidden');
+                registerForm.classList.add('hidden');
+            });
+            
+            registerTab.addEventListener('click', function() {
+                registerTab.classList.add('active');
+                loginTab.classList.remove('active');
+                registerForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+            });
+            
+            // Processar login
+            loginForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Em uma aplicação real, aqui seria feita a validação com o servidor
+                // Por simplicidade, vamos apenas redirecionar para o painel
+                
+                // Esconder a tela de login
+                loginScreen.classList.add('hidden');
+                // Mostrar o painel administrativo
+                adminPanel.classList.remove('hidden');
+            });
+            
+            // Processar cadastro
+            registerForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const userType = userTypeSelect.value;
+                
+                // Se o usuário está se cadastrando como administrador
+                if (userType === 'admin') {
+                    // Marcar que já existe um administrador no sistema
+                    localStorage.setItem('adminExists', 'true');
+                    userTypeSelect.disabled = true;
+                }
+                
+                // Em uma aplicação real, aqui seria feito o cadastro no servidor
+                // Por simplicidade, vamos apenas alternar para a tela de login
+                
+                alert('Cadastro realizado com sucesso! Faça login para continuar.');
+                loginTab.click();
+            });
+            
+            // Processar logout
+            logoutBtn.addEventListener('click', function() {
+                // Mostrar a tela de login
+                loginScreen.classList.remove('hidden');
+                // Esconder o painel administrativo
+                adminPanel.classList.add('hidden');
+            });
+        });
+    </script>
 </body>
 </html>
