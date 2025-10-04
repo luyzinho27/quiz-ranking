@@ -99,8 +99,10 @@ class QuizSystem {
             // Carregar quizzes
             await this.loadQuizzes();
             
-            // Carregar banco de questões
-            await this.loadQuestionsBank();
+            // Carregar banco de questões (apenas para administradores)
+            if (this.currentUser.type === 'admin') {
+                await this.loadQuestionsBank();
+            }
             
             this.updateStats();
         } catch (error) {
@@ -407,6 +409,20 @@ class QuizSystem {
         const type = document.getElementById('userType').value;
         
         try {
+            // Verificar se já existe admin e tentativa de criar outro admin
+            const adminQuery = await db.collection('users')
+                .where('type', '==', 'admin')
+                .limit(1)
+                .get();
+            
+            const adminExists = !adminQuery.empty;
+            
+            if (adminExists && type === 'admin') {
+                alert('Já existe um administrador no sistema. Não é possível criar outro usuário administrador.');
+                document.getElementById('userType').value = 'user';
+                return;
+            }
+            
             // Criar usuário no Authentication
             const userCredential = await auth.createUserWithEmailAndPassword(email, password);
             const user = userCredential.user;
@@ -471,10 +487,22 @@ class QuizSystem {
         document.getElementById('adminPanel').classList.remove('hidden');
         document.getElementById('userNameDisplay').textContent = this.currentUser.name;
         
-        // Mostrar conteúdo baseado no tipo de usuário
+        // Mostrar/ocultar conteúdo baseado no tipo de usuário
         if (this.currentUser.type !== 'admin') {
+            // Ocultar abas de administração para usuários comuns
             document.querySelector('[data-tab="users"]').style.display = 'none';
             document.querySelector('[data-tab="questions"]').style.display = 'none';
+            
+            // Ocultar botões de CRUD para usuários comuns
+            document.getElementById('createQuizBtn').style.display = 'none';
+            
+            // Mostrar apenas quizzes ativos para usuários comuns
+            this.renderQuizzesForUser();
+        } else {
+            // Mostrar tudo para administradores
+            document.querySelector('[data-tab="users"]').style.display = 'block';
+            document.querySelector('[data-tab="questions"]').style.display = 'block';
+            document.getElementById('createQuizBtn').style.display = 'block';
         }
         
         // Verificar se existe admin
@@ -498,9 +526,26 @@ class QuizSystem {
             tab.classList.add('hidden');
         });
         document.getElementById(`${tabName}Tab`).classList.remove('hidden');
+        
+        // Carregar dados específicos da aba
+        if (tabName === 'users' && this.currentUser.type === 'admin') {
+            this.renderUsers();
+        } else if (tabName === 'questions' && this.currentUser.type === 'admin') {
+            this.renderQuestionsBank();
+        } else if (tabName === 'stats') {
+            this.updateStats();
+        } else if (tabName === 'quizzes' && this.currentUser.type !== 'admin') {
+            this.renderQuizzesForUser();
+        }
     }
     
     openQuizModal(quiz = null) {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem criar ou editar quizzes.');
+            return;
+        }
+        
         this.currentEditingQuiz = quiz;
         this.quizQuestions = quiz ? [...quiz.questions] : [];
         
@@ -555,6 +600,12 @@ class QuizSystem {
     }
     
     openQuestionModal(question = null, forBank = false) {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem gerenciar questões.');
+            return;
+        }
+        
         this.currentEditingQuestion = question;
         this.questionForBank = forBank;
         
@@ -591,6 +642,12 @@ class QuizSystem {
     
     async saveQuestion(e) {
         e.preventDefault();
+        
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem salvar questões.');
+            return;
+        }
         
         const text = document.getElementById('questionText').value;
         const category = document.getElementById('questionCategory').value;
@@ -672,6 +729,12 @@ class QuizSystem {
     async saveQuiz(e) {
         e.preventDefault();
         
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem salvar quizzes.');
+            return;
+        }
+        
         const title = document.getElementById('quizTitle').value;
         const description = document.getElementById('quizDescription').value;
         const status = document.getElementById('quizStatus').value;
@@ -713,6 +776,12 @@ class QuizSystem {
     }
     
     openImportModal(forBank = false) {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem importar questões.');
+            return;
+        }
+        
         this.importForBank = forBank;
         this.renderImportQuestions();
         document.getElementById('importModal').classList.remove('hidden');
@@ -765,6 +834,12 @@ class QuizSystem {
     }
     
     importQuestions() {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem importar questões.');
+            return;
+        }
+        
         const checkboxes = document.querySelectorAll('.question-checkbox:checked');
         const importedQuestions = [];
         
@@ -822,6 +897,12 @@ class QuizSystem {
     }
     
     async exportToBank() {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem exportar questões.');
+            return;
+        }
+        
         if (this.quizQuestions.length === 0) {
             alert('Não há questões no quiz para exportar!');
             return;
@@ -865,6 +946,11 @@ class QuizSystem {
     }
     
     renderQuestionsBank() {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            return;
+        }
+        
         const container = document.getElementById('questionsList');
         container.innerHTML = '';
         
@@ -901,6 +987,12 @@ class QuizSystem {
     }
     
     editBankQuestion(questionId) {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem editar questões.');
+            return;
+        }
+        
         const question = this.questionsBank.find(q => q.id === questionId);
         if (question) {
             this.openQuestionModal(question, true);
@@ -908,6 +1000,12 @@ class QuizSystem {
     }
     
     async deleteBankQuestion(questionId) {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem excluir questões.');
+            return;
+        }
+        
         try {
             await db.collection('questionsBank').doc(questionId).delete();
             this.closeConfirmModal();
@@ -977,7 +1075,7 @@ class QuizSystem {
         return difficulties[difficulty] || difficulty;
     }
     
-    // Renderização de quizzes
+    // Renderização de quizzes para administradores
     renderQuizzes() {
         const quizList = document.getElementById('quizList');
         quizList.innerHTML = '';
@@ -1010,7 +1108,54 @@ class QuizSystem {
         });
     }
     
+    // Renderização de quizzes para usuários comuns
+    renderQuizzesForUser() {
+        const quizList = document.getElementById('quizList');
+        quizList.innerHTML = '';
+        
+        const activeQuizzes = this.quizzes.filter(quiz => quiz.status === 'active');
+        
+        if (activeQuizzes.length === 0) {
+            quizList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Nenhum quiz disponível no momento.</p>';
+            return;
+        }
+        
+        activeQuizzes.forEach(quiz => {
+            const quizElement = document.createElement('div');
+            quizElement.className = 'quiz-item';
+            quizElement.innerHTML = `
+                <div class="quiz-info">
+                    <h3>${quiz.title}</h3>
+                    <p>${quiz.description} | ${quiz.questionCount} questões</p>
+                </div>
+                <div class="quiz-actions">
+                    <button class="action-btn edit-btn" onclick="quizSystem.startQuiz('${quiz.id}')">Iniciar Quiz</button>
+                    <button class="action-btn activate-btn" onclick="quizSystem.viewQuizDetails('${quiz.id}')">Ver Detalhes</button>
+                </div>
+            `;
+            quizList.appendChild(quizElement);
+        });
+    }
+    
+    startQuiz(quizId) {
+        alert(`Iniciando quiz ${quizId} - Funcionalidade em desenvolvimento`);
+        // Aqui será implementada a lógica para iniciar o quiz para o usuário
+    }
+    
+    viewQuizDetails(quizId) {
+        const quiz = this.quizzes.find(q => q.id === quizId);
+        if (quiz) {
+            alert(`Detalhes do Quiz: ${quiz.title}\n\n${quiz.description}\n\nTotal de questões: ${quiz.questionCount}`);
+        }
+    }
+    
     async toggleQuizStatus(quizId, currentStatus) {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem alterar o status dos quizzes.');
+            return;
+        }
+        
         try {
             const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
             await db.collection('quizzes').doc(quizId).update({
@@ -1024,6 +1169,12 @@ class QuizSystem {
     }
     
     async deleteQuiz(quizId) {
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            alert('Apenas administradores podem excluir quizzes.');
+            return;
+        }
+        
         try {
             await db.collection('quizzes').doc(quizId).delete();
             this.closeConfirmModal();
@@ -1034,7 +1185,10 @@ class QuizSystem {
     }
     
     renderUsers() {
-        if (this.currentUser.type !== 'admin') return;
+        // Verificar permissão
+        if (this.currentUser.type !== 'admin') {
+            return;
+        }
         
         const userList = document.getElementById('userList');
         userList.innerHTML = '';
