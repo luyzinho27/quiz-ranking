@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz de Fundamentos da Informática</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
 </head>
 <body>
     <!-- Tela de Login (inicialmente visível) -->
@@ -20,7 +24,7 @@
             <form id="loginForm">
                 <div class="form-group">
                     <label for="email">E-mail</label>
-                    <input type="email" id="email" placeholder="luizynho27@gmail.com" required>
+                    <input type="email" id="email" placeholder="seu@email.com" required>
                 </div>
                 <div class="form-group">
                     <label for="password">Senha</label>
@@ -33,7 +37,7 @@
             <form id="registerForm" class="hidden">
                 <div class="form-group">
                     <label for="regName">Nome Completo</label>
-                    <input type="text" id="regName" placeholder="Luiz Sergio Garcia Carvalhão" required>
+                    <input type="text" id="regName" placeholder="Seu nome completo" required>
                 </div>
                 <div class="form-group">
                     <label for="regEmail">E-mail</label>
@@ -61,7 +65,8 @@
             <div class="header-content">
                 <div class="logo">Quiz de Fundamentos da Informática</div>
                 <div class="user-info">
-                    <span id="userNameDisplay">Luiz Sergio Garcia Carvalhão</span>
+                    <span id="userNameDisplay">Usuário</span>
+                    <span id="userTypeBadge" class="user-type-badge"></span>
                     <button class="logout-btn" id="logoutBtn">Sair</button>
                 </div>
             </div>
@@ -70,15 +75,18 @@
         <div class="main-content">
             <nav class="sidebar">
                 <ul class="sidebar-menu">
-                    <li data-tab="users" class="sidebar-item">Usuários</li>
+                    <li data-tab="users" class="sidebar-item admin-only">Usuários</li>
                     <li data-tab="quizzes" class="sidebar-item active">Quizzes</li>
-                    <li data-tab="questions" class="sidebar-item">Banco de Questões</li>
+                    <li data-tab="questions" class="sidebar-item admin-only">Banco de Questões</li>
+                    <li data-tab="play" class="sidebar-item user-only">Jogar Quiz</li>
+                    <li data-tab="results" class="sidebar-item user-only">Meus Resultados</li>
+                    <li data-tab="ranking" class="sidebar-item user-only">Ranking</li>
                     <li data-tab="stats" class="sidebar-item">Estatísticas</li>
                 </ul>
             </nav>
 
             <main class="content">
-                <!-- Conteúdo de Usuários -->
+                <!-- Conteúdo de Usuários (Apenas Admin) -->
                 <div id="usersTab" class="tab-content hidden">
                     <div class="content-header">
                         <h2 class="content-title">Gerenciar Usuários</h2>
@@ -91,27 +99,72 @@
                 <!-- Conteúdo de Quizzes -->
                 <div id="quizzesTab" class="tab-content">
                     <div class="content-header">
-                        <h2 class="content-title">Gerenciar Quizzes</h2>
-                        <button class="create-quiz-btn" id="createQuizBtn">Criar Quiz</button>
+                        <h2 class="content-title" id="quizzesTitle">Gerenciar Quizzes</h2>
+                        <button class="create-quiz-btn admin-only" id="createQuizBtn">Criar Quiz</button>
                     </div>
-
                     <div class="quiz-list" id="quizList">
                         <!-- Lista de quizzes será preenchida via JavaScript -->
                     </div>
                 </div>
 
-                <!-- Conteúdo do Banco de Questões -->
+                <!-- Conteúdo do Banco de Questões (Apenas Admin) -->
                 <div id="questionsTab" class="tab-content hidden">
                     <div class="content-header">
                         <h2 class="content-title">Banco de Questões</h2>
-                        <button class="create-quiz-btn" id="addQuestionBtn">Adicionar Questão</button>
+                        <button class="create-quiz-btn admin-only" id="addQuestionBtn">Adicionar Questão</button>
                     </div>
-                    <div class="questions-actions">
+                    <div class="questions-actions admin-only">
                         <button class="action-btn import-btn" id="importQuestionsBtn">Importar do Banco</button>
                         <button class="action-btn export-btn" id="exportQuestionsBtn">Exportar para Banco</button>
                     </div>
                     <div class="questions-list" id="questionsList">
                         <!-- Lista de questões será preenchida via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Conteúdo de Jogar Quiz (Apenas Usuário) -->
+                <div id="playTab" class="tab-content hidden">
+                    <div class="content-header">
+                        <h2 class="content-title">Escolher Quiz para Jogar</h2>
+                    </div>
+                    <div class="quiz-play-list" id="quizPlayList">
+                        <!-- Lista de quizzes para jogar será preenchida via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Conteúdo de Resultados (Apenas Usuário) -->
+                <div id="resultsTab" class="tab-content hidden">
+                    <div class="content-header">
+                        <h2 class="content-title">Meus Resultados</h2>
+                    </div>
+                    <div class="results-container" id="resultsContainer">
+                        <div class="no-results" id="noResults">
+                            <p>Você ainda não completou nenhum quiz.</p>
+                            <button class="action-btn play-btn" onclick="quizSystem.switchContentTab('play')">Jogar Agora</button>
+                        </div>
+                        <div class="results-list hidden" id="resultsList">
+                            <!-- Lista de resultados será preenchida via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Conteúdo de Ranking (Apenas Usuário) -->
+                <div id="rankingTab" class="tab-content hidden">
+                    <div class="content-header">
+                        <h2 class="content-title">Ranking Geral</h2>
+                    </div>
+                    <div class="ranking-container">
+                        <div class="ranking-filters">
+                            <div class="form-group">
+                                <label for="rankingQuiz">Filtrar por Quiz:</label>
+                                <select id="rankingQuiz">
+                                    <option value="all">Todos os Quizzes</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="ranking-list" id="rankingList">
+                            <!-- Ranking será preenchido via JavaScript -->
+                        </div>
                     </div>
                 </div>
 
@@ -136,6 +189,14 @@
                         <div class="stat-card">
                             <h3>Total de Questões</h3>
                             <p id="totalQuestions">0</p>
+                        </div>
+                        <div class="stat-card user-only">
+                            <h3>Meus Quizzes Completos</h3>
+                            <p id="userCompletedQuizzes">0</p>
+                        </div>
+                        <div class="stat-card user-only">
+                            <h3>Minha Pontuação Total</h3>
+                            <p id="userTotalScore">0</p>
                         </div>
                     </div>
                 </div>
@@ -355,10 +416,59 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal do Quiz em Andamento -->
+    <div id="quizPlayModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3 id="quizPlayTitle">Quiz em Andamento</h3>
+                <div class="quiz-progress">
+                    <span id="currentQuestion">1</span> de <span id="totalQuestionsCount">0</span>
+                </div>
+            </div>
+            <div class="quiz-play-content">
+                <div class="question-container">
+                    <h4 id="playQuestionText"></h4>
+                    <div class="alternatives-play-container" id="alternativesPlayContainer">
+                        <!-- Alternativas serão preenchidas via JavaScript -->
+                    </div>
+                </div>
+                <div class="quiz-play-actions">
+                    <button class="cancel-btn" id="cancelQuizPlay">Cancelar</button>
+                    <button class="save-btn hidden" id="nextQuestion">Próxima Questão</button>
+                    <button class="save-btn hidden" id="finishQuiz">Finalizar Quiz</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Resultado do Quiz -->
+    <div id="quizResultModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Resultado do Quiz</h3>
+                <span class="close-btn" id="closeResultModal">&times;</span>
+            </div>
+            <div class="quiz-result-content">
+                <div class="result-score">
+                    <h4 id="resultScore">0/0</h4>
+                    <p id="resultPercentage">0%</p>
+                </div>
+                <div class="result-details">
+                    <p><strong>Quiz:</strong> <span id="resultQuizName"></span></p>
+                    <p><strong>Data:</strong> <span id="resultDate"></span></p>
+                    <p><strong>Tempo:</strong> <span id="resultTime"></span></p>
+                </div>
+                <div class="result-actions">
+                    <button class="cancel-btn" id="viewQuizDetails">Ver Detalhes</button>
+                    <button class="save-btn" id="playAgain">Jogar Novamente</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
-
