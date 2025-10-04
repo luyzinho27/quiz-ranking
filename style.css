@@ -1,15 +1,180 @@
-/* ... (mantenha todo o CSS anterior) ... */
-
-/* Novos estilos para gerenciamento de questões */
-
-.large-modal {
-    max-width: 700px;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-.questions-actions {
+body {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+/* Header Styles */
+header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 15px 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.logout-btn {
+    background-color: #e74c3c;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.logout-btn:hover {
+    background-color: #c0392b;
+}
+
+/* Main Content Styles */
+.main-content {
+    display: flex;
+    flex: 1;
+}
+
+/* Sidebar Styles */
+.sidebar {
+    width: 250px;
+    background-color: #34495e;
+    color: white;
+    padding: 20px 0;
+}
+
+.sidebar-menu {
+    list-style: none;
+}
+
+.sidebar-item {
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.sidebar-item:hover, .sidebar-item.active {
+    background-color: #2c3e50;
+}
+
+/* Content Area Styles */
+.content {
+    flex: 1;
+    padding: 20px;
+    background-color: white;
+    margin: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.content-title {
+    font-size: 1.5rem;
+    color: #2c3e50;
+}
+
+.create-quiz-btn {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.create-quiz-btn:hover {
+    background-color: #2980b9;
+}
+
+/* Quiz List Styles */
+.quiz-list, .user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.quiz-item, .user-item {
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.quiz-info h3, .user-info h3 {
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.quiz-info p, .user-info p {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.quiz-actions, .user-actions {
     display: flex;
     gap: 10px;
-    margin-bottom: 20px;
+}
+
+.action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.3s;
+}
+
+.edit-btn {
+    background-color: #f39c12;
+    color: white;
+}
+
+.activate-btn {
+    background-color: #27ae60;
+    color: white;
+}
+
+.delete-btn {
+    background-color: #e74c3c;
+    color: white;
 }
 
 .import-btn {
@@ -22,11 +187,225 @@
     color: white;
 }
 
+.action-btn:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.status-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-inactive {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+/* Login Styles */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #f5f5f5;
+}
+
+.login-box {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-title {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.login-tabs {
+    display: flex;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.login-tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.login-tab.active {
+    border-bottom: 2px solid #3498db;
+    color: #3498db;
+    font-weight: bold;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #555;
+    font-weight: 500;
+}
+
+.form-group input, 
+.form-group select, 
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus, 
+.form-group select:focus, 
+.form-group textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.login-btn {
+    width: 100%;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.3s;
+}
+
+.login-btn:hover {
+    background-color: #2980b9;
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.large-modal {
+    max-width: 700px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    color: #2c3e50;
+    margin: 0;
+}
+
+.close-btn {
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #7f8c8d;
+    transition: color 0.3s;
+}
+
+.close-btn:hover {
+    color: #333;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.cancel-btn, .save-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s;
+}
+
+.cancel-btn {
+    background-color: #95a5a6;
+    color: white;
+}
+
+.save-btn {
+    background-color: #3498db;
+    color: white;
+}
+
+.cancel-btn:hover {
+    background-color: #7f8c8d;
+}
+
+.save-btn:hover {
+    background-color: #2980b9;
+}
+
+/* Questions Management Styles */
+.questions-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
 .questions-section {
     margin: 20px 0;
     padding: 15px;
     background-color: #f8f9fa;
     border-radius: 6px;
+    border: 1px solid #e9ecef;
 }
 
 .section-header {
@@ -39,6 +418,7 @@
 .section-header h4 {
     color: #2c3e50;
     margin: 0;
+    font-size: 1.1rem;
 }
 
 .add-question-btn {
@@ -49,6 +429,11 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 0.9rem;
+    transition: background-color 0.3s;
+}
+
+.add-question-btn:hover {
+    background-color: #219a52;
 }
 
 .quiz-questions-list {
@@ -61,22 +446,29 @@
     background-color: white;
     border: 1px solid #ddd;
     border-radius: 4px;
-    padding: 10px;
+    padding: 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: box-shadow 0.3s;
+}
+
+.question-item:hover {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .question-text {
     flex: 1;
     font-size: 0.9rem;
+    color: #333;
+    margin-right: 15px;
 }
 
 .question-meta {
     display: flex;
     gap: 10px;
     font-size: 0.8rem;
-    color: #7f8c8d;
+    align-items: center;
 }
 
 .remove-question {
@@ -85,10 +477,20 @@
     color: #e74c3c;
     cursor: pointer;
     font-size: 1.2rem;
+    padding: 0 5px;
+    transition: color 0.3s;
 }
 
+.remove-question:hover {
+    color: #c0392b;
+}
+
+/* Alternatives Section */
 .alternatives-section {
     margin: 20px 0;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
 }
 
 .alternatives-section h4 {
@@ -99,8 +501,14 @@
 .alternative-group {
     margin-bottom: 10px;
     padding: 10px;
-    background-color: #f8f9fa;
+    background-color: white;
+    border: 1px solid #e9ecef;
     border-radius: 4px;
+    transition: border-color 0.3s;
+}
+
+.alternative-group:hover {
+    border-color: #3498db;
 }
 
 .alternative-group label {
@@ -108,6 +516,7 @@
     align-items: center;
     gap: 10px;
     cursor: pointer;
+    width: 100%;
 }
 
 .alternative-input {
@@ -115,8 +524,16 @@
     padding: 8px;
     border: 1px solid #ddd;
     border-radius: 4px;
+    font-size: 0.9rem;
+    transition: border-color 0.3s;
 }
 
+.alternative-input:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+/* Import Modal Styles */
 .import-filters {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -130,14 +547,20 @@
     border: 1px solid #ddd;
     border-radius: 4px;
     padding: 10px;
+    background-color: #f8f9fa;
 }
 
 .import-question-item {
-    padding: 10px;
+    padding: 12px;
     border-bottom: 1px solid #eee;
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 12px;
+    transition: background-color 0.3s;
+}
+
+.import-question-item:hover {
+    background-color: #e9ecef;
 }
 
 .import-question-item:last-child {
@@ -145,7 +568,7 @@
 }
 
 .import-question-check {
-    margin-top: 5px;
+    margin-top: 3px;
 }
 
 .import-question-content {
@@ -154,12 +577,16 @@
 
 .import-question-text {
     font-weight: 500;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    color: #2c3e50;
+    line-height: 1.4;
 }
 
 .import-question-meta {
+    display: flex;
+    gap: 10px;
     font-size: 0.8rem;
-    color: #7f8c8d;
+    margin-bottom: 8px;
 }
 
 .import-question-alternatives {
@@ -172,6 +599,7 @@
     font-weight: bold;
 }
 
+/* Questions Bank Styles */
 .questions-list {
     display: flex;
     flex-direction: column;
@@ -183,6 +611,11 @@
     border: 1px solid #eee;
     border-radius: 6px;
     padding: 15px;
+    transition: box-shadow 0.3s;
+}
+
+.bank-question-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .bank-question-header {
@@ -190,45 +623,52 @@
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 10px;
+    gap: 15px;
 }
 
 .bank-question-text {
     flex: 1;
     font-weight: 500;
     color: #2c3e50;
+    line-height: 1.4;
+}
+
+.bank-question-actions {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
 }
 
 .bank-question-meta {
     display: flex;
     gap: 10px;
     font-size: 0.8rem;
-    color: #7f8c8d;
-}
-
-.bank-question-actions {
-    display: flex;
-    gap: 5px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
 }
 
 .bank-alternatives {
     margin-top: 10px;
-    padding: 10px;
+    padding: 12px;
     background-color: white;
     border-radius: 4px;
+    border: 1px solid #e9ecef;
 }
 
 .bank-alternative {
     padding: 5px 0;
     font-size: 0.9rem;
+    line-height: 1.4;
 }
 
 /* Badges para categorias e dificuldades */
 .category-badge, .difficulty-badge {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 4px 8px;
     border-radius: 12px;
     font-size: 0.7rem;
     font-weight: bold;
+    text-transform: uppercase;
 }
 
 .category-badge.arquitetura {
@@ -269,4 +709,169 @@
 .difficulty-badge.hard {
     background-color: #e74c3c;
     color: white;
+}
+
+/* Stats Styles */
+.stats-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.stat-card {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 25px;
+    text-align: center;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.stat-card h3 {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-card p {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+.tab-content {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { 
+        opacity: 0; 
+        transform: translateY(10px);
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0);
+    }
+}
+
+/* Scrollbar personalizado */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        order: 2;
+    }
+    
+    .content {
+        margin: 10px;
+        padding: 15px;
+    }
+    
+    .content-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .modal-content {
+        margin: 20px;
+        width: calc(100% - 40px);
+    }
+    
+    .large-modal {
+        max-width: none;
+    }
+    
+    .import-filters {
+        grid-template-columns: 1fr;
+    }
+    
+    .bank-question-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .bank-question-actions {
+        align-self: flex-end;
+    }
+    
+    .stats-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .quiz-actions, .user-actions {
+        flex-wrap: wrap;
+    }
+    
+    .questions-actions {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-content {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .user-info {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .modal-actions {
+        flex-direction: column;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    
+    .question-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .question-meta {
+        align-self: flex-end;
+    }
 }
