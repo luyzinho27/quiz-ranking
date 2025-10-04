@@ -4,271 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz de Fundamentos da Informática</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            background-color: #f5f5f5;
-            color: #333;
-        }
-
-        .container {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        /* Header Styles */
-        header {
-            background-color: #2c3e50;
-            color: white;
-            padding: 15px 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .logout-btn {
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .logout-btn:hover {
-            background-color: #c0392b;
-        }
-
-        /* Main Content Styles */
-        .main-content {
-            display: flex;
-            flex: 1;
-        }
-
-        /* Sidebar Styles */
-        .sidebar {
-            width: 250px;
-            background-color: #34495e;
-            color: white;
-            padding: 20px 0;
-        }
-
-        .sidebar-menu {
-            list-style: none;
-        }
-
-        .sidebar-menu li {
-            padding: 12px 20px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .sidebar-menu li:hover, .sidebar-menu li.active {
-            background-color: #2c3e50;
-        }
-
-        /* Content Area Styles */
-        .content {
-            flex: 1;
-            padding: 20px;
-            background-color: white;
-            margin: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        .content-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .content-title {
-            font-size: 1.5rem;
-            color: #2c3e50;
-        }
-
-        .create-quiz-btn {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .create-quiz-btn:hover {
-            background-color: #2980b9;
-        }
-
-        /* Quiz List Styles */
-        .quiz-list {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .quiz-item {
-            background-color: #f9f9f9;
-            border: 1px solid #eee;
-            border-radius: 6px;
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .quiz-info h3 {
-            color: #2c3e50;
-            margin-bottom: 5px;
-        }
-
-        .quiz-info p {
-            color: #7f8c8d;
-            font-size: 0.9rem;
-        }
-
-        .quiz-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .action-btn {
-            padding: 6px 12px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: opacity 0.3s;
-        }
-
-        .edit-btn {
-            background-color: #f39c12;
-            color: white;
-        }
-
-        .activate-btn {
-            background-color: #27ae60;
-            color: white;
-        }
-
-        .delete-btn {
-            background-color: #e74c3c;
-            color: white;
-        }
-
-        .action-btn:hover {
-            opacity: 0.9;
-        }
-
-        /* Login Styles */
-        .login-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f5f5f5;
-        }
-
-        .login-box {
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
-        }
-
-        .login-title {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #2c3e50;
-        }
-
-        .login-tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .login-tab {
-            flex: 1;
-            text-align: center;
-            padding: 10px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .login-tab.active {
-            border-bottom: 2px solid #3498db;
-            color: #3498db;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #555;
-        }
-
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-
-        .login-btn {
-            width: 100%;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background-color 0.3s;
-        }
-
-        .login-btn:hover {
-            background-color: #2980b9;
-        }
-
-        .hidden {
-            display: none;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!-- Tela de Login (inicialmente visível) -->
@@ -325,7 +61,7 @@
             <div class="header-content">
                 <div class="logo">Quiz de Fundamentos da Informática</div>
                 <div class="user-info">
-                    <span>Luiz Sergio Garcia Carvalhão</span>
+                    <span id="userNameDisplay">Luiz Sergio Garcia Carvalhão</span>
                     <button class="logout-btn" id="logoutBtn">Sair</button>
                 </div>
             </div>
@@ -334,40 +70,72 @@
         <div class="main-content">
             <nav class="sidebar">
                 <ul class="sidebar-menu">
-                    <li class="active">Usuários</li>
-                    <li>Quizzes</li>
-                    <li>Estatísticas</li>
+                    <li data-tab="users" class="sidebar-item">Usuários</li>
+                    <li data-tab="quizzes" class="sidebar-item active">Quizzes</li>
+                    <li data-tab="questions" class="sidebar-item">Banco de Questões</li>
+                    <li data-tab="stats" class="sidebar-item">Estatísticas</li>
                 </ul>
             </nav>
 
             <main class="content">
-                <div class="content-header">
-                    <h2 class="content-title">Gerenciar Quizzes</h2>
-                    <button class="create-quiz-btn">Criar Quiz</button>
+                <!-- Conteúdo de Usuários -->
+                <div id="usersTab" class="tab-content hidden">
+                    <div class="content-header">
+                        <h2 class="content-title">Gerenciar Usuários</h2>
+                    </div>
+                    <div class="user-list" id="userList">
+                        <!-- Lista de usuários será preenchida via JavaScript -->
+                    </div>
                 </div>
 
-                <div class="quiz-list">
-                    <div class="quiz-item">
-                        <div class="quiz-info">
-                            <h3>Arquitetura de Von Neumann</h3>
-                            <p>Arquitetura de John Von Neumann | 10 questões | Inativo</p>
-                        </div>
-                        <div class="quiz-actions">
-                            <button class="action-btn edit-btn">Editar</button>
-                            <button class="action-btn activate-btn">Ativar</button>
-                            <button class="action-btn delete-btn">Excluir</button>
-                        </div>
+                <!-- Conteúdo de Quizzes -->
+                <div id="quizzesTab" class="tab-content">
+                    <div class="content-header">
+                        <h2 class="content-title">Gerenciar Quizzes</h2>
+                        <button class="create-quiz-btn" id="createQuizBtn">Criar Quiz</button>
                     </div>
 
-                    <div class="quiz-item">
-                        <div class="quiz-info">
-                            <h3>Sistemas Numéricos</h3>
-                            <p>Base Binária, Octal, Decimal e Hexadecimal | 10 questões | Inativo</p>
+                    <div class="quiz-list" id="quizList">
+                        <!-- Lista de quizzes será preenchida via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Conteúdo do Banco de Questões -->
+                <div id="questionsTab" class="tab-content hidden">
+                    <div class="content-header">
+                        <h2 class="content-title">Banco de Questões</h2>
+                        <button class="create-quiz-btn" id="addQuestionBtn">Adicionar Questão</button>
+                    </div>
+                    <div class="questions-actions">
+                        <button class="action-btn import-btn" id="importQuestionsBtn">Importar do Banco</button>
+                        <button class="action-btn export-btn" id="exportQuestionsBtn">Exportar para Banco</button>
+                    </div>
+                    <div class="questions-list" id="questionsList">
+                        <!-- Lista de questões será preenchida via JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Conteúdo de Estatísticas -->
+                <div id="statsTab" class="tab-content hidden">
+                    <div class="content-header">
+                        <h2 class="content-title">Estatísticas do Sistema</h2>
+                    </div>
+                    <div class="stats-container">
+                        <div class="stat-card">
+                            <h3>Total de Usuários</h3>
+                            <p id="totalUsers">0</p>
                         </div>
-                        <div class="quiz-actions">
-                            <button class="action-btn edit-btn">Editar</button>
-                            <button class="action-btn activate-btn">Ativar</button>
-                            <button class="action-btn delete-btn">Excluir</button>
+                        <div class="stat-card">
+                            <h3>Total de Quizzes</h3>
+                            <p id="totalQuizzes">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Quizzes Ativos</h3>
+                            <p id="activeQuizzes">0</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>Total de Questões</h3>
+                            <p id="totalQuestions">0</p>
                         </div>
                     </div>
                 </div>
@@ -375,94 +143,161 @@
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Elementos da interface
-            const loginScreen = document.getElementById('loginScreen');
-            const adminPanel = document.getElementById('adminPanel');
-            const loginForm = document.getElementById('loginForm');
-            const registerForm = document.getElementById('registerForm');
-            const loginTab = document.getElementById('loginTab');
-            const registerTab = document.getElementById('registerTab');
-            const logoutBtn = document.getElementById('logoutBtn');
-            const userTypeSelect = document.getElementById('userType');
-            
-            // Verificar se já existe um administrador no sistema
-            // Em uma aplicação real, isso viria de uma API/banco de dados
-            // Por enquanto, vamos simular com localStorage
-            function checkAdminExists() {
-                const adminExists = localStorage.getItem('adminExists');
-                if (adminExists === 'true') {
-                    userTypeSelect.disabled = true;
-                    // Remover a opção de administrador se já existe um
-                    const adminOption = userTypeSelect.querySelector('option[value="admin"]');
-                    if (adminOption) {
-                        adminOption.disabled = true;
-                        // Selecionar automaticamente "Usuário"
-                        userTypeSelect.value = 'user';
-                    }
-                }
-            }
-            
-            // Inicializar verificação de administrador
-            checkAdminExists();
-            
-            // Alternar entre login e cadastro
-            loginTab.addEventListener('click', function() {
-                loginTab.classList.add('active');
-                registerTab.classList.remove('active');
-                loginForm.classList.remove('hidden');
-                registerForm.classList.add('hidden');
-            });
-            
-            registerTab.addEventListener('click', function() {
-                registerTab.classList.add('active');
-                loginTab.classList.remove('active');
-                registerForm.classList.remove('hidden');
-                loginForm.classList.add('hidden');
-            });
-            
-            // Processar login
-            loginForm.addEventListener('submit', function(e) {
-                e.preventDefault();
+    <!-- Modal para criar/editar quiz -->
+    <div id="quizModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Criar Novo Quiz</h3>
+                <span class="close-btn" id="closeModal">&times;</span>
+            </div>
+            <form id="quizForm">
+                <div class="form-group">
+                    <label for="quizTitle">Título do Quiz</label>
+                    <input type="text" id="quizTitle" required>
+                </div>
+                <div class="form-group">
+                    <label for="quizDescription">Descrição</label>
+                    <textarea id="quizDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="quizStatus">Status</label>
+                    <select id="quizStatus">
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                    </select>
+                </div>
                 
-                // Em uma aplicação real, aqui seria feita a validação com o servidor
-                // Por simplicidade, vamos apenas redirecionar para o painel
+                <!-- Seção de questões do quiz -->
+                <div class="questions-section">
+                    <div class="section-header">
+                        <h4>Questões do Quiz</h4>
+                        <button type="button" class="add-question-btn" id="addQuestionToQuiz">+ Adicionar Questão</button>
+                    </div>
+                    <div class="quiz-questions-list" id="quizQuestionsList">
+                        <!-- Questões serão adicionadas aqui dinamicamente -->
+                    </div>
+                </div>
                 
-                // Esconder a tela de login
-                loginScreen.classList.add('hidden');
-                // Mostrar o painel administrativo
-                adminPanel.classList.remove('hidden');
-            });
-            
-            // Processar cadastro
-            registerForm.addEventListener('submit', function(e) {
-                e.preventDefault();
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" id="cancelQuiz">Cancelar</button>
+                    <button type="submit" class="save-btn">Salvar Quiz</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para criar/editar questão -->
+    <div id="questionModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3 id="questionModalTitle">Adicionar Questão</h3>
+                <span class="close-btn" id="closeQuestionModal">&times;</span>
+            </div>
+            <form id="questionForm">
+                <div class="form-group">
+                    <label for="questionText">Texto da Questão</label>
+                    <textarea id="questionText" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="questionCategory">Categoria</label>
+                    <select id="questionCategory">
+                        <option value="arquitetura">Arquitetura de Computadores</option>
+                        <option value="sistemas">Sistemas Numéricos</option>
+                        <option value="hardware">Hardware</option>
+                        <option value="software">Software</option>
+                        <option value="redes">Redes de Computadores</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="questionDifficulty">Dificuldade</label>
+                    <select id="questionDifficulty">
+                        <option value="easy">Fácil</option>
+                        <option value="medium">Médio</option>
+                        <option value="hard">Difícil</option>
+                    </select>
+                </div>
                 
-                const userType = userTypeSelect.value;
+                <div class="alternatives-section">
+                    <h4>Alternativas</h4>
+                    <div class="alternative-group">
+                        <label>
+                            <input type="radio" name="correctAlternative" value="0" required>
+                            <input type="text" class="alternative-input" placeholder="Alternativa A" required>
+                        </label>
+                    </div>
+                    <div class="alternative-group">
+                        <label>
+                            <input type="radio" name="correctAlternative" value="1" required>
+                            <input type="text" class="alternative-input" placeholder="Alternativa B" required>
+                        </label>
+                    </div>
+                    <div class="alternative-group">
+                        <label>
+                            <input type="radio" name="correctAlternative" value="2" required>
+                            <input type="text" class="alternative-input" placeholder="Alternativa C" required>
+                        </label>
+                    </div>
+                    <div class="alternative-group">
+                        <label>
+                            <input type="radio" name="correctAlternative" value="3" required>
+                            <input type="text" class="alternative-input" placeholder="Alternativa D" required>
+                        </label>
+                    </div>
+                    <div class="alternative-group">
+                        <label>
+                            <input type="radio" name="correctAlternative" value="4" required>
+                            <input type="text" class="alternative-input" placeholder="Alternativa E">
+                        </label>
+                    </div>
+                </div>
                 
-                // Se o usuário está se cadastrando como administrador
-                if (userType === 'admin') {
-                    // Marcar que já existe um administrador no sistema
-                    localStorage.setItem('adminExists', 'true');
-                    userTypeSelect.disabled = true;
-                }
-                
-                // Em uma aplicação real, aqui seria feito o cadastro no servidor
-                // Por simplicidade, vamos apenas alternar para a tela de login
-                
-                alert('Cadastro realizado com sucesso! Faça login para continuar.');
-                loginTab.click();
-            });
-            
-            // Processar logout
-            logoutBtn.addEventListener('click', function() {
-                // Mostrar a tela de login
-                loginScreen.classList.remove('hidden');
-                // Esconder o painel administrativo
-                adminPanel.classList.add('hidden');
-            });
-        });
-    </script>
+                <div class="modal-actions">
+                    <button type="button" class="cancel-btn" id="cancelQuestion">Cancelar</button>
+                    <button type="submit" class="save-btn">Salvar Questão</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para importar questões do banco -->
+    <div id="importModal" class="modal hidden">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3>Importar Questões do Banco</h3>
+                <span class="close-btn" id="closeImportModal">&times;</span>
+            </div>
+            <div class="import-filters">
+                <div class="form-group">
+                    <label for="filterCategory">Filtrar por Categoria</label>
+                    <select id="filterCategory">
+                        <option value="all">Todas as Categorias</option>
+                        <option value="arquitetura">Arquitetura de Computadores</option>
+                        <option value="sistemas">Sistemas Numéricos</option>
+                        <option value="hardware">Hardware</option>
+                        <option value="software">Software</option>
+                        <option value="redes">Redes de Computadores</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="filterDifficulty">Filtrar por Dificuldade</label>
+                    <select id="filterDifficulty">
+                        <option value="all">Todas as Dificuldades</option>
+                        <option value="easy">Fácil</option>
+                        <option value="medium">Médio</option>
+                        <option value="hard">Difícil</option>
+                    </select>
+                </div>
+            </div>
+            <div class="import-questions-list" id="importQuestionsList">
+                <!-- Lista de questões para importação -->
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="cancel-btn" id="cancelImport">Cancelar</button>
+                <button type="button" class="save-btn" id="confirmImport">Importar Selecionadas</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
 </body>
 </html>
