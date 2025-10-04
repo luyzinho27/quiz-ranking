@@ -171,7 +171,10 @@
                 <div class="questions-section">
                     <div class="section-header">
                         <h4>Questões do Quiz</h4>
-                        <button type="button" class="add-question-btn" id="addQuestionToQuiz">+ Adicionar Questão</button>
+                        <div>
+                            <button type="button" class="add-question-btn" id="addQuestionToQuiz">+ Adicionar Questão</button>
+                            <button type="button" class="action-btn import-btn" id="importToQuizBtn">Importar do Banco</button>
+                        </div>
                     </div>
                     <div class="quiz-questions-list" id="quizQuestionsList">
                         <!-- Questões serão adicionadas aqui dinamicamente -->
@@ -196,7 +199,7 @@
             <form id="questionForm">
                 <div class="form-group">
                     <label for="questionText">Texto da Questão</label>
-                    <textarea id="questionText" rows="3" required></textarea>
+                    <textarea id="questionText" rows="3" required placeholder="Digite o enunciado da questão..."></textarea>
                 </div>
                 <div class="form-group">
                     <label for="questionCategory">Categoria</label>
@@ -206,6 +209,7 @@
                         <option value="hardware">Hardware</option>
                         <option value="software">Software</option>
                         <option value="redes">Redes de Computadores</option>
+                        <option value="seguranca">Segurança da Informação</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -218,35 +222,40 @@
                 </div>
                 
                 <div class="alternatives-section">
-                    <h4>Alternativas</h4>
+                    <h4>Alternativas (Marque a correta)</h4>
                     <div class="alternative-group">
                         <label>
                             <input type="radio" name="correctAlternative" value="0" required>
-                            <input type="text" class="alternative-input" placeholder="Alternativa A" required>
+                            <span class="alternative-letter">A)</span>
+                            <input type="text" class="alternative-input" placeholder="Digite a alternativa A" required>
                         </label>
                     </div>
                     <div class="alternative-group">
                         <label>
                             <input type="radio" name="correctAlternative" value="1" required>
-                            <input type="text" class="alternative-input" placeholder="Alternativa B" required>
+                            <span class="alternative-letter">B)</span>
+                            <input type="text" class="alternative-input" placeholder="Digite a alternativa B" required>
                         </label>
                     </div>
                     <div class="alternative-group">
                         <label>
                             <input type="radio" name="correctAlternative" value="2" required>
-                            <input type="text" class="alternative-input" placeholder="Alternativa C" required>
+                            <span class="alternative-letter">C)</span>
+                            <input type="text" class="alternative-input" placeholder="Digite a alternativa C" required>
                         </label>
                     </div>
                     <div class="alternative-group">
                         <label>
                             <input type="radio" name="correctAlternative" value="3" required>
-                            <input type="text" class="alternative-input" placeholder="Alternativa D" required>
+                            <span class="alternative-letter">D)</span>
+                            <input type="text" class="alternative-input" placeholder="Digite a alternativa D" required>
                         </label>
                     </div>
                     <div class="alternative-group">
                         <label>
-                            <input type="radio" name="correctAlternative" value="4" required>
-                            <input type="text" class="alternative-input" placeholder="Alternativa E">
+                            <input type="radio" name="correctAlternative" value="4">
+                            <span class="alternative-letter">E)</span>
+                            <input type="text" class="alternative-input" placeholder="Digite a alternativa E (opcional)">
                         </label>
                     </div>
                 </div>
@@ -276,6 +285,7 @@
                         <option value="hardware">Hardware</option>
                         <option value="software">Software</option>
                         <option value="redes">Redes de Computadores</option>
+                        <option value="seguranca">Segurança da Informação</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -294,6 +304,54 @@
             <div class="modal-actions">
                 <button type="button" class="cancel-btn" id="cancelImport">Cancelar</button>
                 <button type="button" class="save-btn" id="confirmImport">Importar Selecionadas</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para visualizar questão -->
+    <div id="viewQuestionModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Detalhes da Questão</h3>
+                <span class="close-btn" id="closeViewModal">&times;</span>
+            </div>
+            <div class="question-details">
+                <div class="detail-group">
+                    <label>Texto da Questão:</label>
+                    <p id="viewQuestionText"></p>
+                </div>
+                <div class="detail-group">
+                    <label>Categoria:</label>
+                    <p id="viewQuestionCategory"></p>
+                </div>
+                <div class="detail-group">
+                    <label>Dificuldade:</label>
+                    <p id="viewQuestionDifficulty"></p>
+                </div>
+                <div class="detail-group">
+                    <label>Alternativas:</label>
+                    <div id="viewQuestionAlternatives" class="alternatives-list"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="cancel-btn" id="closeViewQuestion">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmação -->
+    <div id="confirmModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="confirmTitle">Confirmação</h3>
+                <span class="close-btn" id="closeConfirmModal">&times;</span>
+            </div>
+            <div class="confirm-message">
+                <p id="confirmMessage">Tem certeza que deseja realizar esta ação?</p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="cancel-btn" id="cancelConfirm">Cancelar</button>
+                <button type="button" class="save-btn" id="confirmAction">Confirmar</button>
             </div>
         </div>
     </div>
