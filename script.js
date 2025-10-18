@@ -1294,3 +1294,4 @@ function showQuizResult(quizId, score = null, percentage = null) {
             });
     }
 }
+
