@@ -3,472 +3,211 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz de Fundamentos da Informática</title>
+    <title>Quiz App</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <!-- Firebase App (core) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body>
-    <!-- Tela de Login (inicialmente visível) -->
-    <div id="loginScreen" class="login-container">
-        <div class="login-box">
-            <h1 class="login-title">Quiz de Fundamentos da Informática</h1>
-            <div class="login-tabs">
-                <div class="login-tab active" id="loginTab">Login</div>
-                <div class="login-tab" id="registerTab">Cadastro</div>
+    <!-- Tela de Login/Cadastro -->
+    <div id="auth-container" class="container">
+        <div class="auth-box">
+            <div class="tabs">
+                <button id="login-tab" class="tab active">Login</button>
+                <button id="register-tab" class="tab">Cadastro</button>
             </div>
             
             <!-- Formulário de Login -->
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="email">E-mail</label>
-                    <input type="email" id="email" placeholder="seu@email.com" required>
-                </div>
-                <div class="form-group">
-                    <label for="password">Senha</label>
-                    <input type="password" id="password" placeholder="••••••" required>
-                </div>
-                <button type="submit" class="login-btn">Entrar</button>
-            </form>
+            <div id="login-form" class="form active">
+                <h2>Login</h2>
+                <input type="email" id="login-email" placeholder="E-mail" required>
+                <input type="password" id="login-password" placeholder="Senha" required>
+                <button id="login-btn" class="btn">Entrar</button>
+                <p id="login-error" class="error-message"></p>
+            </div>
             
-            <!-- Formulário de Cadastro (inicialmente oculto) -->
-            <form id="registerForm" class="hidden">
-                <div class="form-group">
-                    <label for="regName">Nome Completo</label>
-                    <input type="text" id="regName" placeholder="Seu nome completo" required>
-                </div>
-                <div class="form-group">
-                    <label for="regEmail">E-mail</label>
-                    <input type="email" id="regEmail" placeholder="exemplo@email.com" required>
-                </div>
-                <div class="form-group">
-                    <label for="regPassword">Senha</label>
-                    <input type="password" id="regPassword" placeholder="••••••" required>
-                </div>
-                <div class="form-group">
-                    <label for="userType">Tipo de Usuário</label>
-                    <select id="userType">
-                        <option value="user">Usuário</option>
-                        <option value="admin">Administrador</option>
-                    </select>
-                </div>
-                <button type="submit" class="login-btn">Cadastrar</button>
-            </form>
+            <!-- Formulário de Cadastro -->
+            <div id="register-form" class="form">
+                <h2>Cadastro</h2>
+                <input type="text" id="register-name" placeholder="Nome completo" required>
+                <input type="email" id="register-email" placeholder="E-mail" required>
+                <input type="password" id="register-password" placeholder="Senha" required>
+                <select id="register-type">
+                    <option value="aluno">Aluno</option>
+                    <option value="admin" id="admin-option">Administrador</option>
+                </select>
+                <button id="register-btn" class="btn">Cadastrar</button>
+                <p id="register-error" class="error-message"></p>
+            </div>
         </div>
     </div>
 
-    <!-- Painel Administrativo (inicialmente oculto) -->
-    <div id="adminPanel" class="container hidden">
+    <!-- Dashboard do Aluno -->
+    <div id="student-dashboard" class="container hidden">
         <header>
-            <div class="header-content">
-                <div class="logo">Quiz de Fundamentos da Informática</div>
-                <div class="user-info">
-                    <span id="userNameDisplay">Usuário</span>
-                    <span id="userTypeBadge" class="user-type-badge"></span>
-                    <button class="logout-btn" id="logoutBtn">Sair</button>
-                </div>
+            <h1>Quiz App</h1>
+            <div class="user-info">
+                <span id="student-name"></span>
+                <button id="student-logout" class="btn btn-secondary">Sair</button>
             </div>
         </header>
-
-        <div class="main-content">
-            <nav class="sidebar">
-                <ul class="sidebar-menu">
-                    <li data-tab="users" class="sidebar-item admin-only">Usuários</li>
-                    <li data-tab="quizzes" class="sidebar-item active">Quizzes</li>
-                    <li data-tab="questions" class="sidebar-item admin-only">Banco de Questões</li>
-                    <li data-tab="play" class="sidebar-item user-only">Jogar Quiz</li>
-                    <li data-tab="results" class="sidebar-item user-only">Meus Resultados</li>
-                    <li data-tab="ranking" class="sidebar-item user-only">Ranking</li>
-                    <li data-tab="stats" class="sidebar-item">Estatísticas</li>
-                </ul>
-            </nav>
-
-            <main class="content">
-                <!-- Conteúdo de Usuários (Apenas Admin) -->
-                <div id="usersTab" class="tab-content hidden">
-                    <div class="content-header">
-                        <h2 class="content-title">Gerenciar Usuários</h2>
-                    </div>
-                    <div class="user-list" id="userList">
-                        <!-- Lista de usuários será preenchida via JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Conteúdo de Quizzes -->
-                <div id="quizzesTab" class="tab-content">
-                    <div class="content-header">
-                        <h2 class="content-title" id="quizzesTitle">Gerenciar Quizzes</h2>
-                        <button class="create-quiz-btn admin-only" id="createQuizBtn">Criar Quiz</button>
-                    </div>
-                    <div class="quiz-list" id="quizList">
-                        <!-- Lista de quizzes será preenchida via JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Conteúdo do Banco de Questões (Apenas Admin) -->
-                <div id="questionsTab" class="tab-content hidden">
-                    <div class="content-header">
-                        <h2 class="content-title">Banco de Questões</h2>
-                        <button class="create-quiz-btn admin-only" id="addQuestionBtn">Adicionar Questão</button>
-                    </div>
-                    <div class="questions-actions admin-only">
-                        <button class="action-btn import-btn" id="importQuestionsBtn">Importar do Banco</button>
-                        <button class="action-btn export-btn" id="exportQuestionsBtn">Exportar para Banco</button>
-                    </div>
-                    <div class="questions-list" id="questionsList">
-                        <!-- Lista de questões será preenchida via JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Conteúdo de Jogar Quiz (Apenas Usuário) -->
-                <div id="playTab" class="tab-content hidden">
-                    <div class="content-header">
-                        <h2 class="content-title">Escolher Quiz para Jogar</h2>
-                    </div>
-                    <div class="quiz-play-list" id="quizPlayList">
-                        <!-- Lista de quizzes para jogar será preenchida via JavaScript -->
-                    </div>
-                </div>
-
-                <!-- Conteúdo de Resultados (Apenas Usuário) -->
-                <div id="resultsTab" class="tab-content hidden">
-                    <div class="content-header">
-                        <h2 class="content-title">Meus Resultados</h2>
-                    </div>
-                    <div class="results-container" id="resultsContainer">
-                        <div class="no-results" id="noResults">
-                            <p>Você ainda não completou nenhum quiz.</p>
-                            <button class="action-btn play-btn" onclick="quizSystem.switchContentTab('play')">Jogar Agora</button>
-                        </div>
-                        <div class="results-list hidden" id="resultsList">
-                            <!-- Lista de resultados será preenchida via JavaScript -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Conteúdo de Ranking (Apenas Usuário) -->
-                <div id="rankingTab" class="tab-content hidden">
-                    <div class="content-header">
-                        <h2 class="content-title">Ranking Geral</h2>
-                    </div>
-                    <div class="ranking-container">
-                        <div class="ranking-filters">
-                            <div class="form-group">
-                                <label for="rankingQuiz">Filtrar por Quiz:</label>
-                                <select id="rankingQuiz">
-                                    <option value="all">Todos os Quizzes</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="ranking-list" id="rankingList">
-                            <!-- Ranking será preenchido via JavaScript -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Conteúdo de Estatísticas -->
-                <div id="statsTab" class="tab-content hidden">
-                    <div class="content-header">
-                        <h2 class="content-title">Estatísticas do Sistema</h2>
-                    </div>
-                    <div class="stats-container">
-                        <div class="stat-card">
-                            <h3>Total de Usuários</h3>
-                            <p id="totalUsers">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h3>Total de Quizzes</h3>
-                            <p id="totalQuizzes">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h3>Quizzes Ativos</h3>
-                            <p id="activeQuizzes">0</p>
-                        </div>
-                        <div class="stat-card">
-                            <h3>Total de Questões</h3>
-                            <p id="totalQuestions">0</p>
-                        </div>
-                        <div class="stat-card user-only">
-                            <h3>Meus Quizzes Completos</h3>
-                            <p id="userCompletedQuizzes">0</p>
-                        </div>
-                        <div class="stat-card user-only">
-                            <h3>Minha Pontuação Total</h3>
-                            <p id="userTotalScore">0</p>
-                        </div>
-                    </div>
-                </div>
-            </main>
+        
+        <div class="tabs">
+            <button id="quizzes-tab" class="tab active">Quizzes</button>
+            <button id="ranking-tab" class="tab">Ranking</button>
+        </div>
+        
+        <!-- Lista de Quizzes -->
+        <div id="quizzes-section" class="section active">
+            <h2>Quizzes Disponíveis</h2>
+            <div id="quizzes-list"></div>
+        </div>
+        
+        <!-- Ranking -->
+        <div id="ranking-section" class="section">
+            <h2>Ranking</h2>
+            <div id="ranking-list"></div>
         </div>
     </div>
 
-    <!-- Modal para criar/editar quiz -->
-    <div id="quizModal" class="modal hidden">
-        <div class="modal-content large-modal">
-            <div class="modal-header">
-                <h3 id="modalTitle">Criar Novo Quiz</h3>
-                <span class="close-btn" id="closeModal">&times;</span>
+    <!-- Dashboard do Administrador -->
+    <div id="admin-dashboard" class="container hidden">
+        <header>
+            <h1>Painel do Administrador</h1>
+            <div class="user-info">
+                <span id="admin-name"></span>
+                <button id="admin-logout" class="btn btn-secondary">Sair</button>
             </div>
-            <form id="quizForm">
-                <div class="form-group">
-                    <label for="quizTitle">Título do Quiz</label>
-                    <input type="text" id="quizTitle" required>
-                </div>
-                <div class="form-group">
-                    <label for="quizDescription">Descrição</label>
-                    <textarea id="quizDescription" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="quizStatus">Status</label>
-                    <select id="quizStatus">
-                        <option value="active">Ativo</option>
-                        <option value="inactive">Inativo</option>
-                    </select>
-                </div>
-                
-                <!-- Seção de questões do quiz -->
-                <div class="questions-section">
-                    <div class="section-header">
-                        <h4>Questões do Quiz</h4>
-                        <div>
-                            <button type="button" class="add-question-btn" id="addQuestionToQuiz">+ Adicionar Questão</button>
-                            <button type="button" class="action-btn import-btn" id="importToQuizBtn">Importar do Banco</button>
-                        </div>
-                    </div>
-                    <div class="quiz-questions-list" id="quizQuestionsList">
-                        <!-- Questões serão adicionadas aqui dinamicamente -->
-                    </div>
-                </div>
-                
-                <div class="modal-actions">
-                    <button type="button" class="cancel-btn" id="cancelQuiz">Cancelar</button>
-                    <button type="submit" class="save-btn">Salvar Quiz</button>
-                </div>
+        </header>
+        
+        <div class="tabs">
+            <button id="manage-quizzes-tab" class="tab active">Gerenciar Quizzes</button>
+            <button id="manage-questions-tab" class="tab">Gerenciar Questões</button>
+            <button id="manage-users-tab" class="tab">Gerenciar Usuários</button>
+        </div>
+        
+        <!-- Gerenciar Quizzes -->
+        <div id="manage-quizzes-section" class="section active">
+            <h2>Gerenciar Quizzes</h2>
+            <button id="create-quiz-btn" class="btn">Criar Novo Quiz</button>
+            <div id="quizzes-admin-list"></div>
+        </div>
+        
+        <!-- Gerenciar Questões -->
+        <div id="manage-questions-section" class="section">
+            <h2>Gerenciar Questões</h2>
+            <div class="question-actions">
+                <button id="add-question-btn" class="btn">Adicionar Questão Manualmente</button>
+                <input type="file" id="json-file" accept=".json" style="display: none;">
+                <button id="import-json-btn" class="btn btn-secondary">Importar de JSON</button>
+            </div>
+            <div id="questions-list"></div>
+        </div>
+        
+        <!-- Gerenciar Usuários -->
+        <div id="manage-users-section" class="section">
+            <h2>Gerenciar Usuários</h2>
+            <div id="users-list"></div>
+        </div>
+    </div>
+
+    <!-- Modal para Criar/Editar Quiz -->
+    <div id="quiz-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="quiz-modal-title">Criar Quiz</h2>
+            <form id="quiz-form">
+                <input type="text" id="quiz-title" placeholder="Título do Quiz" required>
+                <textarea id="quiz-description" placeholder="Descrição"></textarea>
+                <input type="number" id="quiz-time" placeholder="Tempo em minutos" min="1" required>
+                <input type="number" id="quiz-questions-count" placeholder="Número de questões" min="1" required>
+                <select id="quiz-status">
+                    <option value="active">Ativo</option>
+                    <option value="inactive">Inativo</option>
+                </select>
+                <button type="submit" class="btn">Salvar Quiz</button>
             </form>
         </div>
     </div>
 
-    <!-- Modal para criar/editar questão -->
-    <div id="questionModal" class="modal hidden">
-        <div class="modal-content large-modal">
-            <div class="modal-header">
-                <h3 id="questionModalTitle">Adicionar Questão</h3>
-                <span class="close-btn" id="closeQuestionModal">&times;</span>
-            </div>
-            <form id="questionForm">
-                <div class="form-group">
-                    <label for="questionText">Texto da Questão</label>
-                    <textarea id="questionText" rows="3" required placeholder="Digite o enunciado da questão..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="questionCategory">Categoria</label>
-                    <select id="questionCategory">
-                        <option value="arquitetura">Arquitetura de Computadores</option>
-                        <option value="sistemas">Sistemas Numéricos</option>
-                        <option value="hardware">Hardware</option>
-                        <option value="software">Software</option>
-                        <option value="redes">Redes de Computadores</option>
-                        <option value="seguranca">Segurança da Informação</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="questionDifficulty">Dificuldade</label>
-                    <select id="questionDifficulty">
-                        <option value="easy">Fácil</option>
-                        <option value="medium">Médio</option>
-                        <option value="hard">Difícil</option>
-                    </select>
-                </div>
-                
-                <div class="alternatives-section">
-                    <h4>Alternativas (Marque a correta)</h4>
-                    <div class="alternative-group">
-                        <label>
-                            <input type="radio" name="correctAlternative" value="0" required>
-                            <span class="alternative-letter">A)</span>
-                            <input type="text" class="alternative-input" placeholder="Digite a alternativa A" required>
-                        </label>
-                    </div>
-                    <div class="alternative-group">
-                        <label>
-                            <input type="radio" name="correctAlternative" value="1" required>
-                            <span class="alternative-letter">B)</span>
-                            <input type="text" class="alternative-input" placeholder="Digite a alternativa B" required>
-                        </label>
-                    </div>
-                    <div class="alternative-group">
-                        <label>
-                            <input type="radio" name="correctAlternative" value="2" required>
-                            <span class="alternative-letter">C)</span>
-                            <input type="text" class="alternative-input" placeholder="Digite a alternativa C" required>
-                        </label>
-                    </div>
-                    <div class="alternative-group">
-                        <label>
-                            <input type="radio" name="correctAlternative" value="3" required>
-                            <span class="alternative-letter">D)</span>
-                            <input type="text" class="alternative-input" placeholder="Digite a alternativa D" required>
-                        </label>
-                    </div>
-                    <div class="alternative-group">
-                        <label>
-                            <input type="radio" name="correctAlternative" value="4">
-                            <span class="alternative-letter">E)</span>
-                            <input type="text" class="alternative-input" placeholder="Digite a alternativa E (opcional)">
-                        </label>
-                    </div>
-                </div>
-                
-                <div class="modal-actions">
-                    <button type="button" class="cancel-btn" id="cancelQuestion">Cancelar</button>
-                    <button type="submit" class="save-btn">Salvar Questão</button>
-                </div>
+    <!-- Modal para Adicionar/Editar Questão -->
+    <div id="question-modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="question-modal-title">Adicionar Questão</h2>
+            <form id="question-form">
+                <input type="text" id="question-text" placeholder="Texto da questão" required>
+                <input type="text" id="option-a" placeholder="Opção A" required>
+                <input type="text" id="option-b" placeholder="Opção B" required>
+                <input type="text" id="option-c" placeholder="Opção C" required>
+                <input type="text" id="option-d" placeholder="Opção D" required>
+                <select id="correct-answer" required>
+                    <option value="">Selecione a resposta correta</option>
+                    <option value="a">A</option>
+                    <option value="b">B</option>
+                    <option value="c">C</option>
+                    <option value="d">D</option>
+                </select>
+                <input type="text" id="question-category" placeholder="Categoria">
+                <button type="submit" class="btn">Salvar Questão</button>
             </form>
         </div>
     </div>
 
-    <!-- Modal para importar questões do banco -->
-    <div id="importModal" class="modal hidden">
-        <div class="modal-content large-modal">
-            <div class="modal-header">
-                <h3>Importar Questões do Banco</h3>
-                <span class="close-btn" id="closeImportModal">&times;</span>
+    <!-- Tela do Quiz -->
+    <div id="quiz-container" class="container hidden">
+        <header>
+            <h1 id="quiz-title-display"></h1>
+            <div class="quiz-info">
+                <span id="quiz-timer">Tempo: 00:00</span>
+                <span id="quiz-progress">Questão 0/0</span>
             </div>
-            <div class="import-filters">
-                <div class="form-group">
-                    <label for="filterCategory">Filtrar por Categoria</label>
-                    <select id="filterCategory">
-                        <option value="all">Todas as Categorias</option>
-                        <option value="arquitetura">Arquitetura de Computadores</option>
-                        <option value="sistemas">Sistemas Numéricos</option>
-                        <option value="hardware">Hardware</option>
-                        <option value="software">Software</option>
-                        <option value="redes">Redes de Computadores</option>
-                        <option value="seguranca">Segurança da Informação</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="filterDifficulty">Filtrar por Dificuldade</label>
-                    <select id="filterDifficulty">
-                        <option value="all">Todas as Dificuldades</option>
-                        <option value="easy">Fácil</option>
-                        <option value="medium">Médio</option>
-                        <option value="hard">Difícil</option>
-                    </select>
-                </div>
-            </div>
-            <div class="import-questions-list" id="importQuestionsList">
-                <!-- Lista de questões para importação -->
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="cancel-btn" id="cancelImport">Cancelar</button>
-                <button type="button" class="save-btn" id="confirmImport">Importar Selecionadas</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal para visualizar questão -->
-    <div id="viewQuestionModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Detalhes da Questão</h3>
-                <span class="close-btn" id="closeViewModal">&times;</span>
-            </div>
-            <div class="question-details">
-                <div class="detail-group">
-                    <label>Texto da Questão:</label>
-                    <p id="viewQuestionText"></p>
-                </div>
-                <div class="detail-group">
-                    <label>Categoria:</label>
-                    <p id="viewQuestionCategory"></p>
-                </div>
-                <div class="detail-group">
-                    <label>Dificuldade:</label>
-                    <p id="viewQuestionDifficulty"></p>
-                </div>
-                <div class="detail-group">
-                    <label>Alternativas:</label>
-                    <div id="viewQuestionAlternatives" class="alternatives-list"></div>
-                </div>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="cancel-btn" id="closeViewQuestion">Fechar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal de confirmação -->
-    <div id="confirmModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="confirmTitle">Confirmação</h3>
-                <span class="close-btn" id="closeConfirmModal">&times;</span>
-            </div>
-            <div class="confirm-message">
-                <p id="confirmMessage">Tem certeza que deseja realizar esta ação?</p>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="cancel-btn" id="cancelConfirm">Cancelar</button>
-                <button type="button" class="save-btn" id="confirmAction">Confirmar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal do Quiz em Andamento -->
-    <div id="quizPlayModal" class="modal hidden">
-        <div class="modal-content large-modal">
-            <div class="modal-header">
-                <h3 id="quizPlayTitle">Quiz em Andamento</h3>
-                <div class="quiz-progress">
-                    <span id="currentQuestion">1</span> de <span id="totalQuestionsCount">0</span>
-                </div>
-            </div>
-            <div class="quiz-play-content">
-                <div class="question-container">
-                    <h4 id="playQuestionText"></h4>
-                    <div class="alternatives-play-container" id="alternativesPlayContainer">
-                        <!-- Alternativas serão preenchidas via JavaScript -->
+        </header>
+        
+        <div id="quiz-content">
+            <div id="question-container">
+                <h2 id="question-text"></h2>
+                <div id="options-container">
+                    <div class="option" data-value="a">
+                        <span class="option-letter">A</span>
+                        <span id="option-a-text"></span>
+                    </div>
+                    <div class="option" data-value="b">
+                        <span class="option-letter">B</span>
+                        <span id="option-b-text"></span>
+                    </div>
+                    <div class="option" data-value="c">
+                        <span class="option-letter">C</span>
+                        <span id="option-c-text"></span>
+                    </div>
+                    <div class="option" data-value="d">
+                        <span class="option-letter">D</span>
+                        <span id="option-d-text"></span>
                     </div>
                 </div>
-                <div class="quiz-play-actions">
-                    <button class="cancel-btn" id="cancelQuizPlay">Cancelar</button>
-                    <button class="save-btn hidden" id="nextQuestion">Próxima Questão</button>
-                    <button class="save-btn hidden" id="finishQuiz">Finalizar Quiz</button>
-                </div>
+            </div>
+            
+            <div class="quiz-controls">
+                <button id="prev-question" class="btn btn-secondary">Anterior</button>
+                <button id="next-question" class="btn">Próxima</button>
+                <button id="finish-quiz" class="btn btn-primary">Finalizar Quiz</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Resultado do Quiz -->
-    <div id="quizResultModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Resultado do Quiz</h3>
-                <span class="close-btn" id="closeResultModal">&times;</span>
-            </div>
-            <div class="quiz-result-content">
-                <div class="result-score">
-                    <h4 id="resultScore">0/0</h4>
-                    <p id="resultPercentage">0%</p>
-                </div>
-                <div class="result-details">
-                    <p><strong>Quiz:</strong> <span id="resultQuizName"></span></p>
-                    <p><strong>Data:</strong> <span id="resultDate"></span></p>
-                    <p><strong>Tempo:</strong> <span id="resultTime"></span></p>
-                </div>
-                <div class="result-actions">
-                    <button class="cancel-btn" id="viewQuizDetails">Ver Detalhes</button>
-                    <button class="save-btn" id="playAgain">Jogar Novamente</button>
-                </div>
-            </div>
+    <!-- Resultado do Quiz -->
+    <div id="quiz-result" class="container hidden">
+        <div class="result-box">
+            <h2>Resultado do Quiz</h2>
+            <div id="score-display"></div>
+            <button id="back-to-dashboard" class="btn">Voltar ao Dashboard</button>
         </div>
     </div>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+
     <script src="script.js"></script>
 </body>
 </html>
