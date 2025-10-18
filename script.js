@@ -15,1246 +15,1282 @@ const firebaseConfig = {
 
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
 const auth = firebase.auth();
+const db = firebase.firestore();
 
-// Sistema de Gerenciamento de Quiz com Firebase
-class QuizSystem {
-    constructor() {
-        this.currentUser = null;
-        this.users = [];
-        this.quizzes = [];
-        this.questionsBank = [];
-        this.currentEditingQuiz = null;
-        this.currentEditingQuestion = null;
-        this.quizQuestions = [];
-        this.pendingAction = null;
-        this.unsubscribeCallbacks = [];
-        
-        this.init();
-    }
+// Estado da aplicação
+let currentUser = null;
+let currentQuiz = null;
+let currentQuestions = [];
+let currentQuestionIndex = 0;
+let userAnswers = [];
+let quizTimer = null;
+let timeRemaining = 0;
+
+// Elementos da DOM
+const authContainer = document.getElementById('auth-container');
+const studentDashboard = document.getElementById('student-dashboard');
+const adminDashboard = document.getElementById('admin-dashboard');
+const quizContainer = document.getElementById('quiz-container');
+const quizResult = document.getElementById('quiz-result');
+
+// Inicializar a aplicação
+document.addEventListener('DOMContentLoaded', function() {
+    initAuth();
+    initEventListeners();
     
-    init() {
-        this.bindEvents();
-        this.initAuthStateListener();
-    }
-    
-    initAuthStateListener() {
-        auth.onAuthStateChanged((user) => {
-            if (user) {
-                // Usuário está logado
-                this.currentUser = {
-                    uid: user.uid,
-                    email: user.email,
-                    name: user.displayName || user.email.split('@')[0],
-                    type: 'user' // Tipo padrão, será atualizado após buscar do Firestore
-                };
-                this.loadUserData(user.uid);
-            } else {
-                // Usuário não está logado
-                this.currentUser = null;
-                this.showLoginScreen();
-            }
-        });
-    }
-    
-    async loadUserData(userId) {
-        try {
-            // Buscar dados do usuário no Firestore
-            const userDoc = await db.collection('users').doc(userId).get();
-            
-            if (userDoc.exists) {
-                const userData = userDoc.data();
-                this.currentUser = {
-                    ...this.currentUser,
-                    ...userData
-                };
-            } else {
-                // Se não existir, criar documento do usuário
-                await db.collection('users').doc(userId).set({
-                    name: this.currentUser.name,
-                    email: this.currentUser.email,
-                    type: 'user',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-            
-            this.showAdminPanel();
-            this.loadAllData();
-        } catch (error) {
-            console.error('Erro ao carregar dados do usuário:', error);
-            alert('Erro ao carregar dados do usuário');
-        }
-    }
-    
-    async loadAllData() {
-        if (!this.currentUser) return;
-        
-        try {
-            // Carregar usuários (apenas para administradores)
-            if (this.currentUser.type === 'admin') {
-                await this.loadUsers();
-            }
-            
-            // Carregar quizzes
-            await this.loadQuizzes();
-            
-            // Carregar banco de questões (apenas para administradores)
-            if (this.currentUser.type === 'admin') {
-                await this.loadQuestionsBank();
-            }
-            
-            this.updateStats();
-        } catch (error) {
-            console.error('Erro ao carregar dados:', error);
-        }
-    }
-    
-    async loadUsers() {
-        return new Promise((resolve, reject) => {
-            const unsubscribe = db.collection('users')
-                .orderBy('createdAt', 'desc')
-                .onSnapshot((snapshot) => {
-                    this.users = [];
-                    snapshot.forEach((doc) => {
-                        this.users.push({
-                            id: doc.id,
-                            ...doc.data()
-                        });
-                    });
-                    this.renderUsers();
-                    resolve();
-                }, reject);
-            
-            this.unsubscribeCallbacks.push(unsubscribe);
-        });
-    }
-    
-    async loadQuizzes() {
-        return new Promise((resolve, reject) => {
-            const unsubscribe = db.collection('quizzes')
-                .orderBy('createdAt', 'desc')
-                .onSnapshot((snapshot) => {
-                    this.quizzes = [];
-                    snapshot.forEach((doc) => {
-                        this.quizzes.push({
-                            id: doc.id,
-                            ...doc.data()
-                        });
-                    });
-                    this.renderQuizzes();
-                    resolve();
-                }, reject);
-            
-            this.unsubscribeCallbacks.push(unsubscribe);
-        });
-    }
-    
-    async loadQuestionsBank() {
-        return new Promise((resolve, reject) => {
-            const unsubscribe = db.collection('questionsBank')
-                .orderBy('createdAt', 'desc')
-                .onSnapshot((snapshot) => {
-                    this.questionsBank = [];
-                    snapshot.forEach((doc) => {
-                        this.questionsBank.push({
-                            id: doc.id,
-                            ...doc.data()
-                        });
-                    });
-                    
-                    // Se não houver questões, carregar as padrões
-                    if (this.questionsBank.length === 0) {
-                        this.loadDefaultQuestions();
-                    } else {
-                        this.renderQuestionsBank();
-                    }
-                    resolve();
-                }, reject);
-            
-            this.unsubscribeCallbacks.push(unsubscribe);
-        });
-    }
-    
-    async loadDefaultQuestions() {
-        const defaultQuestions = [
-            {
-                text: "Quem é considerado o pai da Arquitetura de Von Neumann?",
-                category: "arquitetura",
-                difficulty: "easy",
-                alternatives: [
-                    "John Von Neumann",
-                    "Alan Turing",
-                    "Charles Babbage",
-                    "Bill Gates",
-                    "Steve Jobs"
-                ],
-                correctAlternative: 0,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            },
-            {
-                text: "Qual é a base do sistema binário?",
-                category: "sistemas",
-                difficulty: "easy",
-                alternatives: [
-                    "2",
-                    "8",
-                    "10",
-                    "16",
-                    "64"
-                ],
-                correctAlternative: 0,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            },
-            {
-                text: "Qual componente é conhecido como o 'cérebro' do computador?",
-                category: "hardware",
-                difficulty: "easy",
-                alternatives: [
-                    "Processador (CPU)",
-                    "Memória RAM",
-                    "Disco Rígido",
-                    "Placa-mãe",
-                    "Placa de vídeo"
-                ],
-                correctAlternative: 0,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            },
-            {
-                text: "Qual destes NÃO é um sistema operacional?",
-                category: "software",
-                difficulty: "medium",
-                alternatives: [
-                    "Microsoft Word",
-                    "Windows",
-                    "Linux",
-                    "macOS",
-                    "Android"
-                ],
-                correctAlternative: 0,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            },
-            {
-                text: "O que significa a sigla 'HTTP'?",
-                category: "redes",
-                difficulty: "medium",
-                alternatives: [
-                    "HyperText Transfer Protocol",
-                    "High Tech Transfer Process",
-                    "Hyper Transfer Text Protocol",
-                    "High Transfer Text Process",
-                    "Hyper Tech Transfer Protocol"
-                ],
-                correctAlternative: 0,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }
-        ];
-        
-        try {
-            const batch = db.batch();
-            defaultQuestions.forEach(question => {
-                const docRef = db.collection('questionsBank').doc();
-                batch.set(docRef, question);
+    // Verificar se há um usuário logado
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            // Usuário está logado
+            getUserData(user.uid).then(userData => {
+                currentUser = { ...user, ...userData };
+                showDashboard();
             });
-            await batch.commit();
-        } catch (error) {
-            console.error('Erro ao carregar questões padrão:', error);
-        }
-    }
-    
-    bindEvents() {
-        // Login/Register
-        document.getElementById('loginTab').addEventListener('click', () => this.switchTab('login'));
-        document.getElementById('registerTab').addEventListener('click', () => this.switchTab('register'));
-        document.getElementById('loginForm').addEventListener('submit', (e) => this.handleLogin(e));
-        document.getElementById('registerForm').addEventListener('submit', (e) => this.handleRegister(e));
-        document.getElementById('logoutBtn').addEventListener('click', () => this.handleLogout());
-        
-        // Sidebar navigation
-        document.querySelectorAll('.sidebar-item').forEach(item => {
-            item.addEventListener('click', (e) => this.switchContentTab(e.target.dataset.tab));
-        });
-        
-        // Quiz management
-        document.getElementById('createQuizBtn').addEventListener('click', () => this.openQuizModal());
-        document.getElementById('quizForm').addEventListener('submit', (e) => this.saveQuiz(e));
-        document.getElementById('closeModal').addEventListener('click', () => this.closeQuizModal());
-        document.getElementById('cancelQuiz').addEventListener('click', () => this.closeQuizModal());
-        document.getElementById('addQuestionToQuiz').addEventListener('click', () => this.openQuestionModal());
-        document.getElementById('importToQuizBtn').addEventListener('click', () => this.openImportModal());
-        
-        // Question management
-        document.getElementById('addQuestionBtn').addEventListener('click', () => this.openQuestionModal(null, true));
-        document.getElementById('questionForm').addEventListener('submit', (e) => this.saveQuestion(e));
-        document.getElementById('closeQuestionModal').addEventListener('click', () => this.closeQuestionModal());
-        document.getElementById('cancelQuestion').addEventListener('click', () => this.closeQuestionModal());
-        
-        // Import/Export
-        document.getElementById('importQuestionsBtn').addEventListener('click', () => this.openImportModal(true));
-        document.getElementById('exportQuestionsBtn').addEventListener('click', () => this.exportToBank());
-        document.getElementById('closeImportModal').addEventListener('click', () => this.closeImportModal());
-        document.getElementById('cancelImport').addEventListener('click', () => this.closeImportModal());
-        document.getElementById('confirmImport').addEventListener('click', () => this.importQuestions());
-        
-        // View question modal
-        document.getElementById('closeViewModal').addEventListener('click', () => this.closeViewQuestionModal());
-        document.getElementById('closeViewQuestion').addEventListener('click', () => this.closeViewQuestionModal());
-        
-        // Confirmation modal
-        document.getElementById('closeConfirmModal').addEventListener('click', () => this.closeConfirmModal());
-        document.getElementById('cancelConfirm').addEventListener('click', () => this.closeConfirmModal());
-        document.getElementById('confirmAction').addEventListener('click', () => this.executePendingAction());
-        
-        // Filtros de importação
-        document.getElementById('filterCategory').addEventListener('change', () => this.renderImportQuestions());
-        document.getElementById('filterDifficulty').addEventListener('change', () => this.renderImportQuestions());
-        
-        // Modal backdrops
-        document.getElementById('quizModal').addEventListener('click', (e) => {
-            if (e.target.id === 'quizModal') this.closeQuizModal();
-        });
-        document.getElementById('questionModal').addEventListener('click', (e) => {
-            if (e.target.id === 'questionModal') this.closeQuestionModal();
-        });
-        document.getElementById('importModal').addEventListener('click', (e) => {
-            if (e.target.id === 'importModal') this.closeImportModal();
-        });
-        document.getElementById('viewQuestionModal').addEventListener('click', (e) => {
-            if (e.target.id === 'viewQuestionModal') this.closeViewQuestionModal();
-        });
-        document.getElementById('confirmModal').addEventListener('click', (e) => {
-            if (e.target.id === 'confirmModal') this.closeConfirmModal();
-        });
-    }
-    
-    switchTab(tab) {
-        const loginTab = document.getElementById('loginTab');
-        const registerTab = document.getElementById('registerTab');
-        const loginForm = document.getElementById('loginForm');
-        const registerForm = document.getElementById('registerForm');
-        
-        if (tab === 'login') {
-            loginTab.classList.add('active');
-            registerTab.classList.remove('active');
-            loginForm.classList.remove('hidden');
-            registerForm.classList.add('hidden');
         } else {
-            registerTab.classList.add('active');
-            loginTab.classList.remove('active');
-            registerForm.classList.remove('hidden');
-            loginForm.classList.add('hidden');
+            // Nenhum usuário logado
+            showAuth();
         }
-    }
+    });
+});
+
+// Inicializar autenticação
+function initAuth() {
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const loginBtn = document.getElementById('login-btn');
+    const registerBtn = document.getElementById('register-btn');
+    const adminOption = document.getElementById('admin-option');
     
-    async checkAdminExists() {
-        try {
-            const adminQuery = await db.collection('users')
-                .where('type', '==', 'admin')
-                .limit(1)
-                .get();
-            
-            const adminExists = !adminQuery.empty;
-            const userTypeSelect = document.getElementById('userType');
-            
-            if (adminExists) {
-                userTypeSelect.disabled = true;
-                const adminOption = userTypeSelect.querySelector('option[value="admin"]');
-                if (adminOption) {
+    // Alternar entre login e cadastro
+    loginTab.addEventListener('click', () => {
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+        loginForm.classList.add('active');
+        registerForm.classList.remove('active');
+    });
+    
+    registerTab.addEventListener('click', () => {
+        registerTab.classList.add('active');
+        loginTab.classList.remove('active');
+        registerForm.classList.add('active');
+        loginForm.classList.remove('active');
+    });
+    
+    // Login
+    loginBtn.addEventListener('click', () => {
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!email || !password) {
+            showError('login-error', 'Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        auth.signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                // Login bem-sucedido
+                document.getElementById('login-error').textContent = '';
+            })
+            .catch((error) => {
+                showError('login-error', 'E-mail ou senha incorretos.');
+            });
+    });
+    
+    // Cadastro
+    registerBtn.addEventListener('click', () => {
+        const name = document.getElementById('register-name').value;
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+        const userType = document.getElementById('register-type').value;
+        
+        if (!name || !email || !password) {
+            showError('register-error', 'Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        // Verificar se já existe um administrador
+        if (userType === 'admin') {
+            checkAdminExists().then(adminExists => {
+                if (adminExists) {
+                    showError('register-error', 'Já existe um administrador cadastrado.');
                     adminOption.disabled = true;
-                    userTypeSelect.value = 'user';
+                    return;
+                } else {
+                    registerUser(name, email, password, userType);
                 }
-            }
-        } catch (error) {
-            console.error('Erro ao verificar administrador:', error);
+            });
+        } else {
+            registerUser(name, email, password, userType);
         }
-    }
+    });
     
-    async handleLogin(e) {
-        e.preventDefault();
-        
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        
-        try {
-            const userCredential = await auth.signInWithEmailAndPassword(email, password);
-            // O onAuthStateChanged irá tratar o restante
-        } catch (error) {
-            console.error('Erro no login:', error);
-            let errorMessage = 'Erro ao fazer login. ';
-            
-            switch (error.code) {
-                case 'auth/user-not-found':
-                    errorMessage += 'Usuário não encontrado.';
-                    break;
-                case 'auth/wrong-password':
-                    errorMessage += 'Senha incorreta.';
-                    break;
-                case 'auth/invalid-email':
-                    errorMessage += 'E-mail inválido.';
-                    break;
-                default:
-                    errorMessage += 'Tente novamente.';
-            }
-            
-            alert(errorMessage);
+    // Verificar se já existe um administrador
+    checkAdminExists().then(adminExists => {
+        if (adminExists) {
+            adminOption.disabled = true;
         }
-    }
+    });
+}
+
+// Registrar novo usuário
+function registerUser(name, email, password, userType) {
+    auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            const user = userCredential.user;
+            
+            // Salvar dados adicionais do usuário no Firestore
+            return db.collection('users').doc(user.uid).set({
+                name: name,
+                email: email,
+                userType: userType,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        })
+        .then(() => {
+            document.getElementById('register-error').textContent = '';
+            // Mudar para a aba de login após cadastro bem-sucedido
+            document.getElementById('login-tab').click();
+        })
+        .catch((error) => {
+            showError('register-error', 'Erro ao cadastrar: ' + error.message);
+        });
+}
+
+// Verificar se já existe um administrador
+function checkAdminExists() {
+    return db.collection('users')
+        .where('userType', '==', 'admin')
+        .get()
+        .then(querySnapshot => {
+            return !querySnapshot.empty;
+        });
+}
+
+// Obter dados do usuário
+function getUserData(uid) {
+    return db.collection('users').doc(uid).get()
+        .then(doc => {
+            if (doc.exists) {
+                return doc.data();
+            } else {
+                throw new Error('Usuário não encontrado');
+            }
+        });
+}
+
+// Inicializar event listeners
+function initEventListeners() {
+    // Logout
+    document.getElementById('student-logout').addEventListener('click', logout);
+    document.getElementById('admin-logout').addEventListener('click', logout);
     
-    async handleRegister(e) {
+    // Navegação entre abas
+    initTabNavigation();
+    
+    // Modal de quiz
+    initQuizModal();
+    
+    // Modal de questão
+    initQuestionModal();
+    
+    // Controles do quiz
+    initQuizControls();
+}
+
+// Inicializar navegação por abas
+function initTabNavigation() {
+    // Abas do aluno
+    document.getElementById('quizzes-tab').addEventListener('click', () => {
+        switchTab('quizzes-tab', 'quizzes-section');
+        loadQuizzes();
+    });
+    
+    document.getElementById('ranking-tab').addEventListener('click', () => {
+        switchTab('ranking-tab', 'ranking-section');
+        loadRanking();
+    });
+    
+    // Abas do administrador
+    document.getElementById('manage-quizzes-tab').addEventListener('click', () => {
+        switchTab('manage-quizzes-tab', 'manage-quizzes-section');
+        loadQuizzesAdmin();
+    });
+    
+    document.getElementById('manage-questions-tab').addEventListener('click', () => {
+        switchTab('manage-questions-tab', 'manage-questions-section');
+        loadQuestions();
+    });
+    
+    document.getElementById('manage-users-tab').addEventListener('click', () => {
+        switchTab('manage-users-tab', 'manage-users-section');
+        loadUsers();
+    });
+    
+    // Botões de ação
+    document.getElementById('create-quiz-btn').addEventListener('click', () => {
+        openQuizModal();
+    });
+    
+    document.getElementById('add-question-btn').addEventListener('click', () => {
+        openQuestionModal();
+    });
+    
+    document.getElementById('import-json-btn').addEventListener('click', () => {
+        document.getElementById('json-file').click();
+    });
+    
+    document.getElementById('json-file').addEventListener('change', handleJsonImport);
+    
+    document.getElementById('back-to-dashboard').addEventListener('click', () => {
+        showDashboard();
+    });
+}
+
+// Alternar entre abas
+function switchTab(tabId, sectionId) {
+    // Remover classe active de todas as abas e seções
+    const tabs = document.querySelectorAll('.tab');
+    const sections = document.querySelectorAll('.section');
+    
+    tabs.forEach(tab => tab.classList.remove('active'));
+    sections.forEach(section => section.classList.remove('active'));
+    
+    // Adicionar classe active à aba e seção selecionadas
+    document.getElementById(tabId).classList.add('active');
+    document.getElementById(sectionId).classList.add('active');
+}
+
+// Inicializar modal de quiz
+function initQuizModal() {
+    const modal = document.getElementById('quiz-modal');
+    const closeBtn = document.querySelector('#quiz-modal .close');
+    const form = document.getElementById('quiz-form');
+    
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    
+    form.addEventListener('submit', (e) => {
         e.preventDefault();
-        
-        const name = document.getElementById('regName').value;
-        const email = document.getElementById('regEmail').value;
-        const password = document.getElementById('regPassword').value;
-        const type = document.getElementById('userType').value;
-        
-        try {
-            // Verificar se já existe admin e tentativa de criar outro admin
-            const adminQuery = await db.collection('users')
-                .where('type', '==', 'admin')
-                .limit(1)
-                .get();
+        saveQuiz();
+    });
+}
+
+// Inicializar modal de questão
+function initQuestionModal() {
+    const modal = document.getElementById('question-modal');
+    const closeBtn = document.querySelector('#question-modal .close');
+    const form = document.getElementById('question-form');
+    
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveQuestion();
+    });
+}
+
+// Inicializar controles do quiz
+function initQuizControls() {
+    document.getElementById('prev-question').addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            displayQuestion();
+        }
+    });
+    
+    document.getElementById('next-question').addEventListener('click', () => {
+        if (currentQuestionIndex < currentQuestions.length - 1) {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+    });
+    
+    document.getElementById('finish-quiz').addEventListener('click', finishQuiz);
+    
+    // Seleção de opções
+    document.querySelectorAll('.option').forEach(option => {
+        option.addEventListener('click', function() {
+            const selectedValue = this.getAttribute('data-value');
+            selectOption(selectedValue);
+        });
+    });
+}
+
+// Mostrar tela de autenticação
+function showAuth() {
+    authContainer.classList.remove('hidden');
+    studentDashboard.classList.add('hidden');
+    adminDashboard.classList.add('hidden');
+    quizContainer.classList.add('hidden');
+    quizResult.classList.add('hidden');
+}
+
+// Mostrar dashboard apropriado
+function showDashboard() {
+    authContainer.classList.add('hidden');
+    quizContainer.classList.add('hidden');
+    quizResult.classList.add('hidden');
+    
+    if (currentUser.userType === 'admin') {
+        studentDashboard.classList.add('hidden');
+        adminDashboard.classList.remove('hidden');
+        document.getElementById('admin-name').textContent = currentUser.name;
+        loadQuizzesAdmin();
+    } else {
+        adminDashboard.classList.add('hidden');
+        studentDashboard.classList.remove('hidden');
+        document.getElementById('student-name').textContent = currentUser.name;
+        loadQuizzes();
+    }
+}
+
+// Fazer logout
+function logout() {
+    auth.signOut().then(() => {
+        currentUser = null;
+        showAuth();
+    });
+}
+
+// Mostrar erro
+function showError(elementId, message) {
+    document.getElementById(elementId).textContent = message;
+}
+
+// Carregar quizzes para alunos
+function loadQuizzes() {
+    const quizzesList = document.getElementById('quizzes-list');
+    quizzesList.innerHTML = '<p>Carregando quizzes...</p>';
+    
+    db.collection('quizzes')
+        .where('status', '==', 'active')
+        .get()
+        .then(querySnapshot => {
+            quizzesList.innerHTML = '';
             
-            const adminExists = !adminQuery.empty;
-            
-            if (adminExists && type === 'admin') {
-                alert('Já existe um administrador no sistema. Não é possível criar outro usuário administrador.');
-                document.getElementById('userType').value = 'user';
+            if (querySnapshot.empty) {
+                quizzesList.innerHTML = '<p>Nenhum quiz disponível no momento.</p>';
                 return;
             }
             
-            // Criar usuário no Authentication
-            const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-            const user = userCredential.user;
-            
-            // Criar documento do usuário no Firestore
-            await db.collection('users').doc(user.uid).set({
-                name: name,
-                email: email,
-                type: type,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                const quizCard = createQuizCard(quiz);
+                quizzesList.appendChild(quizCard);
             });
+        })
+        .catch(error => {
+            quizzesList.innerHTML = '<p>Erro ao carregar quizzes.</p>';
+            console.error('Erro ao carregar quizzes:', error);
+        });
+}
+
+// Carregar quizzes para administradores
+function loadQuizzesAdmin() {
+    const quizzesList = document.getElementById('quizzes-admin-list');
+    quizzesList.innerHTML = '<p>Carregando quizzes...</p>';
+    
+    db.collection('quizzes').get()
+        .then(querySnapshot => {
+            quizzesList.innerHTML = '';
             
-            // Se é admin, atualizar a verificação
-            if (type === 'admin') {
-                await this.checkAdminExists();
+            if (querySnapshot.empty) {
+                quizzesList.innerHTML = '<p>Nenhum quiz criado ainda.</p>';
+                return;
             }
             
-            alert('Cadastro realizado com sucesso!');
-            this.switchTab('login');
-            document.getElementById('registerForm').reset();
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                const quizCard = createQuizAdminCard(quiz);
+                quizzesList.appendChild(quizCard);
+            });
+        })
+        .catch(error => {
+            quizzesList.innerHTML = '<p>Erro ao carregar quizzes.</p>';
+            console.error('Erro ao carregar quizzes:', error);
+        });
+}
+
+// Criar card de quiz para alunos
+function createQuizCard(quiz) {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    
+    // Verificar se o usuário já iniciou este quiz
+    const userQuizRef = db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quiz.id)
+        .where('status', 'in', ['in-progress', 'completed']);
+    
+    userQuizRef.get().then(querySnapshot => {
+        let buttonText = 'Iniciar Quiz';
+        let buttonClass = 'btn';
+        let statusText = 'Não iniciado';
+        
+        if (!querySnapshot.empty) {
+            const userQuiz = querySnapshot.docs[0].data();
             
-        } catch (error) {
-            console.error('Erro no cadastro:', error);
-            let errorMessage = 'Erro ao cadastrar. ';
-            
-            switch (error.code) {
-                case 'auth/email-already-in-use':
-                    errorMessage += 'E-mail já está em uso.';
-                    break;
-                case 'auth/weak-password':
-                    errorMessage += 'Senha muito fraca.';
-                    break;
-                case 'auth/invalid-email':
-                    errorMessage += 'E-mail inválido.';
-                    break;
-                default:
-                    errorMessage += 'Tente novamente.';
+            if (userQuiz.status === 'in-progress') {
+                buttonText = 'Continuar Quiz';
+                buttonClass = 'btn btn-primary';
+                statusText = 'Em andamento';
+            } else if (userQuiz.status === 'completed') {
+                buttonText = 'Ver Resultado';
+                buttonClass = 'btn btn-secondary';
+                statusText = 'Concluído';
             }
-            
-            alert(errorMessage);
         }
+        
+        card.innerHTML = `
+            <h3>${quiz.title}</h3>
+            <p>${quiz.description || 'Sem descrição'}</p>
+            <div class="quiz-info">
+                <span>Tempo: ${quiz.time} min</span>
+                <span>Questões: ${quiz.questionsCount}</span>
+                <span>Status: ${statusText}</span>
+            </div>
+            <div class="quiz-actions">
+                <button class="${buttonClass}" data-quiz-id="${quiz.id}">${buttonText}</button>
+            </div>
+        `;
+        
+        const button = card.querySelector('button');
+        button.addEventListener('click', () => {
+            if (buttonText === 'Ver Resultado') {
+                showQuizResult(quiz.id);
+            } else {
+                startQuiz(quiz);
+            }
+        });
+    });
+    
+    return card;
+}
+
+// Criar card de quiz para administradores
+function createQuizAdminCard(quiz) {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    
+    card.innerHTML = `
+        <h3>${quiz.title}</h3>
+        <p>${quiz.description || 'Sem descrição'}</p>
+        <div class="quiz-info">
+            <span>Tempo: ${quiz.time} min</span>
+            <span>Questões: ${quiz.questionsCount}</span>
+            <span>Status: ${quiz.status === 'active' ? 'Ativo' : 'Inativo'}</span>
+        </div>
+        <div class="quiz-actions">
+            <button class="btn" data-action="edit" data-quiz-id="${quiz.id}">Editar</button>
+            <button class="btn btn-secondary" data-action="delete" data-quiz-id="${quiz.id}">Excluir</button>
+            <button class="btn ${quiz.status === 'active' ? 'btn-secondary' : 'btn-primary'}" 
+                    data-action="toggle-status" data-quiz-id="${quiz.id}">
+                ${quiz.status === 'active' ? 'Desativar' : 'Ativar'}
+            </button>
+        </div>
+    `;
+    
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
+        const action = button.getAttribute('data-action');
+        const quizId = button.getAttribute('data-quiz-id');
+        
+        button.addEventListener('click', () => {
+            if (action === 'edit') {
+                editQuiz(quizId);
+            } else if (action === 'delete') {
+                deleteQuiz(quizId);
+            } else if (action === 'toggle-status') {
+                toggleQuizStatus(quizId, quiz.status);
+            }
+        });
+    });
+    
+    return card;
+}
+
+// Abrir modal de quiz
+function openQuizModal(quiz = null) {
+    const modal = document.getElementById('quiz-modal');
+    const title = document.getElementById('quiz-modal-title');
+    const form = document.getElementById('quiz-form');
+    
+    if (quiz) {
+        // Modo edição
+        title.textContent = 'Editar Quiz';
+        document.getElementById('quiz-title').value = quiz.title;
+        document.getElementById('quiz-description').value = quiz.description || '';
+        document.getElementById('quiz-time').value = quiz.time;
+        document.getElementById('quiz-questions-count').value = quiz.questionsCount;
+        document.getElementById('quiz-status').value = quiz.status;
+        form.setAttribute('data-quiz-id', quiz.id);
+    } else {
+        // Modo criação
+        title.textContent = 'Criar Quiz';
+        form.reset();
+        form.removeAttribute('data-quiz-id');
     }
     
-    async handleLogout() {
+    modal.classList.remove('hidden');
+}
+
+// Salvar quiz
+function saveQuiz() {
+    const form = document.getElementById('quiz-form');
+    const quizId = form.getAttribute('data-quiz-id');
+    const quizData = {
+        title: document.getElementById('quiz-title').value,
+        description: document.getElementById('quiz-description').value,
+        time: parseInt(document.getElementById('quiz-time').value),
+        questionsCount: parseInt(document.getElementById('quiz-questions-count').value),
+        status: document.getElementById('quiz-status').value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (quizId) {
+        // Atualizar quiz existente
+        db.collection('quizzes').doc(quizId).update(quizData)
+            .then(() => {
+                alert('Quiz atualizado com sucesso!');
+                document.getElementById('quiz-modal').classList.add('hidden');
+                loadQuizzesAdmin();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar quiz: ' + error.message);
+            });
+    } else {
+        // Criar novo quiz
+        quizData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        quizData.createdBy = currentUser.uid;
+        
+        db.collection('quizzes').add(quizData)
+            .then(() => {
+                alert('Quiz criado com sucesso!');
+                document.getElementById('quiz-modal').classList.add('hidden');
+                loadQuizzesAdmin();
+            })
+            .catch(error => {
+                alert('Erro ao criar quiz: ' + error.message);
+            });
+    }
+}
+
+// Editar quiz
+function editQuiz(quizId) {
+    db.collection('quizzes').doc(quizId).get()
+        .then(doc => {
+            if (doc.exists) {
+                const quiz = { id: doc.id, ...doc.data() };
+                openQuizModal(quiz);
+            }
+        })
+        .catch(error => {
+            alert('Erro ao carregar quiz: ' + error.message);
+        });
+}
+
+// Excluir quiz
+function deleteQuiz(quizId) {
+    if (confirm('Tem certeza que deseja excluir este quiz?')) {
+        db.collection('quizzes').doc(quizId).delete()
+            .then(() => {
+                alert('Quiz excluído com sucesso!');
+                loadQuizzesAdmin();
+            })
+            .catch(error => {
+                alert('Erro ao excluir quiz: ' + error.message);
+            });
+    }
+}
+
+// Alternar status do quiz
+function toggleQuizStatus(quizId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    
+    db.collection('quizzes').doc(quizId).update({
+        status: newStatus,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        alert(`Quiz ${newStatus === 'active' ? 'ativado' : 'desativado'} com sucesso!`);
+        loadQuizzesAdmin();
+    })
+    .catch(error => {
+        alert('Erro ao alterar status do quiz: ' + error.message);
+    });
+}
+
+// Carregar questões
+function loadQuestions() {
+    const questionsList = document.getElementById('questions-list');
+    questionsList.innerHTML = '<p>Carregando questões...</p>';
+    
+    db.collection('questions').get()
+        .then(querySnapshot => {
+            questionsList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                questionsList.innerHTML = '<p>Nenhuma questão cadastrada ainda.</p>';
+                return;
+            }
+            
+            querySnapshot.forEach(doc => {
+                const question = { id: doc.id, ...doc.data() };
+                const questionCard = createQuestionCard(question);
+                questionsList.appendChild(questionCard);
+            });
+        })
+        .catch(error => {
+            questionsList.innerHTML = '<p>Erro ao carregar questões.</p>';
+            console.error('Erro ao carregar questões:', error);
+        });
+}
+
+// Criar card de questão
+function createQuestionCard(question) {
+    const card = document.createElement('div');
+    card.className = 'question-card';
+    
+    card.innerHTML = `
+        <h3>${question.text}</h3>
+        <div class="question-info">
+            <span>Categoria: ${question.category || 'Sem categoria'}</span>
+            <span>Resposta correta: ${question.correctAnswer.toUpperCase()}</span>
+        </div>
+        <div class="question-actions">
+            <button class="btn" data-action="edit" data-question-id="${question.id}">Editar</button>
+            <button class="btn btn-secondary" data-action="delete" data-question-id="${question.id}">Excluir</button>
+        </div>
+    `;
+    
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
+        const action = button.getAttribute('data-action');
+        const questionId = button.getAttribute('data-question-id');
+        
+        button.addEventListener('click', () => {
+            if (action === 'edit') {
+                editQuestion(questionId);
+            } else if (action === 'delete') {
+                deleteQuestion(questionId);
+            }
+        });
+    });
+    
+    return card;
+}
+
+// Abrir modal de questão
+function openQuestionModal(question = null) {
+    const modal = document.getElementById('question-modal');
+    const title = document.getElementById('question-modal-title');
+    const form = document.getElementById('question-form');
+    
+    if (question) {
+        // Modo edição
+        title.textContent = 'Editar Questão';
+        document.getElementById('question-text').value = question.text;
+        document.getElementById('option-a').value = question.options.a;
+        document.getElementById('option-b').value = question.options.b;
+        document.getElementById('option-c').value = question.options.c;
+        document.getElementById('option-d').value = question.options.d;
+        document.getElementById('correct-answer').value = question.correctAnswer;
+        document.getElementById('question-category').value = question.category || '';
+        form.setAttribute('data-question-id', question.id);
+    } else {
+        // Modo criação
+        title.textContent = 'Adicionar Questão';
+        form.reset();
+        form.removeAttribute('data-question-id');
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+// Salvar questão
+function saveQuestion() {
+    const form = document.getElementById('question-form');
+    const questionId = form.getAttribute('data-question-id');
+    const questionData = {
+        text: document.getElementById('question-text').value,
+        options: {
+            a: document.getElementById('option-a').value,
+            b: document.getElementById('option-b').value,
+            c: document.getElementById('option-c').value,
+            d: document.getElementById('option-d').value
+        },
+        correctAnswer: document.getElementById('correct-answer').value,
+        category: document.getElementById('question-category').value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (questionId) {
+        // Atualizar questão existente
+        db.collection('questions').doc(questionId).update(questionData)
+            .then(() => {
+                alert('Questão atualizada com sucesso!');
+                document.getElementById('question-modal').classList.add('hidden');
+                loadQuestions();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar questão: ' + error.message);
+            });
+    } else {
+        // Criar nova questão
+        questionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        questionData.createdBy = currentUser.uid;
+        
+        db.collection('questions').add(questionData)
+            .then(() => {
+                alert('Questão criada com sucesso!');
+                document.getElementById('question-modal').classList.add('hidden');
+                loadQuestions();
+            })
+            .catch(error => {
+                alert('Erro ao criar questão: ' + error.message);
+            });
+    }
+}
+
+// Editar questão
+function editQuestion(questionId) {
+    db.collection('questions').doc(questionId).get()
+        .then(doc => {
+            if (doc.exists) {
+                const question = { id: doc.id, ...doc.data() };
+                openQuestionModal(question);
+            }
+        })
+        .catch(error => {
+            alert('Erro ao carregar questão: ' + error.message);
+        });
+}
+
+// Excluir questão
+function deleteQuestion(questionId) {
+    if (confirm('Tem certeza que deseja excluir esta questão?')) {
+        db.collection('questions').doc(questionId).delete()
+            .then(() => {
+                alert('Questão excluída com sucesso!');
+                loadQuestions();
+            })
+            .catch(error => {
+                alert('Erro ao excluir questão: ' + error.message);
+            });
+    }
+}
+
+// Importar questões de JSON
+function handleJsonImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
         try {
-            // Limpar todas as subscriptions
-            this.unsubscribeCallbacks.forEach(unsubscribe => unsubscribe());
-            this.unsubscribeCallbacks = [];
+            const questions = JSON.parse(e.target.result);
             
-            await auth.signOut();
-            this.currentUser = null;
-            this.users = [];
-            this.quizzes = [];
-            this.questionsBank = [];
+            if (!Array.isArray(questions)) {
+                alert('O arquivo JSON deve conter um array de questões.');
+                return;
+            }
+            
+            // Validar e importar questões
+            importQuestions(questions);
         } catch (error) {
-            console.error('Erro ao fazer logout:', error);
+            alert('Erro ao processar arquivo JSON: ' + error.message);
         }
-    }
+    };
+    reader.readAsText(file);
     
-    showAdminPanel() {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('adminPanel').classList.remove('hidden');
-        document.getElementById('userNameDisplay').textContent = this.currentUser.name;
-        
-        // Mostrar/ocultar conteúdo baseado no tipo de usuário
-        if (this.currentUser.type !== 'admin') {
-            // Ocultar abas de administração para usuários comuns
-            document.querySelector('[data-tab="users"]').style.display = 'none';
-            document.querySelector('[data-tab="questions"]').style.display = 'none';
-            
-            // Ocultar botões de CRUD para usuários comuns
-            document.getElementById('createQuizBtn').style.display = 'none';
-            
-            // Mostrar apenas quizzes ativos para usuários comuns
-            this.renderQuizzesForUser();
-        } else {
-            // Mostrar tudo para administradores
-            document.querySelector('[data-tab="users"]').style.display = 'block';
-            document.querySelector('[data-tab="questions"]').style.display = 'block';
-            document.getElementById('createQuizBtn').style.display = 'block';
-        }
-        
-        // Verificar se existe admin
-        this.checkAdminExists();
-    }
+    // Limpar o input para permitir importar o mesmo arquivo novamente
+    event.target.value = '';
+}
+
+// Importar questões para o Firestore
+function importQuestions(questions) {
+    let importedCount = 0;
+    let errorCount = 0;
     
-    showLoginScreen() {
-        document.getElementById('loginScreen').classList.remove('hidden');
-        document.getElementById('adminPanel').classList.add('hidden');
-    }
-    
-    switchContentTab(tabName) {
-        // Atualizar menu lateral
-        document.querySelectorAll('.sidebar-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        
-        // Mostrar conteúdo correto
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.add('hidden');
-        });
-        document.getElementById(`${tabName}Tab`).classList.remove('hidden');
-        
-        // Carregar dados específicos da aba
-        if (tabName === 'users' && this.currentUser.type === 'admin') {
-            this.renderUsers();
-        } else if (tabName === 'questions' && this.currentUser.type === 'admin') {
-            this.renderQuestionsBank();
-        } else if (tabName === 'stats') {
-            this.updateStats();
-        } else if (tabName === 'quizzes' && this.currentUser.type !== 'admin') {
-            this.renderQuizzesForUser();
-        }
-    }
-    
-    openQuizModal(quiz = null) {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem criar ou editar quizzes.');
-            return;
-        }
-        
-        this.currentEditingQuiz = quiz;
-        this.quizQuestions = quiz ? [...quiz.questions] : [];
-        
-        const modal = document.getElementById('quizModal');
-        const title = document.getElementById('modalTitle');
-        const form = document.getElementById('quizForm');
-        
-        if (quiz) {
-            title.textContent = 'Editar Quiz';
-            document.getElementById('quizTitle').value = quiz.title;
-            document.getElementById('quizDescription').value = quiz.description;
-            document.getElementById('quizStatus').value = quiz.status;
-        } else {
-            title.textContent = 'Criar Novo Quiz';
-            form.reset();
-        }
-        
-        this.renderQuizQuestions();
-        modal.classList.remove('hidden');
-    }
-    
-    renderQuizQuestions() {
-        const container = document.getElementById('quizQuestionsList');
-        container.innerHTML = '';
-        
-        if (this.quizQuestions.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Nenhuma questão adicionada ao quiz.</p>';
-            return;
-        }
-        
-        this.quizQuestions.forEach((question, index) => {
-            const questionElement = document.createElement('div');
-            questionElement.className = 'question-item';
-            questionElement.innerHTML = `
-                <div class="question-text">${question.text}</div>
-                <div class="question-meta">
-                    <span class="category-badge ${question.category}">${this.getCategoryName(question.category)}</span>
-                    <span class="difficulty-badge ${question.difficulty}">${this.getDifficultyName(question.difficulty)}</span>
-                </div>
-                <div>
-                    <button type="button" class="action-btn edit-btn" onclick="quizSystem.viewQuestion('${question.id}')">Ver</button>
-                    <button type="button" class="remove-question" onclick="quizSystem.removeQuestionFromQuiz(${index})" title="Remover questão">&times;</button>
-                </div>
-            `;
-            container.appendChild(questionElement);
-        });
-    }
-    
-    removeQuestionFromQuiz(index) {
-        this.quizQuestions.splice(index, 1);
-        this.renderQuizQuestions();
-    }
-    
-    openQuestionModal(question = null, forBank = false) {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem gerenciar questões.');
-            return;
-        }
-        
-        this.currentEditingQuestion = question;
-        this.questionForBank = forBank;
-        
-        const modal = document.getElementById('questionModal');
-        const title = document.getElementById('questionModalTitle');
-        const form = document.getElementById('questionForm');
-        
-        if (question) {
-            title.textContent = forBank ? 'Editar Questão do Banco' : 'Editar Questão do Quiz';
-            document.getElementById('questionText').value = question.text;
-            document.getElementById('questionCategory').value = question.category;
-            document.getElementById('questionDifficulty').value = question.difficulty;
-            
-            // Preencher alternativas
-            const alternativeInputs = document.querySelectorAll('.alternative-input');
-            question.alternatives.forEach((alt, index) => {
-                if (alternativeInputs[index]) {
-                    alternativeInputs[index].value = alt;
-                }
-            });
-            
-            // Marcar alternativa correta
-            const correctRadio = document.querySelector(`input[name="correctAlternative"][value="${question.correctAlternative}"]`);
-            if (correctRadio) {
-                correctRadio.checked = true;
-            }
-        } else {
-            title.textContent = forBank ? 'Adicionar Questão ao Banco' : 'Adicionar Questão ao Quiz';
-            form.reset();
-        }
-        
-        modal.classList.remove('hidden');
-    }
-    
-    async saveQuestion(e) {
-        e.preventDefault();
-        
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem salvar questões.');
-            return;
-        }
-        
-        const text = document.getElementById('questionText').value;
-        const category = document.getElementById('questionCategory').value;
-        const difficulty = document.getElementById('questionDifficulty').value;
-        const alternativeInputs = document.querySelectorAll('.alternative-input');
-        const correctAlternative = parseInt(document.querySelector('input[name="correctAlternative"]:checked').value);
-        
-        const alternatives = [];
-        alternativeInputs.forEach(input => {
-            if (input.value.trim()) {
-                alternatives.push(input.value.trim());
-            }
-        });
-        
-        if (alternatives.length < 2) {
-            alert('É necessário pelo menos 2 alternativas!');
-            return;
-        }
-        
-        if (correctAlternative >= alternatives.length) {
-            alert('A alternativa correta selecionada não existe!');
+    questions.forEach((question, index) => {
+        // Validar estrutura da questão
+        if (!question.text || !question.options || !question.correctAnswer) {
+            console.error(`Questão ${index} inválida: estrutura incorreta`);
+            errorCount++;
             return;
         }
         
         const questionData = {
-            text,
-            category,
-            difficulty,
-            alternatives,
-            correctAlternative,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            text: question.text,
+            options: question.options,
+            correctAnswer: question.correctAnswer,
+            category: question.category || '',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid
         };
         
-        try {
-            if (this.currentEditingQuestion) {
-                // Editar questão existente
-                if (this.questionForBank) {
-                    await db.collection('questionsBank').doc(this.currentEditingQuestion.id).update(questionData);
-                } else {
-                    const index = this.quizQuestions.findIndex(q => q.id === this.currentEditingQuestion.id);
-                    if (index !== -1) {
-                        this.quizQuestions[index] = {
-                            ...this.quizQuestions[index],
-                            ...questionData
-                        };
-                    }
-                }
-            } else {
-                // Criar nova questão
-                const newQuestion = {
-                    ...questionData,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
+        db.collection('questions').add(questionData)
+            .then(() => {
+                importedCount++;
                 
-                if (this.questionForBank) {
-                    await db.collection('questionsBank').add(newQuestion);
-                } else {
-                    this.quizQuestions.push({
-                        id: 'temp-' + Date.now(),
-                        ...newQuestion
-                    });
+                if (importedCount + errorCount === questions.length) {
+                    alert(`Importação concluída! ${importedCount} questões importadas, ${errorCount} erros.`);
+                    loadQuestions();
                 }
-            }
-            
-            if (this.questionForBank) {
-                // O Firestore listener irá atualizar automaticamente
-            } else {
-                this.renderQuizQuestions();
-            }
-            
-            this.closeQuestionModal();
-            alert('Questão salva com sucesso!');
-        } catch (error) {
-            console.error('Erro ao salvar questão:', error);
-            alert('Erro ao salvar questão. Tente novamente.');
-        }
-    }
-    
-    async saveQuiz(e) {
-        e.preventDefault();
-        
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem salvar quizzes.');
-            return;
-        }
-        
-        const title = document.getElementById('quizTitle').value;
-        const description = document.getElementById('quizDescription').value;
-        const status = document.getElementById('quizStatus').value;
-        
-        if (this.quizQuestions.length === 0) {
-            alert('É necessário adicionar pelo menos uma questão ao quiz!');
-            return;
-        }
-        
-        const quizData = {
-            title,
-            description,
-            status,
-            questions: this.quizQuestions,
-            questionCount: this.quizQuestions.length,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        
-        try {
-            if (this.currentEditingQuiz) {
-                // Editar quiz existente
-                await db.collection('quizzes').doc(this.currentEditingQuiz.id).update(quizData);
-            } else {
-                // Criar novo quiz
-                const newQuiz = {
-                    ...quizData,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    createdBy: this.currentUser.uid
-                };
-                await db.collection('quizzes').add(newQuiz);
-            }
-            
-            this.closeQuizModal();
-            alert(`Quiz ${this.currentEditingQuiz ? 'atualizado' : 'criado'} com sucesso!`);
-        } catch (error) {
-            console.error('Erro ao salvar quiz:', error);
-            alert('Erro ao salvar quiz. Tente novamente.');
-        }
-    }
-    
-    openImportModal(forBank = false) {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem importar questões.');
-            return;
-        }
-        
-        this.importForBank = forBank;
-        this.renderImportQuestions();
-        document.getElementById('importModal').classList.remove('hidden');
-    }
-    
-    renderImportQuestions() {
-        const container = document.getElementById('importQuestionsList');
-        const categoryFilter = document.getElementById('filterCategory').value;
-        const difficultyFilter = document.getElementById('filterDifficulty').value;
-        
-        container.innerHTML = '';
-        
-        const filteredQuestions = this.questionsBank.filter(question => {
-            const categoryMatch = categoryFilter === 'all' || question.category === categoryFilter;
-            const difficultyMatch = difficultyFilter === 'all' || question.difficulty === difficultyFilter;
-            return categoryMatch && difficultyMatch;
-        });
-        
-        if (filteredQuestions.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Nenhuma questão encontrada com os filtros selecionados.</p>';
-            return;
-        }
-        
-        filteredQuestions.forEach(question => {
-            const isInQuiz = this.quizQuestions.some(q => q.id === question.id);
-            const questionElement = document.createElement('div');
-            questionElement.className = 'import-question-item';
-            questionElement.innerHTML = `
-                <div class="import-question-check">
-                    <input type="checkbox" class="question-checkbox" value="${question.id}" ${isInQuiz ? 'disabled' : ''}>
-                </div>
-                <div class="import-question-content">
-                    <div class="import-question-text">${question.text}</div>
-                    <div class="import-question-meta">
-                        <span class="category-badge ${question.category}">${this.getCategoryName(question.category)}</span>
-                        <span class="difficulty-badge ${question.difficulty}">${this.getDifficultyName(question.difficulty)}</span>
-                        ${isInQuiz ? '<span style="color: #e74c3c; font-size: 0.8rem;">(Já no quiz)</span>' : ''}
-                    </div>
-                    <div class="import-question-alternatives">
-                        ${question.alternatives.map((alt, index) => 
-                            `<div class="${index === question.correctAlternative ? 'correct-alternative' : ''}">
-                                ${String.fromCharCode(65 + index)}) ${alt}
-                            </div>`
-                        ).join('')}
-                    </div>
-                </div>
-            `;
-            container.appendChild(questionElement);
-        });
-    }
-    
-    importQuestions() {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem importar questões.');
-            return;
-        }
-        
-        const checkboxes = document.querySelectorAll('.question-checkbox:checked');
-        const importedQuestions = [];
-        
-        checkboxes.forEach(checkbox => {
-            const questionId = checkbox.value;
-            const question = this.questionsBank.find(q => q.id === questionId);
-            if (question) {
-                if (this.importForBank) {
-                    // Importar para o banco (duplicar questão)
-                    const newQuestion = {
-                        ...question,
-                        id: 'temp-' + Date.now() // Novo ID temporário
-                    };
-                    importedQuestions.push(newQuestion);
-                } else {
-                    // Importar para o quiz atual
-                    if (!this.quizQuestions.some(q => q.id === questionId)) {
-                        importedQuestions.push({...question});
-                    }
-                }
-            }
-        });
-        
-        if (importedQuestions.length > 0) {
-            if (this.importForBank) {
-                // Salvar questões duplicadas no Firestore
-                this.saveQuestionsToBank(importedQuestions);
-            } else {
-                this.quizQuestions.push(...importedQuestions);
-                this.renderQuizQuestions();
-                alert(`${importedQuestions.length} questões importadas para o quiz com sucesso!`);
-            }
-            this.closeImportModal();
-        } else {
-            alert('Nenhuma questão selecionada ou todas as questões selecionadas já estão no destino!');
-        }
-    }
-    
-    async saveQuestionsToBank(questions) {
-        try {
-            const batch = db.batch();
-            questions.forEach(question => {
-                const docRef = db.collection('questionsBank').doc();
-                batch.set(docRef, {
-                    ...question,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            });
-            await batch.commit();
-            alert(`${questions.length} questões importadas para o banco com sucesso!`);
-        } catch (error) {
-            console.error('Erro ao salvar questões no banco:', error);
-            alert('Erro ao importar questões para o banco.');
-        }
-    }
-    
-    async exportToBank() {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem exportar questões.');
-            return;
-        }
-        
-        if (this.quizQuestions.length === 0) {
-            alert('Não há questões no quiz para exportar!');
-            return;
-        }
-        
-        try {
-            const batch = db.batch();
-            let exportedCount = 0;
-            
-            for (const quizQuestion of this.quizQuestions) {
-                // Verificar se a questão já existe no banco
-                const existingQuery = await db.collection('questionsBank')
-                    .where('text', '==', quizQuestion.text)
-                    .limit(1)
-                    .get();
+            })
+            .catch(error => {
+                errorCount++;
+                console.error(`Erro ao importar questão ${index}:`, error);
                 
-                if (existingQuery.empty) {
-                    const docRef = db.collection('questionsBank').doc();
-                    batch.set(docRef, {
-                        text: quizQuestion.text,
-                        category: quizQuestion.category,
-                        difficulty: quizQuestion.difficulty,
-                        alternatives: quizQuestion.alternatives,
-                        correctAlternative: quizQuestion.correctAlternative,
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    exportedCount++;
+                if (importedCount + errorCount === questions.length) {
+                    alert(`Importação concluída! ${importedCount} questões importadas, ${errorCount} erros.`);
+                    loadQuestions();
                 }
+            });
+    });
+}
+
+// Carregar usuários (apenas para administradores)
+function loadUsers() {
+    const usersList = document.getElementById('users-list');
+    usersList.innerHTML = '<p>Carregando usuários...</p>';
+    
+    db.collection('users').get()
+        .then(querySnapshot => {
+            usersList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                usersList.innerHTML = '<p>Nenhum usuário cadastrado.</p>';
+                return;
             }
             
-            if (exportedCount > 0) {
-                await batch.commit();
-                alert(`${exportedCount} questões exportadas para o banco!`);
-            } else {
-                alert('Todas as questões do quiz já estão no banco!');
+            querySnapshot.forEach(doc => {
+                const user = { id: doc.id, ...doc.data() };
+                const userCard = createUserCard(user);
+                usersList.appendChild(userCard);
+            });
+        })
+        .catch(error => {
+            usersList.innerHTML = '<p>Erro ao carregar usuários.</p>';
+            console.error('Erro ao carregar usuários:', error);
+        });
+}
+
+// Criar card de usuário
+function createUserCard(user) {
+    const card = document.createElement('div');
+    card.className = 'user-card';
+    
+    card.innerHTML = `
+        <h3>${user.name}</h3>
+        <div class="user-info">
+            <span>E-mail: ${user.email}</span>
+            <span>Tipo: ${user.userType === 'admin' ? 'Administrador' : 'Aluno'}</span>
+            <span>Cadastrado em: ${user.createdAt ? user.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</span>
+        </div>
+        <div class="user-actions">
+            ${user.userType !== 'admin' ? `<button class="btn btn-secondary" data-action="delete" data-user-id="${user.id}">Excluir</button>` : ''}
+        </div>
+    `;
+    
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
+        const action = button.getAttribute('data-action');
+        const userId = button.getAttribute('data-user-id');
+        
+        button.addEventListener('click', () => {
+            if (action === 'delete') {
+                deleteUser(userId);
             }
-        } catch (error) {
-            console.error('Erro ao exportar questões:', error);
-            alert('Erro ao exportar questões para o banco.');
-        }
-    }
-    
-    renderQuestionsBank() {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            return;
-        }
-        
-        const container = document.getElementById('questionsList');
-        container.innerHTML = '';
-        
-        if (this.questionsBank.length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Nenhuma questão no banco.</p>';
-            return;
-        }
-        
-        this.questionsBank.forEach(question => {
-            const questionElement = document.createElement('div');
-            questionElement.className = 'bank-question-item';
-            questionElement.innerHTML = `
-                <div class="bank-question-header">
-                    <div class="bank-question-text">${question.text}</div>
-                    <div class="bank-question-actions">
-                        <button class="action-btn edit-btn" onclick="quizSystem.editBankQuestion('${question.id}')">Editar</button>
-                        <button class="action-btn delete-btn" onclick="quizSystem.showConfirm('excluir questão', () => quizSystem.deleteBankQuestion('${question.id}'))">Excluir</button>
-                    </div>
-                </div>
-                <div class="bank-question-meta">
-                    <span class="category-badge ${question.category}">${this.getCategoryName(question.category)}</span>
-                    <span class="difficulty-badge ${question.difficulty}">${this.getDifficultyName(question.difficulty)}</span>
-                </div>
-                <div class="bank-alternatives">
-                    ${question.alternatives.map((alt, index) => 
-                        `<div class="bank-alternative ${index === question.correctAlternative ? 'correct-alternative' : ''}">
-                            <strong>${String.fromCharCode(65 + index)})</strong> ${alt}
-                        </div>`
-                    ).join('')}
-                </div>
-            `;
-            container.appendChild(questionElement);
         });
-    }
+    });
     
-    editBankQuestion(questionId) {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem editar questões.');
-            return;
-        }
+    return card;
+}
+
+// Excluir usuário
+function deleteUser(userId) {
+    if (confirm('Tem certeza que deseja excluir este usuário?')) {
+        // Excluir da autenticação do Firebase
+        // Nota: Para excluir usuários da autenticação, você precisa de privilégios de administrador
+        // e usar o Firebase Admin SDK no backend. Aqui vamos apenas excluir do Firestore.
         
-        const question = this.questionsBank.find(q => q.id === questionId);
-        if (question) {
-            this.openQuestionModal(question, true);
-        }
-    }
-    
-    async deleteBankQuestion(questionId) {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem excluir questões.');
-            return;
-        }
-        
-        try {
-            await db.collection('questionsBank').doc(questionId).delete();
-            this.closeConfirmModal();
-        } catch (error) {
-            console.error('Erro ao excluir questão:', error);
-            alert('Erro ao excluir questão.');
-        }
-    }
-    
-    viewQuestion(questionId) {
-        const question = this.questionsBank.find(q => q.id === questionId) || 
-                        this.quizQuestions.find(q => q.id === questionId);
-        
-        if (question) {
-            document.getElementById('viewQuestionText').textContent = question.text;
-            document.getElementById('viewQuestionCategory').textContent = this.getCategoryName(question.category);
-            document.getElementById('viewQuestionDifficulty').textContent = this.getDifficultyName(question.difficulty);
-            
-            const alternativesContainer = document.getElementById('viewQuestionAlternatives');
-            alternativesContainer.innerHTML = '';
-            
-            question.alternatives.forEach((alt, index) => {
-                const altElement = document.createElement('div');
-                altElement.className = `bank-alternative ${index === question.correctAlternative ? 'correct-alternative' : ''}`;
-                altElement.innerHTML = `<strong>${String.fromCharCode(65 + index)})</strong> ${alt}`;
-                alternativesContainer.appendChild(altElement);
+        db.collection('users').doc(userId).delete()
+            .then(() => {
+                alert('Usuário excluído com sucesso!');
+                loadUsers();
+            })
+            .catch(error => {
+                alert('Erro ao excluir usuário: ' + error.message);
             });
-            
-            document.getElementById('viewQuestionModal').classList.remove('hidden');
-        }
-    }
-    
-    showConfirm(action, callback) {
-        this.pendingAction = callback;
-        document.getElementById('confirmTitle').textContent = 'Confirmar ' + action;
-        document.getElementById('confirmMessage').textContent = `Tem certeza que deseja ${action}? Esta ação não pode ser desfeita.`;
-        document.getElementById('confirmModal').classList.remove('hidden');
-    }
-    
-    executePendingAction() {
-        if (this.pendingAction) {
-            this.pendingAction();
-            this.pendingAction = null;
-        }
-        this.closeConfirmModal();
-    }
-    
-    // Métodos auxiliares
-    getCategoryName(category) {
-        const categories = {
-            'arquitetura': 'Arquitetura',
-            'sistemas': 'Sistemas Numéricos',
-            'hardware': 'Hardware',
-            'software': 'Software',
-            'redes': 'Redes',
-            'seguranca': 'Segurança'
-        };
-        return categories[category] || category;
-    }
-    
-    getDifficultyName(difficulty) {
-        const difficulties = {
-            'easy': 'Fácil',
-            'medium': 'Médio',
-            'hard': 'Difícil'
-        };
-        return difficulties[difficulty] || difficulty;
-    }
-    
-    // Renderização de quizzes para administradores
-    renderQuizzes() {
-        const quizList = document.getElementById('quizList');
-        quizList.innerHTML = '';
-        
-        if (this.quizzes.length === 0) {
-            quizList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Nenhum quiz criado.</p>';
-            return;
-        }
-        
-        this.quizzes.forEach(quiz => {
-            const quizElement = document.createElement('div');
-            quizElement.className = 'quiz-item';
-            quizElement.innerHTML = `
-                <div class="quiz-info">
-                    <h3>${quiz.title}</h3>
-                    <p>${quiz.description} | ${quiz.questionCount} questões | 
-                    <span class="status-badge ${quiz.status === 'active' ? 'status-active' : 'status-inactive'}">
-                        ${quiz.status === 'active' ? 'Ativo' : 'Inativo'}
-                    </span></p>
-                </div>
-                <div class="quiz-actions">
-                    <button class="action-btn edit-btn" onclick="quizSystem.openQuizModal(${JSON.stringify(quiz).replace(/"/g, '&quot;')})">Editar</button>
-                    <button class="action-btn activate-btn" onclick="quizSystem.toggleQuizStatus('${quiz.id}', '${quiz.status}')">
-                        ${quiz.status === 'active' ? 'Desativar' : 'Ativar'}
-                    </button>
-                    <button class="action-btn delete-btn" onclick="quizSystem.showConfirm('excluir este quiz', () => quizSystem.deleteQuiz('${quiz.id}'))">Excluir</button>
-                </div>
-            `;
-            quizList.appendChild(quizElement);
-        });
-    }
-    
-    // Renderização de quizzes para usuários comuns
-    renderQuizzesForUser() {
-        const quizList = document.getElementById('quizList');
-        quizList.innerHTML = '';
-        
-        const activeQuizzes = this.quizzes.filter(quiz => quiz.status === 'active');
-        
-        if (activeQuizzes.length === 0) {
-            quizList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Nenhum quiz disponível no momento.</p>';
-            return;
-        }
-        
-        activeQuizzes.forEach(quiz => {
-            const quizElement = document.createElement('div');
-            quizElement.className = 'quiz-item';
-            quizElement.innerHTML = `
-                <div class="quiz-info">
-                    <h3>${quiz.title}</h3>
-                    <p>${quiz.description} | ${quiz.questionCount} questões</p>
-                </div>
-                <div class="quiz-actions">
-                    <button class="action-btn edit-btn" onclick="quizSystem.startQuiz('${quiz.id}')">Iniciar Quiz</button>
-                    <button class="action-btn activate-btn" onclick="quizSystem.viewQuizDetails('${quiz.id}')">Ver Detalhes</button>
-                </div>
-            `;
-            quizList.appendChild(quizElement);
-        });
-    }
-    
-    startQuiz(quizId) {
-        alert(`Iniciando quiz ${quizId} - Funcionalidade em desenvolvimento`);
-        // Aqui será implementada a lógica para iniciar o quiz para o usuário
-    }
-    
-    viewQuizDetails(quizId) {
-        const quiz = this.quizzes.find(q => q.id === quizId);
-        if (quiz) {
-            alert(`Detalhes do Quiz: ${quiz.title}\n\n${quiz.description}\n\nTotal de questões: ${quiz.questionCount}`);
-        }
-    }
-    
-    async toggleQuizStatus(quizId, currentStatus) {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem alterar o status dos quizzes.');
-            return;
-        }
-        
-        try {
-            const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-            await db.collection('quizzes').doc(quizId).update({
-                status: newStatus,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        } catch (error) {
-            console.error('Erro ao alterar status do quiz:', error);
-            alert('Erro ao alterar status do quiz.');
-        }
-    }
-    
-    async deleteQuiz(quizId) {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            alert('Apenas administradores podem excluir quizzes.');
-            return;
-        }
-        
-        try {
-            await db.collection('quizzes').doc(quizId).delete();
-            this.closeConfirmModal();
-        } catch (error) {
-            console.error('Erro ao excluir quiz:', error);
-            alert('Erro ao excluir quiz.');
-        }
-    }
-    
-    renderUsers() {
-        // Verificar permissão
-        if (this.currentUser.type !== 'admin') {
-            return;
-        }
-        
-        const userList = document.getElementById('userList');
-        userList.innerHTML = '';
-        
-        if (this.users.length === 0) {
-            userList.innerHTML = '<p style="text-align: center; color: #7f8c8d; padding: 20px;">Nenhum usuário cadastrado.</p>';
-            return;
-        }
-        
-        this.users.forEach(user => {
-            const userElement = document.createElement('div');
-            userElement.className = 'user-item';
-            userElement.innerHTML = `
-                <div class="user-info">
-                    <h3>${user.name}</h3>
-                    <p>${user.email} | ${user.type === 'admin' ? 'Administrador' : 'Usuário'} | 
-                    Cadastrado em: ${user.createdAt ? new Date(user.createdAt.toDate()).toLocaleDateString('pt-BR') : 'Data não disponível'}</p>
-                </div>
-                <div class="user-actions">
-                    <span class="status-badge ${user.type === 'admin' ? 'status-active' : 'status-inactive'}">
-                        ${user.type === 'admin' ? 'Administrador' : 'Usuário'}
-                    </span>
-                </div>
-            `;
-            userList.appendChild(userElement);
-        });
-    }
-    
-    updateStats() {
-        document.getElementById('totalUsers').textContent = this.users.length;
-        document.getElementById('totalQuizzes').textContent = this.quizzes.length;
-        document.getElementById('activeQuizzes').textContent = 
-            this.quizzes.filter(q => q.status === 'active').length;
-        document.getElementById('totalQuestions').textContent = this.questionsBank.length;
-    }
-    
-    // Métodos de fechamento de modais
-    closeQuizModal() {
-        document.getElementById('quizModal').classList.add('hidden');
-        this.currentEditingQuiz = null;
-        this.quizQuestions = [];
-        document.getElementById('quizForm').reset();
-    }
-    
-    closeQuestionModal() {
-        document.getElementById('questionModal').classList.add('hidden');
-        this.currentEditingQuestion = null;
-        document.getElementById('questionForm').reset();
-    }
-    
-    closeImportModal() {
-        document.getElementById('importModal').classList.add('hidden');
-    }
-    
-    closeViewQuestionModal() {
-        document.getElementById('viewQuestionModal').classList.add('hidden');
-    }
-    
-    closeConfirmModal() {
-        document.getElementById('confirmModal').classList.add('hidden');
-        this.pendingAction = null;
     }
 }
 
-// Inicializar o sistema quando a página carregar
-let quizSystem;
-document.addEventListener('DOMContentLoaded', () => {
-    quizSystem = new QuizSystem();
-});
+// Carregar ranking
+function loadRanking() {
+    const rankingList = document.getElementById('ranking-list');
+    rankingList.innerHTML = '<p>Carregando ranking...</p>';
+    
+    // Buscar todos os quizzes completados
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter objeto em array e ordenar por pontuação
+            const ranking = Object.values(userScores).sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Buscar informações dos usuários
+            const userIds = ranking.map(item => item.userId);
+            
+            if (userIds.length === 0) {
+                rankingList.innerHTML = '<p>Nenhum resultado disponível no ranking.</p>';
+                return;
+            }
+            
+            db.collection('users')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds.slice(0, 10)) // Limitar a 10 usuários
+                .get()
+                .then(usersSnapshot => {
+                    const usersMap = {};
+                    usersSnapshot.forEach(doc => {
+                        usersMap[doc.id] = doc.data();
+                    });
+                    
+                    // Exibir ranking
+                    rankingList.innerHTML = '';
+                    
+                    ranking.slice(0, 10).forEach((item, index) => {
+                        const user = usersMap[item.userId];
+                        if (!user) return;
+                        
+                        const rankingItem = document.createElement('div');
+                        rankingItem.className = 'ranking-item';
+                        
+                        rankingItem.innerHTML = `
+                            <div class="ranking-position">${index + 1}</div>
+                            <div class="ranking-info">
+                                <div class="ranking-name">${user.name}</div>
+                                <div class="ranking-details">${item.totalQuizzes} quiz(s) realizado(s)</div>
+                            </div>
+                            <div class="ranking-score">${item.totalScore} pts</div>
+                        `;
+                        
+                        rankingList.appendChild(rankingItem);
+                    });
+                });
+        })
+        .catch(error => {
+            rankingList.innerHTML = '<p>Erro ao carregar ranking.</p>';
+            console.error('Erro ao carregar ranking:', error);
+        });
+}
+
+// Iniciar quiz
+function startQuiz(quiz) {
+    // Verificar se o usuário já iniciou este quiz
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quiz.id)
+        .where('status', 'in', ['in-progress', 'completed'])
+        .get()
+        .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+                const userQuizDoc = querySnapshot.docs[0];
+                const userQuiz = userQuizDoc.data();
+                
+                if (userQuiz.status === 'completed') {
+                    showQuizResult(quiz.id);
+                    return;
+                } else if (userQuiz.status === 'in-progress') {
+                    // Continuar quiz em andamento
+                    currentQuiz = quiz;
+                    userAnswers = userQuiz.answers || [];
+                    currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
+                    
+                    // Buscar questões do quiz
+                    loadQuizQuestions(quiz.id);
+                }
+            } else {
+                // Iniciar novo quiz
+                currentQuiz = quiz;
+                userAnswers = [];
+                currentQuestionIndex = 0;
+                
+                // Criar registro do quiz do usuário
+                db.collection('userQuizzes').add({
+                    userId: currentUser.uid,
+                    quizId: quiz.id,
+                    status: 'in-progress',
+                    answers: [],
+                    currentQuestionIndex: 0,
+                    startTime: firebase.firestore.FieldValue.serverTimestamp(),
+                    attempts: 1
+                })
+                .then(() => {
+                    // Buscar questões do quiz
+                    loadQuizQuestions(quiz.id);
+                })
+                .catch(error => {
+                    alert('Erro ao iniciar quiz: ' + error.message);
+                });
+            }
+        })
+        .catch(error => {
+            alert('Erro ao verificar status do quiz: ' + error.message);
+        });
+}
+
+// Carregar questões do quiz
+function loadQuizQuestions(quizId) {
+    // Em uma implementação real, você teria uma relação entre quizzes e questões
+    // Aqui vamos buscar questões aleatórias do banco
+    db.collection('questions').get()
+        .then(querySnapshot => {
+            if (querySnapshot.empty) {
+                alert('Nenhuma questão disponível para este quiz.');
+                return;
+            }
+            
+            const allQuestions = [];
+            querySnapshot.forEach(doc => {
+                allQuestions.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Selecionar questões aleatórias
+            currentQuestions = [];
+            const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
+            
+            for (let i = 0; i < questionCount; i++) {
+                const randomIndex = Math.floor(Math.random() * allQuestions.length);
+                currentQuestions.push(allQuestions[randomIndex]);
+                allQuestions.splice(randomIndex, 1);
+            }
+            
+            // Iniciar quiz
+            showQuiz();
+        })
+        .catch(error => {
+            alert('Erro ao carregar questões: ' + error.message);
+        });
+}
+
+// Mostrar tela do quiz
+function showQuiz() {
+    authContainer.classList.add('hidden');
+    studentDashboard.classList.add('hidden');
+    adminDashboard.classList.add('hidden');
+    quizResult.classList.add('hidden');
+    quizContainer.classList.remove('hidden');
+    
+    // Configurar informações do quiz
+    document.getElementById('quiz-title-display').textContent = currentQuiz.title;
+    
+    // Iniciar timer
+    timeRemaining = currentQuiz.time * 60; // Converter para segundos
+    startTimer();
+    
+    // Exibir primeira questão
+    displayQuestion();
+}
+
+// Iniciar timer do quiz
+function startTimer() {
+    updateTimerDisplay();
+    
+    quizTimer = setInterval(() => {
+        timeRemaining--;
+        updateTimerDisplay();
+        
+        if (timeRemaining <= 0) {
+            finishQuiz();
+        }
+    }, 1000);
+}
+
+// Atualizar display do timer
+function updateTimerDisplay() {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    document.getElementById('quiz-timer').textContent = 
+        `Tempo: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// Exibir questão atual
+function displayQuestion() {
+    const question = currentQuestions[currentQuestionIndex];
+    
+    document.getElementById('question-text').textContent = question.text;
+    document.getElementById('option-a-text').textContent = question.options.a;
+    document.getElementById('option-b-text').textContent = question.options.b;
+    document.getElementById('option-c-text').textContent = question.options.c;
+    document.getElementById('option-d-text').textContent = question.options.d;
+    
+    // Atualizar progresso
+    document.getElementById('quiz-progress').textContent = 
+        `Questão ${currentQuestionIndex + 1}/${currentQuestions.length}`;
+    
+    // Limpar seleção anterior
+    document.querySelectorAll('.option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Restaurar resposta salva, se houver
+    if (userAnswers[currentQuestionIndex]) {
+        const selectedOption = document.querySelector(`.option[data-value="${userAnswers[currentQuestionIndex]}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+    }
+    
+    // Atualizar estado dos botões de navegação
+    document.getElementById('prev-question').disabled = currentQuestionIndex === 0;
+    document.getElementById('next-question').disabled = currentQuestionIndex === currentQuestions.length - 1;
+}
+
+// Selecionar opção
+function selectOption(value) {
+    // Limpar seleção anterior
+    document.querySelectorAll('.option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Selecionar nova opção
+    const selectedOption = document.querySelector(`.option[data-value="${value}"]`);
+    selectedOption.classList.add('selected');
+    
+    // Salvar resposta
+    userAnswers[currentQuestionIndex] = value;
+    
+    // Atualizar no Firestore
+    updateUserQuizProgress();
+}
+
+// Atualizar progresso do quiz do usuário
+function updateUserQuizProgress() {
+    // Encontrar o documento do userQuiz
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', currentQuiz.id)
+        .where('status', '==', 'in-progress')
+        .get()
+        .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+                const doc = querySnapshot.docs[0];
+                return doc.ref.update({
+                    answers: userAnswers,
+                    currentQuestionIndex: currentQuestionIndex,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao atualizar progresso do quiz:', error);
+        });
+}
+
+// Finalizar quiz
+function finishQuiz() {
+    clearInterval(quizTimer);
+    
+    // Calcular pontuação
+    let score = 0;
+    currentQuestions.forEach((question, index) => {
+        if (userAnswers[index] === question.correctAnswer) {
+            score++;
+        }
+    });
+    
+    const percentage = (score / currentQuestions.length) * 100;
+    
+    // Atualizar status do quiz do usuário
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', currentQuiz.id)
+        .where('status', '==', 'in-progress')
+        .get()
+        .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+                const doc = querySnapshot.docs[0];
+                return doc.ref.update({
+                    status: 'completed',
+                    score: score,
+                    percentage: percentage,
+                    completedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        })
+        .then(() => {
+            // Mostrar resultado
+            showQuizResult(currentQuiz.id, score, percentage);
+        })
+        .catch(error => {
+            console.error('Erro ao finalizar quiz:', error);
+            // Mostrar resultado mesmo com erro
+            showQuizResult(currentQuiz.id, score, percentage);
+        });
+}
+
+// Mostrar resultado do quiz
+function showQuizResult(quizId, score = null, percentage = null) {
+    if (score !== null && percentage !== null) {
+        // Exibir resultado recém-calculado
+        document.getElementById('score-display').innerHTML = `
+            <p>Você acertou <strong>${score}</strong> de <strong>${currentQuestions.length}</strong> questões.</p>
+            <p>Pontuação: <strong>${percentage.toFixed(2)}%</strong></p>
+        `;
+        
+        quizContainer.classList.add('hidden');
+        quizResult.classList.remove('hidden');
+    } else {
+        // Buscar resultado do Firestore
+        db.collection('userQuizzes')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId)
+            .where('status', '==', 'completed')
+            .get()
+            .then(querySnapshot => {
+                if (!querySnapshot.empty) {
+                    const userQuiz = querySnapshot.docs[0].data();
+                    
+                    document.getElementById('score-display').innerHTML = `
+                        <p>Você acertou <strong>${userQuiz.score}</strong> de <strong>${currentQuestions.length}</strong> questões.</p>
+                        <p>Pontuação: <strong>${userQuiz.percentage.toFixed(2)}%</strong></p>
+                    `;
+                    
+                    studentDashboard.classList.add('hidden');
+                    quizResult.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                alert('Erro ao carregar resultado: ' + error.message);
+            });
+    }
+}
