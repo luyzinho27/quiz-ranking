@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz App</title>
+    <title>QuizMaster - Sistema de Quiz Educacional</title>
     <link rel="stylesheet" href="style.css">
     <!-- Firebase App (core) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -11,125 +11,342 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <!-- Firebase Firestore -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <!-- Tela de Login/Cadastro -->
     <div id="auth-container" class="container">
-        <div class="auth-box">
-            <div class="tabs">
-                <button id="login-tab" class="tab active">Login</button>
-                <button id="register-tab" class="tab">Cadastro</button>
+        <div class="auth-wrapper">
+            <div class="auth-header">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>QuizMaster</h1>
+                </div>
+                <p>Teste seus conhecimentos e entre no ranking!</p>
             </div>
             
-            <!-- Formulário de Login -->
-            <div id="login-form" class="form active">
-                <h2>Login</h2>
-                <input type="email" id="login-email" placeholder="E-mail" required>
-                <input type="password" id="login-password" placeholder="Senha" required>
-                <button id="login-btn" class="btn">Entrar</button>
-                <p id="login-error" class="error-message"></p>
+            <div class="auth-box">
+                <div class="tabs">
+                    <button id="login-tab" class="tab active">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login
+                    </button>
+                    <button id="register-tab" class="tab">
+                        <i class="fas fa-user-plus"></i>
+                        Cadastro
+                    </button>
+                </div>
+                
+                <!-- Formulário de Login -->
+                <div id="login-form" class="form active">
+                    <h2>Entre na sua conta</h2>
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="login-email" placeholder="E-mail" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="login-password" placeholder="Senha" required>
+                    </div>
+                    <button id="login-btn" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Entrar
+                    </button>
+                    <div class="auth-links">
+                        <a href="#" id="forgot-password">Esqueci minha senha</a>
+                    </div>
+                    <p id="login-error" class="error-message"></p>
+                </div>
+                
+                <!-- Formulário de Cadastro -->
+                <div id="register-form" class="form">
+                    <h2>Crie sua conta</h2>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="register-name" placeholder="Nome completo" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="register-email" placeholder="E-mail" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="register-password" placeholder="Senha" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-users"></i>
+                        <select id="register-type">
+                            <option value="aluno">Aluno</option>
+                            <option value="admin" id="admin-option">Administrador</option>
+                        </select>
+                    </div>
+                    <button id="register-btn" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i>
+                        Cadastrar
+                    </button>
+                    <p id="register-error" class="error-message"></p>
+                </div>
             </div>
             
-            <!-- Formulário de Cadastro -->
-            <div id="register-form" class="form">
-                <h2>Cadastro</h2>
-                <input type="text" id="register-name" placeholder="Nome completo" required>
-                <input type="email" id="register-email" placeholder="E-mail" required>
-                <input type="password" id="register-password" placeholder="Senha" required>
-                <select id="register-type">
-                    <option value="aluno">Aluno</option>
-                    <option value="admin" id="admin-option">Administrador</option>
-                </select>
-                <button id="register-btn" class="btn">Cadastrar</button>
-                <p id="register-error" class="error-message"></p>
+            <div class="auth-footer">
+                <p>&copy; 2024 QuizMaster. Todos os direitos reservados.</p>
             </div>
         </div>
     </div>
 
     <!-- Dashboard do Aluno -->
     <div id="student-dashboard" class="container hidden">
-        <header>
-            <h1>Quiz App</h1>
+        <header class="dashboard-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>QuizMaster</h1>
+                </div>
+                <nav class="tabs">
+                    <button id="quizzes-tab" class="tab active">
+                        <i class="fas fa-list-alt"></i>
+                        Quizzes
+                    </button>
+                    <button id="ranking-tab" class="tab">
+                        <i class="fas fa-trophy"></i>
+                        Ranking
+                    </button>
+                    <button id="history-tab" class="tab">
+                        <i class="fas fa-history"></i>
+                        Meu Histórico
+                    </button>
+                </nav>
+            </div>
             <div class="user-info">
-                <span id="student-name"></span>
-                <button id="student-logout" class="btn btn-secondary">Sair</button>
+                <div class="user-details">
+                    <span id="student-name" class="user-name"></span>
+                    <span class="user-role">Aluno</span>
+                </div>
+                <button id="student-logout" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Sair
+                </button>
             </div>
         </header>
         
-        <div class="tabs">
-            <button id="quizzes-tab" class="tab active">Quizzes</button>
-            <button id="ranking-tab" class="tab">Ranking</button>
-        </div>
-        
-        <!-- Lista de Quizzes -->
-        <div id="quizzes-section" class="section active">
-            <h2>Quizzes Disponíveis</h2>
-            <div id="quizzes-list"></div>
-        </div>
-        
-        <!-- Ranking -->
-        <div id="ranking-section" class="section">
-            <h2>Ranking</h2>
-            <div id="ranking-list"></div>
-        </div>
+        <main class="dashboard-content">
+            <!-- Lista de Quizzes -->
+            <div id="quizzes-section" class="section active">
+                <div class="section-header">
+                    <h2>Quizzes Disponíveis</h2>
+                    <p>Teste seus conhecimentos e suba no ranking!</p>
+                </div>
+                <div id="quizzes-list" class="cards-container"></div>
+            </div>
+            
+            <!-- Ranking -->
+            <div id="ranking-section" class="section">
+                <div class="section-header">
+                    <h2>Ranking Geral</h2>
+                    <p>Veja os melhores colocados</p>
+                </div>
+                <div id="ranking-list" class="ranking-container"></div>
+            </div>
+
+            <!-- Histórico -->
+            <div id="history-section" class="section">
+                <div class="section-header">
+                    <h2>Meu Histórico</h2>
+                    <p>Veja seu desempenho nos quizzes</p>
+                </div>
+                <div id="history-list" class="cards-container"></div>
+            </div>
+        </main>
     </div>
 
     <!-- Dashboard do Administrador -->
     <div id="admin-dashboard" class="container hidden">
-        <header>
-            <h1>Painel do Administrador</h1>
+        <header class="dashboard-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-brain"></i>
+                    <h1>QuizMaster - Admin</h1>
+                </div>
+                <nav class="tabs">
+                    <button id="manage-quizzes-tab" class="tab active">
+                        <i class="fas fa-list-alt"></i>
+                        Quizzes
+                    </button>
+                    <button id="manage-questions-tab" class="tab">
+                        <i class="fas fa-question-circle"></i>
+                        Questões
+                    </button>
+                    <button id="manage-users-tab" class="tab">
+                        <i class="fas fa-users"></i>
+                        Usuários
+                    </button>
+                    <button id="reports-tab" class="tab">
+                        <i class="fas fa-chart-bar"></i>
+                        Relatórios
+                    </button>
+                </nav>
+            </div>
             <div class="user-info">
-                <span id="admin-name"></span>
-                <button id="admin-logout" class="btn btn-secondary">Sair</button>
+                <div class="user-details">
+                    <span id="admin-name" class="user-name"></span>
+                    <span class="user-role">Administrador</span>
+                </div>
+                <button id="admin-logout" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Sair
+                </button>
             </div>
         </header>
         
-        <div class="tabs">
-            <button id="manage-quizzes-tab" class="tab active">Gerenciar Quizzes</button>
-            <button id="manage-questions-tab" class="tab">Gerenciar Questões</button>
-            <button id="manage-users-tab" class="tab">Gerenciar Usuários</button>
-        </div>
-        
-        <!-- Gerenciar Quizzes -->
-        <div id="manage-quizzes-section" class="section active">
-            <h2>Gerenciar Quizzes</h2>
-            <button id="create-quiz-btn" class="btn">Criar Novo Quiz</button>
-            <div id="quizzes-admin-list"></div>
-        </div>
-        
-        <!-- Gerenciar Questões -->
-        <div id="manage-questions-section" class="section">
-            <h2>Gerenciar Questões</h2>
-            <div class="question-actions">
-                <button id="add-question-btn" class="btn">Adicionar Questão Manualmente</button>
-                <input type="file" id="json-file" accept=".json" style="display: none;">
-                <button id="import-json-btn" class="btn btn-secondary">Importar de JSON</button>
+        <main class="dashboard-content">
+            <!-- Gerenciar Quizzes -->
+            <div id="manage-quizzes-section" class="section active">
+                <div class="section-header">
+                    <h2>Gerenciar Quizzes</h2>
+                    <p>Crie e gerencie os quizzes disponíveis</p>
+                    <button id="create-quiz-btn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Criar Novo Quiz
+                    </button>
+                </div>
+                <div id="quizzes-admin-list" class="cards-container"></div>
             </div>
-            <div id="questions-list"></div>
-        </div>
-        
-        <!-- Gerenciar Usuários -->
-        <div id="manage-users-section" class="section">
-            <h2>Gerenciar Usuários</h2>
-            <div id="users-list"></div>
-        </div>
+            
+            <!-- Gerenciar Questões -->
+            <div id="manage-questions-section" class="section">
+                <div class="section-header">
+                    <h2>Gerenciar Questões</h2>
+                    <p>Adicione e edite o banco de questões</p>
+                    <div class="action-buttons">
+                        <button id="add-question-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            Adicionar Questão
+                        </button>
+                        <input type="file" id="json-file" accept=".json" style="display: none;">
+                        <button id="import-json-btn" class="btn btn-secondary">
+                            <i class="fas fa-file-import"></i>
+                            Importar JSON
+                        </button>
+                        <button id="export-questions-btn" class="btn btn-secondary">
+                            <i class="fas fa-file-export"></i>
+                            Exportar Questões
+                        </button>
+                    </div>
+                </div>
+                <div class="filters">
+                    <input type="text" id="question-search" placeholder="Buscar questões...">
+                    <select id="category-filter">
+                        <option value="">Todas as categorias</option>
+                    </select>
+                </div>
+                <div id="questions-list" class="cards-container"></div>
+            </div>
+            
+            <!-- Gerenciar Usuários -->
+            <div id="manage-users-section" class="section">
+                <div class="section-header">
+                    <h2>Gerenciar Usuários</h2>
+                    <p>Gerencie os usuários do sistema</p>
+                </div>
+                <div id="users-list" class="cards-container"></div>
+            </div>
+
+            <!-- Relatórios -->
+            <div id="reports-section" class="section">
+                <div class="section-header">
+                    <h2>Relatórios e Estatísticas</h2>
+                    <p>Visualize o desempenho do sistema</p>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-users">0</h3>
+                            <p>Total de Usuários</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-list-alt"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-quizzes">0</h3>
+                            <p>Quizzes Ativos</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-questions">0</h3>
+                            <p>Questões Cadastradas</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="total-attempts">0</h3>
+                            <p>Quizzes Realizados</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="reports-content">
+                    <div class="chart-container">
+                        <h3>Desempenho por Categoria</h3>
+                        <canvas id="category-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- Modal para Criar/Editar Quiz -->
     <div id="quiz-modal" class="modal hidden">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="quiz-modal-title">Criar Quiz</h2>
-            <form id="quiz-form">
-                <input type="text" id="quiz-title" placeholder="Título do Quiz" required>
-                <textarea id="quiz-description" placeholder="Descrição"></textarea>
-                <input type="number" id="quiz-time" placeholder="Tempo em minutos" min="1" required>
-                <input type="number" id="quiz-questions-count" placeholder="Número de questões" min="1" required>
-                <select id="quiz-status">
-                    <option value="active">Ativo</option>
-                    <option value="inactive">Inativo</option>
-                </select>
-                <button type="submit" class="btn">Salvar Quiz</button>
+            <div class="modal-header">
+                <h2 id="quiz-modal-title">Criar Quiz</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="quiz-form" class="modal-form">
+                <div class="input-group">
+                    <label for="quiz-title">Título do Quiz</label>
+                    <input type="text" id="quiz-title" placeholder="Digite o título do quiz" required>
+                </div>
+                <div class="input-group">
+                    <label for="quiz-description">Descrição</label>
+                    <textarea id="quiz-description" placeholder="Descreva o quiz" rows="3"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="quiz-time">Tempo (minutos)</label>
+                        <input type="number" id="quiz-time" placeholder="Tempo em minutos" min="1" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="quiz-questions-count">Número de Questões</label>
+                        <input type="number" id="quiz-questions-count" placeholder="Número de questões" min="1" required>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="quiz-category">Categoria</label>
+                    <input type="text" id="quiz-category" placeholder="Categoria do quiz">
+                </div>
+                <div class="input-group">
+                    <label for="quiz-status">Status</label>
+                    <select id="quiz-status">
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-quiz">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Quiz</button>
+                </div>
             </form>
         </div>
     </div>
@@ -137,77 +354,261 @@
     <!-- Modal para Adicionar/Editar Questão -->
     <div id="question-modal" class="modal hidden">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="question-modal-title">Adicionar Questão</h2>
-            <form id="question-form">
-                <input type="text" id="question-text" placeholder="Texto da questão" required>
-                <input type="text" id="option-a" placeholder="Opção A" required>
-                <input type="text" id="option-b" placeholder="Opção B" required>
-                <input type="text" id="option-c" placeholder="Opção C" required>
-                <input type="text" id="option-d" placeholder="Opção D" required>
-                <select id="correct-answer" required>
-                    <option value="">Selecione a resposta correta</option>
-                    <option value="a">A</option>
-                    <option value="b">B</option>
-                    <option value="c">C</option>
-                    <option value="d">D</option>
-                </select>
-                <input type="text" id="question-category" placeholder="Categoria">
-                <button type="submit" class="btn">Salvar Questão</button>
+            <div class="modal-header">
+                <h2 id="question-modal-title">Adicionar Questão</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="question-form" class="modal-form">
+                <div class="input-group">
+                    <label for="question-text">Texto da Questão</label>
+                    <textarea id="question-text" placeholder="Digite a pergunta" rows="3" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="option-a">Opção A</label>
+                        <input type="text" id="option-a" placeholder="Resposta A" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="option-b">Opção B</label>
+                        <input type="text" id="option-b" placeholder="Resposta B" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="option-c">Opção C</label>
+                        <input type="text" id="option-c" placeholder="Resposta C" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="option-d">Opção D</label>
+                        <input type="text" id="option-d" placeholder="Resposta D" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="correct-answer">Resposta Correta</label>
+                        <select id="correct-answer" required>
+                            <option value="">Selecione a resposta correta</option>
+                            <option value="a">A</option>
+                            <option value="b">B</option>
+                            <option value="c">C</option>
+                            <option value="d">D</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="question-category">Categoria</label>
+                        <input type="text" id="question-category" placeholder="Categoria da questão">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="question-explanation">Explicação (Opcional)</label>
+                    <textarea id="question-explanation" placeholder="Explicação da resposta correta" rows="2"></textarea>
+                </div>
+                <div class="input-group">
+                    <label for="question-difficulty">Dificuldade</label>
+                    <select id="question-difficulty">
+                        <option value="fácil">Fácil</option>
+                        <option value="médio">Médio</option>
+                        <option value="difícil">Difícil</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-question">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Questão</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Usuário -->
+    <div id="user-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="user-modal-title">Editar Usuário</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="user-form" class="modal-form">
+                <div class="input-group">
+                    <label for="user-name">Nome Completo</label>
+                    <input type="text" id="user-name" placeholder="Nome do usuário" required>
+                </div>
+                <div class="input-group">
+                    <label for="user-email">E-mail</label>
+                    <input type="email" id="user-email" placeholder="E-mail do usuário" required>
+                </div>
+                <div class="input-group">
+                    <label for="user-password">Nova Senha (Deixe em branco para manter a atual)</label>
+                    <input type="password" id="user-password" placeholder="Nova senha">
+                </div>
+                <div class="input-group">
+                    <label for="user-type">Tipo de Usuário</label>
+                    <select id="user-type">
+                        <option value="aluno">Aluno</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-user">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Recuperação de Senha -->
+    <div id="forgot-password-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Recuperar Senha</h2>
+                <span class="close">&times;</span>
+            </div>
+            <form id="forgot-password-form" class="modal-form">
+                <div class="input-group">
+                    <label for="reset-email">E-mail</label>
+                    <input type="email" id="reset-email" placeholder="Digite seu e-mail" required>
+                </div>
+                <p class="info-text">Enviaremos um link para redefinir sua senha no e-mail informado.</p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-reset">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Enviar Link</button>
+                </div>
             </form>
         </div>
     </div>
 
     <!-- Tela do Quiz -->
     <div id="quiz-container" class="container hidden">
-        <header>
-            <h1 id="quiz-title-display"></h1>
+        <header class="quiz-header">
             <div class="quiz-info">
-                <span id="quiz-timer">Tempo: 00:00</span>
-                <span id="quiz-progress">Questão 0/0</span>
+                <h1 id="quiz-title-display"></h1>
+                <p id="quiz-description-display"></p>
+            </div>
+            <div class="quiz-timer">
+                <div class="timer-circle">
+                    <svg width="60" height="60">
+                        <circle cx="30" cy="30" r="28" stroke="#e0e0e0" stroke-width="3" fill="none"></circle>
+                        <circle id="timer-progress" cx="30" cy="30" r="28" stroke="#4a6cf7" stroke-width="3" fill="none" 
+                                stroke-dasharray="175" stroke-dashoffset="0" transform="rotate(-90 30 30)"></circle>
+                    </svg>
+                    <span id="quiz-timer">00:00</span>
+                </div>
             </div>
         </header>
         
-        <div id="quiz-content">
-            <div id="question-container">
+        <main class="quiz-content">
+            <div class="quiz-progress">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <span id="quiz-progress-text">Questão 0/0</span>
+            </div>
+            
+            <div id="question-container" class="question-container">
                 <h2 id="question-text"></h2>
-                <div id="options-container">
+                <div id="options-container" class="options-container">
                     <div class="option" data-value="a">
                         <span class="option-letter">A</span>
-                        <span id="option-a-text"></span>
+                        <span id="option-a-text" class="option-text"></span>
                     </div>
                     <div class="option" data-value="b">
                         <span class="option-letter">B</span>
-                        <span id="option-b-text"></span>
+                        <span id="option-b-text" class="option-text"></span>
                     </div>
                     <div class="option" data-value="c">
                         <span class="option-letter">C</span>
-                        <span id="option-c-text"></span>
+                        <span id="option-c-text" class="option-text"></span>
                     </div>
                     <div class="option" data-value="d">
                         <span class="option-letter">D</span>
-                        <span id="option-d-text"></span>
+                        <span id="option-d-text" class="option-text"></span>
                     </div>
                 </div>
             </div>
             
             <div class="quiz-controls">
-                <button id="prev-question" class="btn btn-secondary">Anterior</button>
-                <button id="next-question" class="btn">Próxima</button>
-                <button id="finish-quiz" class="btn btn-primary">Finalizar Quiz</button>
+                <button id="prev-question" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Anterior
+                </button>
+                <div class="quiz-nav">
+                    <span id="current-question">1</span> de <span id="total-questions">0</span>
+                </div>
+                <button id="next-question" class="btn btn-primary">
+                    Próxima
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <button id="finish-quiz" class="btn btn-success hidden">
+                    <i class="fas fa-flag-checkered"></i>
+                    Finalizar Quiz
+                </button>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- Resultado do Quiz -->
     <div id="quiz-result" class="container hidden">
-        <div class="result-box">
-            <h2>Resultado do Quiz</h2>
-            <div id="score-display"></div>
-            <button id="back-to-dashboard" class="btn">Voltar ao Dashboard</button>
+        <div class="result-container">
+            <div class="result-header">
+                <div class="result-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <h2>Quiz Concluído!</h2>
+                <p id="result-subtitle">Veja como você foi</p>
+            </div>
+            
+            <div class="result-content">
+                <div class="score-circle">
+                    <div class="circle-background"></div>
+                    <div class="circle-progress" id="circle-progress"></div>
+                    <div class="score-text">
+                        <span id="score-percentage">0%</span>
+                        <span id="score-fraction">0/0</span>
+                    </div>
+                </div>
+                
+                <div class="result-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Acertos</span>
+                        <span id="correct-answers" class="detail-value correct">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Erros</span>
+                        <span id="wrong-answers" class="detail-value wrong">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Tempo</span>
+                        <span id="time-taken" class="detail-value">00:00</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Posição no Ranking</span>
+                        <span id="ranking-position" class="detail-value">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="result-actions">
+                <button id="review-quiz" class="btn btn-secondary">
+                    <i class="fas fa-redo"></i>
+                    Revisar Respostas
+                </button>
+                <button id="back-to-dashboard" class="btn btn-primary">
+                    <i class="fas fa-home"></i>
+                    Voltar ao Dashboard
+                </button>
+                <button id="new-quiz" class="btn btn-success">
+                    <i class="fas fa-play"></i>
+                    Fazer Outro Quiz
+                </button>
+            </div>
         </div>
     </div>
 
+    <!-- Loading Spinner -->
+    <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Carregando...</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
