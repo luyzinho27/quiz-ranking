@@ -1043,26 +1043,66 @@ function deleteQuestion(questionId) {
 function handleJsonImport(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
+
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const data = JSON.parse(e.target.result);
-            const questions = Array.isArray(data) ? data : (data.questions || []);
-            
-            if (!Array.isArray(questions) || questions.length === 0) {
-                alert('O arquivo JSON deve conter um array de questões.');
+            let questions = [];
+
+            // Verificar diferentes estruturas possíveis do JSON
+            if (Array.isArray(data)) {
+                // Estrutura 1: Array direto de questões
+                questions = data;
+                console.log('Estrutura detectada: Array direto');
+            } else if (data.questions && Array.isArray(data.questions)) {
+                // Estrutura 2: Objeto com propriedade "questions"
+                questions = data.questions;
+                console.log('Estrutura detectada: Objeto com propriedade "questions"');
+            } else if (data.quizAppQuestions && data.quizAppQuestions.questions && Array.isArray(data.quizAppQuestions.questions)) {
+                // Estrutura 3: Objeto com propriedade "quizAppQuestions.questions"
+                questions = data.quizAppQuestions.questions;
+                console.log('Estrutura detectada: Objeto com propriedade "quizAppQuestions.questions"');
+            } else {
+                alert('O arquivo JSON deve conter um array de questões na estrutura correta.\n\nEstruturas aceitas:\n1. Array direto de questões\n2. { "questions": [...] }\n3. { "quizAppQuestions": { "questions": [...] } }');
                 return;
             }
+
+            if (questions.length === 0) {
+                alert('O arquivo JSON não contém questões válidas.');
+                return;
+            }
+
+            console.log(`Encontradas ${questions.length} questões para importar`);
             
-            // Validar e importar questões
-            importQuestions(questions);
+            // Validar estrutura das questões
+            const invalidQuestions = [];
+            questions.forEach((question, index) => {
+                if (!question.text || !question.options || !question.correctAnswer) {
+                    invalidQuestions.push(index + 1);
+                }
+            });
+
+            if (invalidQuestions.length > 0) {
+                alert(`Algumas questões estão com estrutura inválida (números: ${invalidQuestions.join(', ')}).\n\nCada questão deve ter: text, options e correctAnswer.`);
+                return;
+            }
+
+            // Confirmar importação
+            if (confirm(`Deseja importar ${questions.length} questões?`)) {
+                importQuestions(questions);
+            }
+
         } catch (error) {
             alert('Erro ao processar arquivo JSON: ' + error.message);
+            console.error('Erro no JSON:', error);
         }
     };
+    reader.onerror = function() {
+        alert('Erro ao ler o arquivo. Tente novamente.');
+    };
     reader.readAsText(file);
-    
+
     // Limpar o input para permitir importar o mesmo arquivo novamente
     event.target.value = '';
 }
@@ -1077,7 +1117,8 @@ function importQuestions(questions) {
     const importNext = (index) => {
         if (index >= questions.length) {
             hideLoading();
-            alert(`Importação concluída! ${importedCount} questões importadas, ${errorCount} erros.`);
+            const message = `Importação concluída! ${importedCount} questões importadas com sucesso${errorCount > 0 ? `, ${errorCount} erros.` : '.'}`;
+            showSuccessMessage(message);
             loadQuestions();
             return;
         }
@@ -1091,11 +1132,27 @@ function importQuestions(questions) {
             importNext(index + 1);
             return;
         }
+
+        // Validar se as opções estão completas
+        if (!question.options.a || !question.options.b || !question.options.c || !question.options.d) {
+            console.error(`Questão ${index} inválida: opções incompletas`);
+            errorCount++;
+            importNext(index + 1);
+            return;
+        }
+
+        // Validar resposta correta
+        if (!['a', 'b', 'c', 'd'].includes(question.correctAnswer.toLowerCase())) {
+            console.error(`Questão ${index} inválida: resposta correta deve ser a, b, c ou d`);
+            errorCount++;
+            importNext(index + 1);
+            return;
+        }
         
         const questionData = {
             text: question.text,
             options: question.options,
-            correctAnswer: question.correctAnswer,
+            correctAnswer: question.correctAnswer.toLowerCase(),
             category: question.category || '',
             explanation: question.explanation || '',
             difficulty: question.difficulty || 'fácil',
@@ -1106,11 +1163,13 @@ function importQuestions(questions) {
         db.collection('questions').add(questionData)
             .then(() => {
                 importedCount++;
+                // Atualizar contador visual se necessário
+                console.log(`Questão ${index + 1} importada com sucesso`);
                 importNext(index + 1);
             })
             .catch(error => {
                 errorCount++;
-                console.error(`Erro ao importar questão ${index}:`, error);
+                console.error(`Erro ao importar questão ${index + 1}:`, error);
                 importNext(index + 1);
             });
     };
