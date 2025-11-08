@@ -1,4 +1,9 @@
-// Configuração do Firebase (SUBSTITUA COM SUAS CONFIGURAÇÕES)
+// Importação do Firebase (certifique-se de incluir no HTML)
+// <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+// <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+// <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+
+// Configuração do Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyD3e5rXGWsaeHHHx5YO3lwKz5poIwZbLiM",
     authDomain: "quiz-informatica-2025.firebaseapp.com",
@@ -13,1384 +18,2104 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Variáveis globais
+// Estado da aplicação
 let currentUser = null;
-let quizzes = [];
-let userProgress = [];
-let allUsers = [];
-let allQuizzes = [];
 let currentQuiz = null;
+let currentQuestions = [];
 let currentQuestionIndex = 0;
 let userAnswers = [];
-let quizStartTime = null;
-let timerInterval = null;
+let quizTimer = null;
+let timeRemaining = 0;
+let totalTime = 0;
+let userQuizId = null;
+let availableCategories = new Set();
 
-// Pool de questões de Fundamentos da Informática
-const questionsPool = {
-    'base-binaria': [
-        {
-            text: "Qual é a base do sistema binário?",
-            options: ["2", "8", "10", "16"],
-            correctAnswer: 0
-        },
-        {
-            text: "Como é representado o número decimal 10 em binário?",
-            options: ["1010", "1100", "1001", "1110"],
-            correctAnswer: 0
-        },
-        {
-            text: "Qual é o valor do número binário 1101 em decimal?",
-            options: ["11", "12", "13", "14"],
-            correctAnswer: 2
-        },
-        {
-            text: "Quantos bits são necessários para representar o número decimal 255?",
-            options: ["4", "6", "8", "10"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual é a principal vantagem do sistema hexadecimal?",
-            options: ["É mais fácil de calcular", "Representa números grandes com menos dígitos", "É usado apenas em matemática", "É o sistema mais antigo"],
-            correctAnswer: 1
-        },
-        {
-            text: "Como é representado o número decimal 15 em hexadecimal?",
-            options: ["A", "B", "E", "F"],
-            correctAnswer: 3
-        },
-        {
-            text: "Qual é o valor do número octal 77 em decimal?",
-            options: ["63", "77", "49", "55"],
-            correctAnswer: 0
-        },
-        {
-            text: "Quantos valores diferentes podem ser representados com 4 bits?",
-            options: ["8", "16", "32", "64"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual operação bit a bit é usada para verificar se um bit específico está ativo?",
-            options: ["AND", "OR", "XOR", "NOT"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é um nibble em computação?",
-            options: ["8 bits", "16 bits", "32 bits", "4 bits"],
-            correctAnswer: 3
-        }
-    ],
-    'historia-computadores': [
-        {
-            text: "Qual foi o primeiro computador programável?",
-            options: ["ENIAC", "Mark I", "Z1", "Colossus"],
-            correctAnswer: 2
-        },
-        {
-            text: "Em que década surgiu a primeira geração de computadores?",
-            options: ["1930-1940", "1940-1950", "1950-1960", "1960-1970"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual tecnologia foi usada na primeira geração de computadores?",
-            options: ["Transistores", "Circuitos integrados", "Válvulas termiônicas", "Microprocessadores"],
-            correctAnswer: 2
-        },
-        {
-            text: "Quem é considerado o pai da computação?",
-            options: ["Bill Gates", "Alan Turing", "Charles Babbage", "Steve Jobs"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual foi o primeiro computador pessoal comercialmente bem-sucedido?",
-            options: ["IBM PC", "Apple II", "Altair 8800", "Commodore 64"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que caracterizou a terceira geração de computadores?",
-            options: ["Uso de circuitos integrados", "Uso de transistores", "Uso de válvulas", "Inteligência artificial"],
-            correctAnswer: 0
-        },
-        {
-            text: "Qual empresa desenvolveu o primeiro microprocessador?",
-            options: ["IBM", "Intel", "AMD", "Motorola"],
-            correctAnswer: 1
-        },
-        {
-            text: "Em que ano foi lançado o IBM PC?",
-            options: ["1975", "1981", "1984", "1990"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual foi a principal inovação da quarta geração de computadores?",
-            options: ["Válvulas termiônicas", "Transistores", "Circuitos integrados", "Microprocessadores"],
-            correctAnswer: 3
-        },
-        {
-            text: "O que é o ENIAC?",
-            options: ["Primeiro computador pessoal", "Primeiro supercomputador", "Primeiro computador eletrônico de grande escala", "Primeiro laptop"],
-            correctAnswer: 2
-        }
-    ],
-    'arquitetura-von-neumann': [
-        {
-            text: "Qual é o conceito fundamental da Arquitetura de Von Neumann?",
-            options: ["Programas e dados armazenados separadamente", "Programas e dados armazenados na mesma memória", "Uso exclusivo de memória ROM", "Processamento paralelo"],
-            correctAnswer: 1
-        },
-        {
-            text: "Quais são os componentes principais da Arquitetura de Von Neumann?",
-            options: ["CPU, Memória, Dispositivos E/S", "CPU, GPU, RAM", "Processador, Placa-mãe, HD", "Monitor, Teclado, Mouse"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é o barramento (bus) na arquitetura de Von Neumann?",
-            options: ["Um tipo de memória", "Um componente de processamento", "Um sistema de comunicação entre componentes", "Um dispositivo de entrada"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual componente é responsável por executar instruções na arquitetura de Von Neumann?",
-            options: ["Memória Principal", "Unidade de Controle", "Unidade Lógica e Aritmética", "Dispositivos de E/S"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que significa o termo 'stored-program concept'?",
-            options: ["Programas armazenados em disco rígido", "Programas e dados na mesma memória", "Programas em memória somente leitura", "Programas executados da internet"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual é a função da Unidade Lógica e Aritmética (ULA)?",
-            options: ["Controlar o fluxo de dados", "Armazenar programas", "Executar operações matemáticas e lógicas", "Gerenciar dispositivos de E/S"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é o 'Von Neumann bottleneck'?",
-            options: ["Limitação na velocidade do processador", "Limitação na comunicação entre CPU e memória", "Falta de memória RAM", "Problemas com dispositivos de E/S"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual componente armazena o endereço da próxima instrução a ser executada?",
-            options: ["Accumulator", "Program Counter", "Instruction Register", "Memory Address Register"],
-            correctAnswer: 1
-        },
-        {
-            text: "Como as instruções são executadas na arquitetura de Von Neumann?",
-            options: ["Em paralelo", "Sequencialmente", "Aleatoriamente", "Dependendo da prioridade"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a principal diferença entre a arquitetura Harvard e Von Neumann?",
-            options: ["Uso de memórias separadas para dados e instruções", "Velocidade de processamento", "Tipo de processador usado", "Método de execução de instruções"],
-            correctAnswer: 0
-        }
-    ],
-    'componentes-computador': [
-        {
-            text: "Qual componente é considerado o 'cérebro' do computador?",
-            options: ["Memória RAM", "Processador (CPU)", "Disco Rígido", "Placa-mãe"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é a memória RAM?",
-            options: ["Memória de armazenamento permanente", "Memória de armazenamento temporário", "Memória somente leitura", "Memória de backup"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a função da placa-mãe (motherboard)?",
-            options: ["Processar dados", "Armazenar arquivos", "Conectar todos os componentes do computador", "Exibir imagens na tela"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é um SSD?",
-            options: ["Unidade de processamento gráfico", "Memória de acesso aleatório", "Disco de estado sólido", "Sistema operacional"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual componente é responsável pelo processamento gráfico?",
-            options: ["CPU", "GPU", "RAM", "HDD"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é a BIOS?",
-            options: ["Sistema operacional", "Software básico de inicialização", "Programa de edição de texto", "Antivirus"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a diferença entre memória RAM e ROM?",
-            options: ["RAM é mais rápida que ROM", "RAM é volátil, ROM é não volátil", "ROM é usada para processamento, RAM para armazenamento", "Não há diferença"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um barramento (bus) em um computador?",
-            options: ["Um tipo de memória", "Um caminho para transmissão de dados", "Um processador auxiliar", "Um dispositivo de entrada"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual componente controla o fluxo de dados entre a CPU e a memória?",
-            options: ["Northbridge", "Southbridge", "BIOS", "Cache"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é cache L1, L2, L3 em um processador?",
-            options: ["Diferentes tipos de memória RAM", "Níveis de memória rápida dentro do processador", "Tipos de disco rígido", "Velocidades de clock do processador"],
-            correctAnswer: 1
-        }
-    ],
-    'instrucoes-maquina': [
-        {
-            text: "O que é uma instrução de máquina?",
-            options: ["Um comando em linguagem de alto nível", "Um comando que o processador pode executar diretamente", "Um programa completo", "Um arquivo de configuração"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual é o formato básico de uma instrução de máquina?",
-            options: ["Opcode + Operandos", "Nome da instrução + Parâmetros", "Endereço + Valor", "Registrador + Memória"],
-            correctAnswer: 0
-        },
-        {
-            text: "O que é um opcode?",
-            options: ["O endereço de memória", "O código da operação a ser executada", "O valor do operando", "O registrador usado"],
-            correctAnswer: 1
-        },
-        {
-            text: "Quantos operandos uma instrução LOAD normalmente tem?",
-            options: ["0", "1", "2", "3"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que faz a instrução ADD?",
-            options: ["Carrega um valor da memória", "Armazena um valor na memória", "Soma dois valores", "Compara dois valores"],
-            correctAnswer: 2
-        },
-        {
-            text: "Qual instrução é usada para desvio condicional?",
-            options: ["JMP", "CMP + JZ", "MOV", "NOP"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é o conjunto de instruções (instruction set) de um processador?",
-            options: ["A velocidade do processador", "Todas as instruções que o processador pode executar", "A quantidade de memória cache", "O número de núcleos do processador"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que significa CISC em arquitetura de processadores?",
-            options: ["Complex Instruction Set Computer", "Compact Instruction Set Computer", "Central Instruction Set Computer", "Complete Instruction Set Computer"],
-            correctAnswer: 0
-        },
-        {
-            text: "Qual a principal característica da arquitetura RISC?",
-            options: ["Instruções complexas e variadas", "Instruções simples e de execução rápida", "Muitos modos de endereçamento", "Instruções de tamanho variável"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um ciclo de instrução?",
-            options: ["A velocidade do processador em GHz", "O processo de buscar, decodificar e executar uma instrução", "O tempo para acessar a memória RAM", "A quantidade de instruções por segundo"],
-            correctAnswer: 1
-        }
-    ],
-    'traducao-instrucoes': [
-        {
-            text: "O que é um compilador?",
-            options: ["Um programa que traduz código assembly para máquina", "Um programa que traduz código de alto nível para máquina", "Um programa que executa código diretamente", "Um tipo de processador"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual a diferença entre compilação e interpretação?",
-            options: ["Compilação é mais lenta que interpretação", "Compilação gera código executável, interpretação executa linha a linha", "Interpretação gera código executável", "Não há diferença"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um assembler?",
-            options: ["Um compilador para linguagem C", "Um tradutor de assembly para código de máquina", "Um interpretador de Python", "Um tipo de memória"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que são linguagens de baixo nível?",
-            options: ["Linguagens como Python e Java", "Linguagens próximas à linguagem de máquina", "Linguagens para desenvolvimento web", "Linguagens com muitas abstrações"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual é a vantagem das linguagens de alto nível?",
-            options: ["Execução mais rápida", "Maior controle sobre o hardware", "Facilidade de programação e portabilidade", "Acesso direto à memória"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é código objeto?",
-            options: ["Código fonte em linguagem de alto nível", "Código em linguagem assembly", "Código de máquina gerado pelo compilador", "Código HTML"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que faz o linker (ligador)?",
-            options: ["Traduz código fonte para assembly", "Combina múltiplos arquivos objeto em um executável", "Executa o programa", "Depura o código"],
-            correctAnswer: 1
-        },
-        {
-            text: "O que é um bytecode?",
-            options: ["Código de máquina nativo", "Código intermediário executado por uma máquina virtual", "Código assembly", "Código fonte"],
-            correctAnswer: 1
-        },
-        {
-            text: "Qual linguagem usa compilação JIT (Just-In-Time)?",
-            options: ["C", "C++", "Java", "Assembly"],
-            correctAnswer: 2
-        },
-        {
-            text: "O que é cross-compilation?",
-            options: ["Compilação otimizada para velocidade", "Compilação para uma plataforma diferente da atual", "Compilação com múltiplos arquivos", "Compilação incremental"],
-            correctAnswer: 1
-        }
-    ]
-};
+// Elementos da DOM
+const authContainer = document.getElementById('auth-container');
+const studentDashboard = document.getElementById('student-dashboard');
+const adminDashboard = document.getElementById('admin-dashboard');
+const quizContainer = document.getElementById('quiz-container');
+const quizResult = document.getElementById('quiz-result');
+const loading = document.getElementById('loading');
 
-// ========== FUNÇÕES DE AUTENTICAÇÃO ==========
-
-// Mostrar/ocultar telas
-function showScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(screen => {
-        screen.classList.remove('active');
-    });
-    document.getElementById(screenId).classList.add('active');
-}
-
-// Alternar entre login e cadastro
-function showAuthTab(tabName) {
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.auth-tab').forEach(tab => tab.classList.remove('active'));
+// Inicializar a aplicação
+document.addEventListener('DOMContentLoaded', function() {
+    initAuth();
+    initEventListeners();
     
-    if (tabName === 'login') {
-        document.querySelector('.tab-button:nth-child(1)').classList.add('active');
-        document.getElementById('login-form').classList.add('active');
-        document.getElementById('auth-title').textContent = 'Login';
-    } else {
-        document.querySelector('.tab-button:nth-child(2)').classList.add('active');
-        document.getElementById('register-form').classList.add('active');
-        document.getElementById('auth-title').textContent = 'Cadastro';
-    }
-}
-
-// Mostrar mensagens
-function showMessage(message, type) {
-    const authMessage = document.getElementById('auth-message');
-    authMessage.textContent = message;
-    authMessage.className = `message ${type}`;
-    
-    setTimeout(() => {
-        authMessage.textContent = '';
-        authMessage.className = 'message';
-    }, 5000);
-}
-
-// Login
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    
-    try {
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // Buscar informações adicionais do usuário
-        const userDoc = await db.collection('users').doc(user.uid).get();
-        
-        if (userDoc.exists) {
-            const userData = userDoc.data();
-            currentUser = { uid: user.uid, ...userData };
-            
-            // Redirecionar baseado no tipo de usuário
-            if (userData.role === 'admin') {
-                showScreen('admin-screen');
-                document.getElementById('admin-name').textContent = userData.name;
-                loadAdminData();
-            } else {
-                showScreen('student-screen');
-                document.getElementById('user-name').textContent = userData.name;
-                loadStudentData();
-            }
-        }
-        
-        showMessage('Login realizado com sucesso!', 'success');
-    } catch (error) {
-        showMessage('Erro no login: ' + error.message, 'error');
-    }
-});
-
-// Cadastro
-document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-    const role = document.getElementById('register-role').value;
-    
-    try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // Salvar informações adicionais no Firestore
-        await db.collection('users').doc(user.uid).set({
-            name: name,
-            email: email,
-            role: role,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        showMessage('Cadastro realizado com sucesso!', 'success');
-        
-        // Limpar formulário e voltar para login
-        document.getElementById('register-form').reset();
-        setTimeout(() => showAuthTab('login'), 2000);
-    } catch (error) {
-        showMessage('Erro no cadastro: ' + error.message, 'error');
-    }
-});
-
-// Logout
-document.getElementById('logout-btn').addEventListener('click', () => {
-    auth.signOut();
-});
-
-document.getElementById('admin-logout-btn').addEventListener('click', () => {
-    auth.signOut();
-});
-
-// Observador de estado de autenticação
-auth.onAuthStateChanged((user) => {
-    if (user) {
-        // Usuário está logado
-        db.collection('users').doc(user.uid).get().then((doc) => {
-            if (doc.exists) {
-                const userData = doc.data();
-                currentUser = { uid: user.uid, ...userData };
-                
-                if (userData.role === 'admin') {
-                    showScreen('admin-screen');
-                    document.getElementById('admin-name').textContent = userData.name;
-                    loadAdminData();
-                } else {
-                    showScreen('student-screen');
-                    document.getElementById('user-name').textContent = userData.name;
-                    loadStudentData();
-                }
-            }
-        });
-    } else {
-        // Usuário não está logado
-        showScreen('auth-screen');
-        currentUser = null;
-    }
-});
-
-// ========== FUNÇÕES DO ESTUDANTE ==========
-
-// Carregar dados do estudante
-async function loadStudentData() {
-    try {
-        // Carregar quizzes ativos
-        const quizzesSnapshot = await db.collection('quizzes')
-            .where('active', '==', true)
-            .get();
-        
-        quizzes = [];
-        quizzesSnapshot.forEach(doc => {
-            quizzes.push({
-                id: doc.id,
-                ...doc.data()
+    // Verificar se há um usuário logado
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            // Usuário está logado
+            showLoading();
+            getUserData(user.uid).then(userData => {
+                currentUser = { ...user, ...userData };
+                hideLoading();
+                showDashboard();
+            }).catch(error => {
+                hideLoading();
+                console.error('Erro ao carregar dados do usuário:', error);
+                auth.signOut();
             });
-        });
-        
-        // Carregar progresso do usuário
-        const progressSnapshot = await db.collection('userProgress')
-            .where('userId', '==', currentUser.uid)
-            .get();
-        
-        userProgress = [];
-        progressSnapshot.forEach(doc => {
-            userProgress.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
-        
-        displayQuizzes();
-        loadRanking();
-        displayUserProgress();
-    } catch (error) {
-        console.error('Erro ao carregar dados:', error);
-    }
-}
-
-// Mostrar quizzes para o estudante
-function displayQuizzes() {
-    const quizzesList = document.getElementById('quizzes-list');
-    quizzesList.innerHTML = '';
-    
-    if (quizzes.length === 0) {
-        quizzesList.innerHTML = '<p>Nenhum quiz disponível no momento.</p>';
-        return;
-    }
-    
-    quizzes.forEach(quiz => {
-        const progress = userProgress.find(p => p.quizId === quiz.id);
-        let status = 'not-started';
-        let statusText = 'Não Iniciado';
-        let buttonText = 'Iniciar Quiz';
-        let buttonAction = `startQuiz('${quiz.id}')`;
-        
-        if (progress) {
-            if (progress.completed) {
-                status = 'completed';
-                statusText = 'Concluído';
-                buttonText = 'Ver Resultado';
-                buttonAction = `showQuizResults(${JSON.stringify(progress).replace(/'/g, "\\'")})`;
-            } else {
-                status = 'in-progress';
-                statusText = 'Em Andamento';
-                buttonText = 'Continuar Quiz';
-                buttonAction = `startQuiz('${quiz.id}')`;
-            }
-        }
-        
-        const quizCard = document.createElement('div');
-        quizCard.className = 'quiz-card';
-        quizCard.innerHTML = `
-            <h3>${quiz.title}</h3>
-            <p>${quiz.description}</p>
-            <p><strong>Tópico:</strong> ${getTopicName(quiz.topic)}</p>
-            <p><strong>Questões:</strong> ${quiz.questions ? quiz.questions.length : 10}</p>
-            <div class="quiz-status status-${status}">${statusText}</div>
-            <button onclick="${buttonAction}" class="action-btn" style="margin-top: 1rem;">${buttonText}</button>
-        `;
-        
-        quizzesList.appendChild(quizCard);
-    });
-}
-
-// Carregar ranking
-async function loadRanking() {
-    try {
-        const rankingSnapshot = await db.collection('userProgress')
-            .where('completed', '==', true)
-            .orderBy('score', 'desc')
-            .limit(20)
-            .get();
-        
-        const rankingList = document.getElementById('ranking-list');
-        rankingList.innerHTML = '';
-        
-        if (rankingSnapshot.empty) {
-            rankingList.innerHTML = '<p>Ainda não há dados de ranking.</p>';
-            return;
-        }
-        
-        let position = 1;
-        
-        for (const doc of rankingSnapshot.docs) {
-            const progress = doc.data();
-            const userDoc = await db.collection('users').doc(progress.userId).get();
-            
-            if (userDoc.exists) {
-                const userData = userDoc.data();
-                
-                const rankingItem = document.createElement('div');
-                rankingItem.className = 'ranking-item';
-                rankingItem.innerHTML = `
-                    <div class="ranking-position">${position}</div>
-                    <div class="ranking-name">${userData.name}</div>
-                    <div class="ranking-score">${progress.score}/${progress.totalQuestions}</div>
-                `;
-                
-                rankingList.appendChild(rankingItem);
-                position++;
-            }
-        }
-    } catch (error) {
-        console.error('Erro ao carregar ranking:', error);
-    }
-}
-
-// Mostrar progresso do usuário
-function displayUserProgress() {
-    const userProgressDiv = document.getElementById('user-progress');
-    userProgressDiv.innerHTML = '';
-    
-    const completedQuizzes = userProgress.filter(p => p.completed);
-    
-    if (completedQuizzes.length === 0) {
-        userProgressDiv.innerHTML = '<p>Você ainda não completou nenhum quiz.</p>';
-        return;
-    }
-    
-    completedQuizzes.forEach(progress => {
-        const quiz = quizzes.find(q => q.id === progress.quizId);
-        if (quiz) {
-            const progressItem = document.createElement('div');
-            progressItem.className = 'quiz-card';
-            progressItem.innerHTML = `
-                <h3>${quiz.title}</h3>
-                <p><strong>Pontuação:</strong> ${progress.score}/${progress.totalQuestions}</p>
-                <p><strong>Data de Conclusão:</strong> ${new Date(progress.completedAt.toDate()).toLocaleDateString()}</p>
-                <button onclick="showQuizResults(${JSON.stringify(progress).replace(/'/g, "\\'")})" class="action-btn" style="margin-top: 1rem;">Ver Detalhes</button>
-            `;
-            
-            userProgressDiv.appendChild(progressItem);
-        }
-    });
-}
-
-// Alternar entre abas do estudante
-function showStudentTab(tabName) {
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    
-    const tabIndex = ['quizzes', 'ranking', 'progress'].indexOf(tabName) + 1;
-    document.querySelector(`.tab-button:nth-child(${tabIndex})`).classList.add('active');
-    document.getElementById(`${tabName}-tab`).classList.add('active');
-}
-
-// ========== FUNÇÕES DO QUIZ ==========
-
-// Iniciar quiz
-async function startQuiz(quizId) {
-    try {
-        const quizDoc = await db.collection('quizzes').doc(quizId).get();
-        
-        if (!quizDoc.exists) {
-            alert('Quiz não encontrado!');
-            return;
-        }
-        
-        currentQuiz = {
-            id: quizDoc.id,
-            ...quizDoc.data()
-        };
-        
-        // Se o quiz não tiver questões, usar questões do pool
-        if (!currentQuiz.questions || currentQuiz.questions.length === 0) {
-            currentQuiz.questions = questionsPool[currentQuiz.topic] || [];
-        }
-        
-        // Verificar progresso existente
-        const progressQuery = await db.collection('userProgress')
-            .where('userId', '==', currentUser.uid)
-            .where('quizId', '==', quizId)
-            .get();
-        
-        if (!progressQuery.empty) {
-            const progressDoc = progressQuery.docs[0];
-            const progress = progressDoc.data();
-            
-            if (progress.completed) {
-                // Quiz já completado, mostrar resultados
-                showQuizResults(progress);
-                return;
-            } else {
-                // Continuar quiz em andamento
-                userAnswers = progress.answers || [];
-                currentQuestionIndex = progress.currentQuestion || 0;
-            }
         } else {
-            // Novo quiz
-            userAnswers = new Array(currentQuiz.questions.length).fill(null);
-            currentQuestionIndex = 0;
-            
-            // Criar registro de progresso
-            await db.collection('userProgress').add({
-                userId: currentUser.uid,
-                quizId: quizId,
-                answers: userAnswers,
-                currentQuestion: currentQuestionIndex,
-                completed: false,
-                startedAt: firebase.firestore.FieldValue.serverTimestamp()
+            // Nenhum usuário logado
+            hideLoading();
+            showAuth();
+        }
+    });
+});
+
+// Funções de loading
+function showLoading() {
+    loading.classList.remove('hidden');
+}
+
+function hideLoading() {
+    loading.classList.add('hidden');
+}
+
+// Inicializar autenticação
+function initAuth() {
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const loginBtn = document.getElementById('login-btn');
+    const registerBtn = document.getElementById('register-btn');
+    const adminOption = document.getElementById('admin-option');
+    const forgotPasswordLink = document.getElementById('forgot-password');
+    
+    // Alternar entre login e cadastro
+    loginTab.addEventListener('click', () => {
+        switchAuthTab('login');
+    });
+    
+    registerTab.addEventListener('click', () => {
+        switchAuthTab('register');
+    });
+    
+    // Login
+    loginBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!email || !password) {
+            showError('login-error', 'Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        showLoading();
+        auth.signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                // Login bem-sucedido
+                document.getElementById('login-error').textContent = '';
+                hideLoading();
+            })
+            .catch((error) => {
+                hideLoading();
+                showError('login-error', getAuthErrorMessage(error.code));
             });
-        }
-        
-        quizStartTime = new Date();
-        showScreen('quiz-screen');
-        displayQuestion();
-        
-        // Iniciar timer se houver limite de tempo
-        if (currentQuiz.timeLimit) {
-            startTimer(currentQuiz.timeLimit);
-        }
-    } catch (error) {
-        console.error('Erro ao iniciar quiz:', error);
-        alert('Erro ao carregar o quiz. Tente novamente.');
-    }
-}
-
-// Mostrar questão atual
-function displayQuestion() {
-    if (!currentQuiz || !currentQuiz.questions) return;
-    
-    const question = currentQuiz.questions[currentQuestionIndex];
-    const quizTitle = document.getElementById('quiz-title');
-    const questionText = document.getElementById('question-text');
-    const optionsContainer = document.getElementById('options-container');
-    const quizProgress = document.getElementById('quiz-progress');
-    
-    quizTitle.textContent = currentQuiz.title;
-    questionText.textContent = `${currentQuestionIndex + 1}. ${question.text}`;
-    quizProgress.textContent = `Questão ${currentQuestionIndex + 1} de ${currentQuiz.questions.length}`;
-    
-    optionsContainer.innerHTML = '';
-    
-    question.options.forEach((option, index) => {
-        const optionElement = document.createElement('div');
-        optionElement.className = `option ${userAnswers[currentQuestionIndex] === index ? 'selected' : ''}`;
-        optionElement.textContent = option;
-        optionElement.onclick = () => selectOption(index);
-        optionsContainer.appendChild(optionElement);
     });
     
-    // Configurar navegação
-    document.getElementById('prev-btn').style.display = currentQuestionIndex > 0 ? 'block' : 'none';
-    document.getElementById('next-btn').style.display = currentQuestionIndex < currentQuiz.questions.length - 1 ? 'block' : 'none';
-    document.getElementById('submit-quiz-btn').style.display = currentQuestionIndex === currentQuiz.questions.length - 1 ? 'block' : 'none';
-}
-
-// Selecionar opção
-function selectOption(optionIndex) {
-    userAnswers[currentQuestionIndex] = optionIndex;
-    
-    // Atualizar visualização
-    document.querySelectorAll('.option').forEach((option, index) => {
-        option.classList.toggle('selected', index === optionIndex);
+    // Cadastro
+    registerBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('register-name').value;
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+        const userType = document.getElementById('register-type').value;
+        
+        if (!name || !email || !password) {
+            showError('register-error', 'Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        if (password.length < 6) {
+            showError('register-error', 'A senha deve ter pelo menos 6 caracteres.');
+            return;
+        }
+        
+        // Verificar se já existe um administrador
+        if (userType === 'admin') {
+            showLoading();
+            checkAdminExists().then(adminExists => {
+                if (adminExists) {
+                    hideLoading();
+                    showError('register-error', 'Já existe um administrador cadastrado.');
+                    adminOption.disabled = true;
+                    return;
+                } else {
+                    registerUser(name, email, password, userType);
+                }
+            });
+        } else {
+            registerUser(name, email, password, userType);
+        }
     });
     
-    // Salvar progresso
-    saveProgress();
+    // Recuperação de senha
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        openForgotPasswordModal();
+    });
+    
+    // Verificar se já existe um administrador
+    checkAdminExists().then(adminExists => {
+        if (adminExists) {
+            adminOption.disabled = true;
+        }
+    });
 }
 
-// Navegação do quiz
-document.getElementById('next-btn').addEventListener('click', () => {
-    if (currentQuestionIndex < currentQuiz.questions.length - 1) {
-        currentQuestionIndex++;
-        displayQuestion();
+// Alternar entre abas de autenticação
+function switchAuthTab(tab) {
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    
+    if (tab === 'login') {
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+        loginForm.classList.add('active');
+        registerForm.classList.remove('active');
+    } else {
+        registerTab.classList.add('active');
+        loginTab.classList.remove('active');
+        registerForm.classList.add('active');
+        loginForm.classList.remove('active');
     }
-});
+}
 
-document.getElementById('prev-btn').addEventListener('click', () => {
-    if (currentQuestionIndex > 0) {
-        currentQuestionIndex--;
-        displayQuestion();
-    }
-});
+// Registrar novo usuário
+function registerUser(name, email, password, userType) {
+    showLoading();
+    auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            const user = userCredential.user;
+            
+            // Salvar dados adicionais do usuário no Firestore
+            return db.collection('users').doc(user.uid).set({
+                name: name,
+                email: email,
+                userType: userType,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        })
+        .then(() => {
+            hideLoading();
+            document.getElementById('register-error').textContent = '';
+            showSuccess('register-error', 'Cadastro realizado com sucesso!');
+            
+            // Limpar formulário e mudar para login após 2 segundos
+            setTimeout(() => {
+                document.getElementById('register-form').reset();
+                switchAuthTab('login');
+            }, 2000);
+        })
+        .catch((error) => {
+            hideLoading();
+            showError('register-error', getAuthErrorMessage(error.code));
+        });
+}
 
-// Sair do quiz
-document.getElementById('exit-quiz-btn').addEventListener('click', () => {
-    if (confirm('Tem certeza que deseja sair? Seu progresso será salvo.')) {
-        if (timerInterval) clearInterval(timerInterval);
-        showScreen('student-screen');
-    }
-});
+// Verificar se já existe um administrador
+function checkAdminExists() {
+    return db.collection('users')
+        .where('userType', '==', 'admin')
+        .get()
+        .then(querySnapshot => {
+            return !querySnapshot.empty;
+        });
+}
 
-// Finalizar quiz
-document.getElementById('submit-quiz-btn').addEventListener('click', () => {
-    if (confirm('Tem certeza que deseja finalizar o quiz?')) {
-        submitQuiz();
-    }
-});
-
-// Submeter quiz
-async function submitQuiz() {
-    try {
-        // Calcular pontuação
-        let score = 0;
-        currentQuiz.questions.forEach((question, index) => {
-            if (userAnswers[index] === question.correctAnswer) {
-                score++;
+// Obter dados do usuário
+function getUserData(uid) {
+    return db.collection('users').doc(uid).get()
+        .then(doc => {
+            if (doc.exists) {
+                return doc.data();
+            } else {
+                throw new Error('Usuário não encontrado');
             }
         });
-        
-        const progressQuery = await db.collection('userProgress')
-            .where('userId', '==', currentUser.uid)
-            .where('quizId', '==', currentQuiz.id)
-            .get();
-        
-        if (!progressQuery.empty) {
-            const progressDoc = progressQuery.docs[0];
-            
-            await db.collection('userProgress').doc(progressDoc.id).update({
-                answers: userAnswers,
-                completed: true,
-                score: score,
-                totalQuestions: currentQuiz.questions.length,
-                completedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+}
+
+// Inicializar event listeners
+function initEventListeners() {
+    // Logout
+    document.getElementById('student-logout').addEventListener('click', logout);
+    document.getElementById('admin-logout').addEventListener('click', logout);
+    
+    // Navegação entre abas
+    initTabNavigation();
+    
+    // Modais
+    initModals();
+    
+    // Controles do quiz
+    initQuizControls();
+    
+    // Exportação de questões
+    document.getElementById('export-questions-btn').addEventListener('click', exportQuestions);
+    
+    // Busca e filtros
+    document.getElementById('question-search').addEventListener('input', filterQuestions);
+    document.getElementById('category-filter').addEventListener('change', filterQuestions);
+}
+
+// Inicializar navegação por abas
+function initTabNavigation() {
+    // Abas do aluno
+    document.getElementById('quizzes-tab').addEventListener('click', () => {
+        switchTab('quizzes-tab', 'quizzes-section');
+        loadQuizzes();
+    });
+    
+    document.getElementById('ranking-tab').addEventListener('click', () => {
+        switchTab('ranking-tab', 'ranking-section');
+        loadRanking();
+    });
+    
+    document.getElementById('history-tab').addEventListener('click', () => {
+        switchTab('history-tab', 'history-section');
+        loadUserHistory();
+    });
+    
+    // Abas do administrador
+    document.getElementById('manage-quizzes-tab').addEventListener('click', () => {
+        switchTab('manage-quizzes-tab', 'manage-quizzes-section');
+        loadQuizzesAdmin();
+    });
+    
+    document.getElementById('manage-questions-tab').addEventListener('click', () => {
+        switchTab('manage-questions-tab', 'manage-questions-section');
+        loadQuestions();
+    });
+    
+    document.getElementById('manage-users-tab').addEventListener('click', () => {
+        switchTab('manage-users-tab', 'manage-users-section');
+        loadUsers();
+    });
+    
+    document.getElementById('reports-tab').addEventListener('click', () => {
+        switchTab('reports-tab', 'reports-section');
+        loadReports();
+    });
+    
+    // Botões de ação
+    document.getElementById('create-quiz-btn').addEventListener('click', () => {
+        openQuizModal();
+    });
+    
+    document.getElementById('add-question-btn').addEventListener('click', () => {
+        openQuestionModal();
+    });
+    
+    document.getElementById('import-json-btn').addEventListener('click', () => {
+        document.getElementById('json-file').click();
+    });
+    
+    document.getElementById('json-file').addEventListener('change', handleJsonImport);
+    
+    document.getElementById('back-to-dashboard').addEventListener('click', () => {
+        showDashboard();
+    });
+    
+    document.getElementById('new-quiz').addEventListener('click', () => {
+        showDashboard();
+        setTimeout(() => {
+            switchTab('quizzes-tab', 'quizzes-section');
+            loadQuizzes();
+        }, 100);
+    });
+    
+    document.getElementById('review-quiz').addEventListener('click', () => {
+        // Implementar revisão de respostas
+        alert('Funcionalidade de revisão em desenvolvimento');
+    });
+}
+
+// Inicializar modais
+function initModals() {
+    // Modal de quiz
+    const quizModal = document.getElementById('quiz-modal');
+    const quizCloseBtn = document.querySelector('#quiz-modal .close');
+    const quizForm = document.getElementById('quiz-form');
+    const cancelQuizBtn = document.getElementById('cancel-quiz');
+    
+    quizCloseBtn.addEventListener('click', () => closeModal('quiz-modal'));
+    cancelQuizBtn.addEventListener('click', () => closeModal('quiz-modal'));
+    quizForm.addEventListener('submit', handleQuizSubmit);
+    
+    // Modal de questão
+    const questionModal = document.getElementById('question-modal');
+    const questionCloseBtn = document.querySelector('#question-modal .close');
+    const questionForm = document.getElementById('question-form');
+    const cancelQuestionBtn = document.getElementById('cancel-question');
+    
+    questionCloseBtn.addEventListener('click', () => closeModal('question-modal'));
+    cancelQuestionBtn.addEventListener('click', () => closeModal('question-modal'));
+    questionForm.addEventListener('submit', handleQuestionSubmit);
+    
+    // Modal de usuário
+    const userModal = document.getElementById('user-modal');
+    const userCloseBtn = document.querySelector('#user-modal .close');
+    const userForm = document.getElementById('user-form');
+    const cancelUserBtn = document.getElementById('cancel-user');
+    
+    userCloseBtn.addEventListener('click', () => closeModal('user-modal'));
+    cancelUserBtn.addEventListener('click', () => closeModal('user-modal'));
+    userForm.addEventListener('submit', handleUserSubmit);
+    
+    // Modal de recuperação de senha
+    const forgotPasswordModal = document.getElementById('forgot-password-modal');
+    const forgotPasswordCloseBtn = document.querySelector('#forgot-password-modal .close');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
+    const cancelResetBtn = document.getElementById('cancel-reset');
+    
+    forgotPasswordCloseBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
+    cancelResetBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
+    forgotPasswordForm.addEventListener('submit', handlePasswordReset);
+    
+    // Modal de saída do quiz
+    const exitQuizModal = document.getElementById('exit-quiz-modal');
+    const exitQuizCloseBtn = document.querySelector('#exit-quiz-modal .close');
+    const cancelExitBtn = document.getElementById('cancel-exit');
+    const confirmExitBtn = document.getElementById('confirm-exit');
+    
+    exitQuizCloseBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
+    cancelExitBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
+    confirmExitBtn.addEventListener('click', confirmExitQuiz);
+    
+    // Botão de sair do quiz
+    document.getElementById('exit-quiz-btn').addEventListener('click', openExitQuizModal);
+    
+    // Fechar modal ao clicar fora
+    window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+            e.target.classList.add('hidden');
         }
-        
-        if (timerInterval) clearInterval(timerInterval);
-        
-        // Mostrar resultados
-        showQuizResults({
-            score: score,
-            totalQuestions: currentQuiz.questions.length,
-            answers: userAnswers
+    });
+}
+
+// Inicializar controles do quiz
+function initQuizControls() {
+    document.getElementById('prev-question').addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            displayQuestion();
+        }
+    });
+    
+    document.getElementById('next-question').addEventListener('click', () => {
+        if (currentQuestionIndex < currentQuestions.length - 1) {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+    });
+    
+    document.getElementById('finish-quiz').addEventListener('click', finishQuiz);
+    
+    // Seleção de opções
+    document.querySelectorAll('.option').forEach(option => {
+        option.addEventListener('click', function() {
+            const selectedValue = this.getAttribute('data-value');
+            selectOption(selectedValue);
         });
-    } catch (error) {
-        console.error('Erro ao submeter quiz:', error);
-        alert('Erro ao finalizar o quiz. Tente novamente.');
+    });
+}
+
+// Alternar entre abas
+function switchTab(tabId, sectionId) {
+    // Remover classe active de todas as abas e seções
+    const tabs = document.querySelectorAll('.dashboard-header .tab');
+    const sections = document.querySelectorAll('.dashboard-content .section');
+    
+    tabs.forEach(tab => tab.classList.remove('active'));
+    sections.forEach(section => section.classList.remove('active'));
+    
+    // Adicionar classe active à aba e seção selecionadas
+    document.getElementById(tabId).classList.add('active');
+    document.getElementById(sectionId).classList.add('active');
+}
+
+// Mostrar tela de autenticação
+function showAuth() {
+    authContainer.classList.remove('hidden');
+    studentDashboard.classList.add('hidden');
+    adminDashboard.classList.add('hidden');
+    quizContainer.classList.add('hidden');
+    quizResult.classList.add('hidden');
+}
+
+// Mostrar dashboard apropriado
+function showDashboard() {
+    authContainer.classList.add('hidden');
+    quizContainer.classList.add('hidden');
+    quizResult.classList.add('hidden');
+    
+    if (currentUser.userType === 'admin') {
+        studentDashboard.classList.add('hidden');
+        adminDashboard.classList.remove('hidden');
+        document.getElementById('admin-name').textContent = currentUser.name;
+        loadQuizzesAdmin();
+    } else {
+        adminDashboard.classList.add('hidden');
+        studentDashboard.classList.remove('hidden');
+        document.getElementById('student-name').textContent = currentUser.name;
+        loadQuizzes();
     }
 }
 
-// Mostrar resultados
-function showQuizResults(progress) {
-    showScreen('results-screen');
-    
-    const scoreDisplay = document.getElementById('score-display');
-    const quizFeedback = document.getElementById('quiz-feedback');
-    
-    const percentage = (progress.score / progress.totalQuestions) * 100;
-    scoreDisplay.textContent = `${progress.score}/${progress.totalQuestions} (${percentage.toFixed(1)}%)`;
-    
-    let feedback = '';
-    if (percentage >= 90) {
-        feedback = 'Excelente! Você dominou completamente este conteúdo!';
-        scoreDisplay.style.color = '#27ae60';
-    } else if (percentage >= 70) {
-        feedback = 'Muito bom! Você tem um bom domínio do conteúdo.';
-        scoreDisplay.style.color = '#f39c12';
-    } else if (percentage >= 50) {
-        feedback = 'Bom trabalho! Continue estudando para melhorar seu desempenho.';
-        scoreDisplay.style.color = '#f39c12';
-    } else {
-        feedback = 'Não desanime! Revise o material e tente novamente.';
-        scoreDisplay.style.color = '#e74c3c';
-    }
-    
-    quizFeedback.innerHTML = `
-        <p>${feedback}</p>
-        <p>Tempo gasto: ${calculateTimeSpent()}</p>
-    `;
-    
-    // Configurar botões de ação
-    document.getElementById('back-to-quizzes-btn').onclick = () => {
-        showScreen('student-screen');
-        loadStudentData(); // Recarregar dados para atualizar o progresso
+// Fazer logout
+function logout() {
+    showLoading();
+    auth.signOut().then(() => {
+        currentUser = null;
+        hideLoading();
+        showAuth();
+    });
+}
+
+// Mostrar erro
+function showError(elementId, message) {
+    const element = document.getElementById(elementId);
+    element.textContent = message;
+    element.className = 'error-message';
+}
+
+// Mostrar sucesso
+function showSuccess(elementId, message) {
+    const element = document.getElementById(elementId);
+    element.textContent = message;
+    element.className = 'success-message';
+}
+
+// Obter mensagem de erro amigável
+function getAuthErrorMessage(errorCode) {
+    const messages = {
+        'auth/invalid-email': 'E-mail inválido.',
+        'auth/user-disabled': 'Esta conta foi desativada.',
+        'auth/user-not-found': 'Nenhuma conta encontrada com este e-mail.',
+        'auth/wrong-password': 'Senha incorreta.',
+        'auth/email-already-in-use': 'Este e-mail já está em uso.',
+        'auth/weak-password': 'A senha é muito fraca.',
+        'auth/operation-not-allowed': 'Operação não permitida.',
+        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.'
     };
+    
+    return messages[errorCode] || 'Ocorreu um erro. Tente novamente.';
 }
 
-// Salvar progresso
-async function saveProgress() {
-    try {
-        const progressQuery = await db.collection('userProgress')
-            .where('userId', '==', currentUser.uid)
-            .where('quizId', '==', currentQuiz.id)
-            .get();
-        
-        if (!progressQuery.empty) {
-            const progressDoc = progressQuery.docs[0];
+// Abrir modal
+function openModal(modalId) {
+    document.getElementById(modalId).classList.remove('hidden');
+}
+
+// Fechar modal
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+}
+
+// ===============================
+// GERENCIAMENTO DE CATEGORIAS
+// ===============================
+
+// Carregar categorias disponíveis
+function loadCategories() {
+    return db.collection('questions').get()
+        .then(querySnapshot => {
+            availableCategories.clear();
             
-            await db.collection('userProgress').doc(progressDoc.id).update({
-                answers: userAnswers,
-                currentQuestion: currentQuestionIndex
+            querySnapshot.forEach(doc => {
+                const question = doc.data();
+                if (question.category && question.category.trim() !== '') {
+                    availableCategories.add(question.category);
+                }
             });
-        }
-    } catch (error) {
-        console.error('Erro ao salvar progresso:', error);
-    }
+            
+            updateCategorySelects();
+            return Array.from(availableCategories);
+        })
+        .catch(error => {
+            console.error('Erro ao carregar categorias:', error);
+            return [];
+        });
 }
 
-// Timer
-function startTimer(minutes) {
-    let timeLeft = minutes * 60;
-    const timerDisplay = document.createElement('div');
-    timerDisplay.id = 'quiz-timer';
-    timerDisplay.style.cssText = `
-        position: fixed;
-        top: 80px;
-        right: 20px;
-        background: #e74c3c;
-        color: white;
-        padding: 10px 15px;
-        border-radius: 5px;
-        font-weight: bold;
-        z-index: 1000;
+// Atualizar selects de categoria
+function updateCategorySelects() {
+    const quizCategorySelect = document.getElementById('quiz-category');
+    const categoryFilter = document.getElementById('category-filter');
+    const categoriesList = document.getElementById('categories-list');
+    
+    // Limpar opções existentes
+    while (quizCategorySelect.children.length > 1) {
+        quizCategorySelect.removeChild(quizCategorySelect.lastChild);
+    }
+    
+    while (categoryFilter.children.length > 1) {
+        categoryFilter.removeChild(categoryFilter.lastChild);
+    }
+    
+    while (categoriesList.children.length > 0) {
+        categoriesList.removeChild(categoriesList.lastChild);
+    }
+    
+    // Adicionar categorias
+    availableCategories.forEach(category => {
+        // Select do quiz
+        const quizOption = document.createElement('option');
+        quizOption.value = category;
+        quizOption.textContent = category;
+        quizCategorySelect.appendChild(quizOption);
+        
+        // Select do filtro
+        const filterOption = document.createElement('option');
+        filterOption.value = category;
+        filterOption.textContent = category;
+        categoryFilter.appendChild(filterOption);
+        
+        // Datalist para input
+        const datalistOption = document.createElement('option');
+        datalistOption.value = category;
+        categoriesList.appendChild(datalistOption);
+    });
+}
+
+// ===============================
+// GERENCIAMENTO DE QUIZZES
+// ===============================
+
+// Carregar quizzes para alunos
+function loadQuizzes() {
+    const quizzesList = document.getElementById('quizzes-list');
+    quizzesList.innerHTML = '<div class="card"><div class="card-content">Carregando quizzes...</div></div>';
+    
+    db.collection('quizzes')
+        .where('status', '==', 'active')
+        .get()
+        .then(querySnapshot => {
+            quizzesList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                quizzesList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz disponível no momento.</div></div>';
+                return;
+            }
+            
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                const quizCard = createQuizCard(quiz);
+                quizzesList.appendChild(quizCard);
+            });
+        })
+        .catch(error => {
+            quizzesList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar quizzes.</div></div>';
+            console.error('Erro ao carregar quizzes:', error);
+        });
+}
+
+// Carregar quizzes para administradores
+function loadQuizzesAdmin() {
+    const quizzesList = document.getElementById('quizzes-admin-list');
+    quizzesList.innerHTML = '<div class="card"><div class="card-content">Carregando quizzes...</div></div>';
+    
+    db.collection('quizzes').get()
+        .then(querySnapshot => {
+            quizzesList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                quizzesList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz criado ainda.</div></div>';
+                return;
+            }
+            
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                const quizCard = createQuizAdminCard(quiz);
+                quizzesList.appendChild(quizCard);
+            });
+        })
+        .catch(error => {
+            quizzesList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar quizzes.</div></div>';
+            console.error('Erro ao carregar quizzes:', error);
+        });
+}
+
+// Criar card de quiz para alunos
+function createQuizCard(quiz) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    // Verificar se o usuário já iniciou este quiz
+    const userQuizRef = db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quiz.id)
+        .where('status', 'in', ['in-progress', 'completed']);
+    
+    userQuizRef.get().then(querySnapshot => {
+        let buttonText = 'Iniciar Quiz';
+        let buttonClass = 'btn btn-primary';
+        let statusText = 'Não iniciado';
+        let statusClass = 'card-badge';
+        
+        if (!querySnapshot.empty) {
+            const userQuiz = querySnapshot.docs[0].data();
+            userQuizId = querySnapshot.docs[0].id;
+            
+            if (userQuiz.status === 'in-progress') {
+                buttonText = 'Continuar Quiz';
+                buttonClass = 'btn btn-success';
+                statusText = 'Em andamento';
+                statusClass = 'card-badge';
+            } else if (userQuiz.status === 'completed') {
+                buttonText = 'Ver Resultado';
+                buttonClass = 'btn btn-secondary';
+                statusText = 'Concluído';
+                statusClass = 'card-badge';
+            }
+        }
+        
+        card.innerHTML = `
+            <div class="card-header">
+                <h3 class="card-title">${quiz.title}</h3>
+                <span class="${statusClass}">${statusText}</span>
+            </div>
+            <div class="card-content">
+                <p>${quiz.description || 'Sem descrição'}</p>
+            </div>
+            <div class="card-meta">
+                <span><i class="fas fa-clock"></i> ${quiz.time} min</span>
+                <span><i class="fas fa-question-circle"></i> ${quiz.questionsCount} questões</span>
+                <span><i class="fas fa-layer-group"></i> ${quiz.category || 'Geral'}</span>
+            </div>
+            <div class="card-actions">
+                <button class="${buttonClass}" data-quiz-id="${quiz.id}">
+                    <i class="fas fa-play"></i>
+                    <span class="btn-text">${buttonText}</span>
+                </button>
+            </div>
+        `;
+        
+        const button = card.querySelector('button');
+        button.addEventListener('click', () => {
+            if (buttonText === 'Ver Resultado') {
+                showQuizResult(quiz.id);
+            } else {
+                startQuiz(quiz);
+            }
+        });
+    });
+    
+    return card;
+}
+
+// Criar card de quiz para administradores
+function createQuizAdminCard(quiz) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    card.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${quiz.title}</h3>
+            <span class="card-badge ${quiz.status === 'active' ? '' : 'card-badge-secondary'}">
+                ${quiz.status === 'active' ? 'Ativo' : 'Inativo'}
+            </span>
+        </div>
+        <div class="card-content">
+            <p>${quiz.description || 'Sem descrição'}</p>
+        </div>
+        <div class="card-meta">
+            <span><i class="fas fa-clock"></i> ${quiz.time} min</span>
+            <span><i class="fas fa-question-circle"></i> ${quiz.questionsCount} questões</span>
+            <span><i class="fas fa-layer-group"></i> ${quiz.category || 'Geral'}</span>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-primary" data-action="edit" data-quiz-id="${quiz.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-danger" data-action="delete" data-quiz-id="${quiz.id}">
+                <i class="fas fa-trash"></i>
+                <span class="btn-text">Excluir</span>
+            </button>
+            <button class="btn ${quiz.status === 'active' ? 'btn-secondary' : 'btn-success'}" 
+                    data-action="toggle-status" data-quiz-id="${quiz.id}">
+                <i class="fas fa-power-off"></i>
+                <span class="btn-text">${quiz.status === 'active' ? 'Desativar' : 'Ativar'}</span>
+            </button>
+        </div>
     `;
     
-    document.getElementById('quiz-screen').appendChild(timerDisplay);
-    
-    timerInterval = setInterval(() => {
-        timeLeft--;
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
+        const action = button.getAttribute('data-action');
+        const quizId = button.getAttribute('data-quiz-id');
         
-        const minutesLeft = Math.floor(timeLeft / 60);
-        const secondsLeft = timeLeft % 60;
-        
-        timerDisplay.textContent = `Tempo: ${minutesLeft}:${secondsLeft.toString().padStart(2, '0')}`;
-        
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            alert('Tempo esgotado!');
-            submitQuiz();
-        }
-    }, 1000);
-}
-
-// Calcular tempo gasto
-function calculateTimeSpent() {
-    if (!quizStartTime) return 'N/A';
-    
-    const endTime = new Date();
-    const timeDiff = endTime - quizStartTime;
-    const minutes = Math.floor(timeDiff / 60000);
-    const seconds = Math.floor((timeDiff % 60000) / 1000);
-    
-    return `${minutes}m ${seconds}s`;
-}
-
-// ========== FUNÇÕES DO ADMINISTRADOR ==========
-
-// Carregar dados do administrador
-async function loadAdminData() {
-    try {
-        // Carregar usuários
-        const usersSnapshot = await db.collection('users').get();
-        allUsers = [];
-        usersSnapshot.forEach(doc => {
-            allUsers.push({
-                id: doc.id,
-                ...doc.data()
-            });
+        button.addEventListener('click', () => {
+            if (action === 'edit') {
+                editQuiz(quizId);
+            } else if (action === 'delete') {
+                deleteQuiz(quizId);
+            } else if (action === 'toggle-status') {
+                toggleQuizStatus(quizId, quiz.status);
+            }
         });
-        
-        // Carregar quizzes
-        const quizzesSnapshot = await db.collection('quizzes').get();
-        allQuizzes = [];
-        quizzesSnapshot.forEach(doc => {
-            allQuizzes.push({
-                id: doc.id,
-                ...doc.data()
-            });
-        });
-        
-        displayUsers();
-        displayQuizzesAdmin();
-        loadAdminStats();
-    } catch (error) {
-        console.error('Erro ao carregar dados administrativos:', error);
-    }
-}
-
-// Mostrar usuários
-function displayUsers() {
-    const usersList = document.getElementById('users-list');
-    usersList.innerHTML = '';
-    
-    allUsers.forEach(user => {
-        const userItem = document.createElement('div');
-        userItem.className = 'admin-item';
-        userItem.innerHTML = `
-            <div>
-                <strong>${user.name}</strong>
-                <br>
-                <small>${user.email} | ${user.role === 'admin' ? 'Administrador' : 'Aluno'}</small>
-            </div>
-            <div class="admin-actions">
-                <button onclick="editUser('${user.id}')" class="action-btn">Editar</button>
-                <button onclick="deleteUser('${user.id}')" class="delete-btn">Excluir</button>
-            </div>
-        `;
-        
-        usersList.appendChild(userItem);
     });
-}
-
-// Mostrar quizzes (admin)
-function displayQuizzesAdmin() {
-    const quizzesList = document.getElementById('quizzes-admin-list');
-    quizzesList.innerHTML = '';
     
-    allQuizzes.forEach(quiz => {
-        const quizItem = document.createElement('div');
-        quizItem.className = 'admin-item';
-        quizItem.innerHTML = `
-            <div>
-                <strong>${quiz.title}</strong>
-                <br>
-                <small>${getTopicName(quiz.topic)} | ${quiz.questions ? quiz.questions.length : 10} questões | ${quiz.active ? 'Ativo' : 'Inativo'}</small>
-            </div>
-            <div class="admin-actions">
-                <button onclick="editQuiz('${quiz.id}')" class="action-btn">Editar</button>
-                <button onclick="toggleQuizStatus('${quiz.id}', ${!quiz.active})" class="action-btn">
-                    ${quiz.active ? 'Desativar' : 'Ativar'}
-                </button>
-                <button onclick="deleteQuiz('${quiz.id}')" class="delete-btn">Excluir</button>
-            </div>
-        `;
-        
-        quizzesList.appendChild(quizItem);
-    });
+    return card;
 }
 
-// Carregar estatísticas
-async function loadAdminStats() {
-    try {
-        const statsContainer = document.getElementById('admin-stats');
-        
-        // Estatísticas de usuários
-        const totalUsers = allUsers.length;
-        const adminUsers = allUsers.filter(u => u.role === 'admin').length;
-        const studentUsers = totalUsers - adminUsers;
-        
-        // Estatísticas de quizzes
-        const totalQuizzes = allQuizzes.length;
-        const activeQuizzes = allQuizzes.filter(q => q.active).length;
-        
-        // Estatísticas de progresso
-        const progressSnapshot = await db.collection('userProgress')
-            .where('completed', '==', true)
-            .get();
-        
-        const completedQuizzes = progressSnapshot.size;
-        let totalScore = 0;
-        progressSnapshot.forEach(doc => {
-            totalScore += doc.data().score;
-        });
-        
-        const averageScore = completedQuizzes > 0 ? (totalScore / completedQuizzes).toFixed(1) : 0;
-        
-        statsContainer.innerHTML = `
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Usuários</h3>
-                    <p class="stat-number">${totalUsers}</p>
-                    <p>${adminUsers} administradores</p>
-                    <p>${studentUsers} alunos</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Quizzes</h3>
-                    <p class="stat-number">${totalQuizzes}</p>
-                    <p>${activeQuizzes} ativos</p>
-                    <p>${totalQuizzes - activeQuizzes} inativos</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Desempenho</h3>
-                    <p class="stat-number">${completedQuizzes}</p>
-                    <p>quizzes completados</p>
-                    <p>Pontuação média: ${averageScore}</p>
-                </div>
-            </div>
-        `;
-    } catch (error) {
-        console.error('Erro ao carregar estatísticas:', error);
-    }
-}
-
-// Alternar entre abas do admin
-function showAdminTab(tabName) {
-    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    
-    const tabIndex = ['users', 'quizzes-admin', 'stats'].indexOf(tabName) + 1;
-    document.querySelector(`.tab-button:nth-child(${tabIndex})`).classList.add('active');
-    document.getElementById(`${tabName}-tab`).classList.add('active');
-}
-
-// Gerenciar usuários
-document.getElementById('add-user-btn').addEventListener('click', () => {
-    showUserModal();
-});
-
-function showUserModal(userId = null) {
-    const modal = document.getElementById('user-modal');
-    const title = document.getElementById('user-modal-title');
-    const form = document.getElementById('user-form');
-    
-    if (userId) {
-        // Modo edição
-        title.textContent = 'Editar Usuário';
-        const user = allUsers.find(u => u.id === userId);
-        
-        document.getElementById('user-form-name').value = user.name;
-        document.getElementById('user-form-email').value = user.email;
-        document.getElementById('user-form-role').value = user.role;
-        document.getElementById('user-form-password').value = '';
-        document.getElementById('user-form-password').required = false;
-        
-        form.onsubmit = (e) => updateUser(e, userId);
-    } else {
-        // Modo adição
-        title.textContent = 'Adicionar Usuário';
-        form.reset();
-        document.getElementById('user-form-password').required = true;
-        form.onsubmit = addUser;
-    }
-    
-    modal.classList.add('active');
-}
-
-document.getElementById('cancel-user-btn').addEventListener('click', () => {
-    document.getElementById('user-modal').classList.remove('active');
-});
-
-async function addUser(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById('user-form-name').value;
-    const email = document.getElementById('user-form-email').value;
-    const password = document.getElementById('user-form-password').value;
-    const role = document.getElementById('user-form-role').value;
-    
-    try {
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        await db.collection('users').doc(user.uid).set({
-            name: name,
-            email: email,
-            role: role,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        document.getElementById('user-modal').classList.remove('active');
-        loadAdminData();
-        alert('Usuário adicionado com sucesso!');
-    } catch (error) {
-        alert('Erro ao adicionar usuário: ' + error.message);
-    }
-}
-
-async function updateUser(e, userId) {
-    e.preventDefault();
-    
-    const name = document.getElementById('user-form-name').value;
-    const email = document.getElementById('user-form-email').value;
-    const password = document.getElementById('user-form-password').value;
-    const role = document.getElementById('user-form-role').value;
-    
-    try {
-        const updateData = {
-            name: name,
-            email: email,
-            role: role
-        };
-        
-        // Se uma nova senha foi fornecida, atualizar no Auth
-        if (password) {
-            // Nota: Em produção, você precisaria reautenticar o usuário para alterar a senha
-            // Esta é uma simplificação para demonstração
-            alert('Para alterar senhas em produção, é necessário implementar reautenticação.');
-        }
-        
-        await db.collection('users').doc(userId).update(updateData);
-        
-        document.getElementById('user-modal').classList.remove('active');
-        loadAdminData();
-        alert('Usuário atualizado com sucesso!');
-    } catch (error) {
-        alert('Erro ao atualizar usuário: ' + error.message);
-    }
-}
-
-function editUser(userId) {
-    showUserModal(userId);
-}
-
-async function deleteUser(userId) {
-    if (confirm('Tem certeza que deseja excluir este usuário?')) {
-        try {
-            await db.collection('users').doc(userId).delete();
-            loadAdminData();
-            alert('Usuário excluído com sucesso!');
-        } catch (error) {
-            alert('Erro ao excluir usuário: ' + error.message);
-        }
-    }
-}
-
-// Gerenciar quizzes
-document.getElementById('add-quiz-btn').addEventListener('click', () => {
-    showQuizModal();
-});
-
-function showQuizModal(quizId = null) {
+// Abrir modal de quiz
+function openQuizModal(quiz = null) {
     const modal = document.getElementById('quiz-modal');
     const title = document.getElementById('quiz-modal-title');
     const form = document.getElementById('quiz-form');
     
-    if (quizId) {
-        // Modo edição
-        title.textContent = 'Editar Quiz';
-        const quiz = allQuizzes.find(q => q.id === quizId);
-        
-        document.getElementById('quiz-form-title').value = quiz.title;
-        document.getElementById('quiz-form-description').value = quiz.description;
-        document.getElementById('quiz-form-topic').value = quiz.topic;
-        document.getElementById('quiz-form-time').value = quiz.timeLimit || '';
-        
-        form.onsubmit = (e) => updateQuiz(e, quizId);
-    } else {
-        // Modo adição
-        title.textContent = 'Criar Quiz';
-        form.reset();
-        form.onsubmit = addQuiz;
-    }
-    
-    modal.classList.add('active');
-}
-
-document.getElementById('cancel-quiz-btn').addEventListener('click', () => {
-    document.getElementById('quiz-modal').classList.remove('active');
-});
-
-async function addQuiz(e) {
-    e.preventDefault();
-    
-    const title = document.getElementById('quiz-form-title').value;
-    const description = document.getElementById('quiz-form-description').value;
-    const topic = document.getElementById('quiz-form-topic').value;
-    const timeLimit = document.getElementById('quiz-form-time').value;
-    
-    try {
-        await db.collection('quizzes').add({
-            title: title,
-            description: description,
-            topic: topic,
-            timeLimit: timeLimit ? parseInt(timeLimit) : null,
-            questions: questionsPool[topic] || [],
-            active: true,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        
-        document.getElementById('quiz-modal').classList.remove('active');
-        loadAdminData();
-        alert('Quiz criado com sucesso!');
-    } catch (error) {
-        alert('Erro ao criar quiz: ' + error.message);
-    }
-}
-
-async function updateQuiz(e, quizId) {
-    e.preventDefault();
-    
-    const title = document.getElementById('quiz-form-title').value;
-    const description = document.getElementById('quiz-form-description').value;
-    const topic = document.getElementById('quiz-form-topic').value;
-    const timeLimit = document.getElementById('quiz-form-time').value;
-    
-    try {
-        await db.collection('quizzes').doc(quizId).update({
-            title: title,
-            description: description,
-            topic: topic,
-            timeLimit: timeLimit ? parseInt(timeLimit) : null
-        });
-        
-        document.getElementById('quiz-modal').classList.remove('active');
-        loadAdminData();
-        alert('Quiz atualizado com sucesso!');
-    } catch (error) {
-        alert('Erro ao atualizar quiz: ' + error.message);
-    }
-}
-
-function editQuiz(quizId) {
-    showQuizModal(quizId);
-}
-
-async function toggleQuizStatus(quizId, active) {
-    try {
-        await db.collection('quizzes').doc(quizId).update({
-            active: active
-        });
-        
-        loadAdminData();
-        alert(`Quiz ${active ? 'ativado' : 'desativado'} com sucesso!`);
-    } catch (error) {
-        alert('Erro ao alterar status do quiz: ' + error.message);
-    }
-}
-
-async function deleteQuiz(quizId) {
-    if (confirm('Tem certeza que deseja excluir este quiz?')) {
-        try {
-            await db.collection('quizzes').doc(quizId).delete();
-            loadAdminData();
-            alert('Quiz excluído com sucesso!');
-        } catch (error) {
-            alert('Erro ao excluir quiz: ' + error.message);
+    // Carregar categorias antes de abrir o modal
+    loadCategories().then(() => {
+        if (quiz) {
+            // Modo edição
+            title.textContent = 'Editar Quiz';
+            document.getElementById('quiz-title').value = quiz.title;
+            document.getElementById('quiz-description').value = quiz.description || '';
+            document.getElementById('quiz-time').value = quiz.time;
+            document.getElementById('quiz-questions-count').value = quiz.questionsCount;
+            document.getElementById('quiz-category').value = quiz.category || '';
+            document.getElementById('quiz-status').value = quiz.status;
+            form.setAttribute('data-quiz-id', quiz.id);
+        } else {
+            // Modo criação
+            title.textContent = 'Criar Quiz';
+            form.reset();
+            form.removeAttribute('data-quiz-id');
         }
-    }
+        
+        modal.classList.remove('hidden');
+    });
 }
 
-// ========== FUNÇÕES UTILITÁRIAS ==========
+// Manipular envio do formulário de quiz
+function handleQuizSubmit(e) {
+    e.preventDefault();
+    saveQuiz();
+}
 
-function getTopicName(topic) {
-    const topics = {
-        'base-binaria': 'Base Binária, Octal, Decimal e Hexadecimal',
-        'historia-computadores': 'História dos Computadores',
-        'arquitetura-von-neumann': 'Arquitetura de John Von Neumann',
-        'componentes-computador': 'Componentes de um Computador',
-        'instrucoes-maquina': 'Instruções de Máquina',
-        'traducao-instrucoes': 'Tradução de Instruções de Máquina'
+// Salvar quiz
+function saveQuiz() {
+    const form = document.getElementById('quiz-form');
+    const quizId = form.getAttribute('data-quiz-id');
+    const quizData = {
+        title: document.getElementById('quiz-title').value,
+        description: document.getElementById('quiz-description').value,
+        time: parseInt(document.getElementById('quiz-time').value),
+        questionsCount: parseInt(document.getElementById('quiz-questions-count').value),
+        category: document.getElementById('quiz-category').value,
+        status: document.getElementById('quiz-status').value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
-    return topics[topic] || topic;
-}
-
-// Inicializar quizzes padrão se não existirem
-async function initializeDefaultQuizzes() {
-    const quizzesSnapshot = await db.collection('quizzes').get();
+    showLoading();
     
-    if (quizzesSnapshot.empty) {
-        const defaultQuizzes = [
-            {
-                title: "Sistemas Numéricos",
-                description: "Teste seus conhecimentos sobre bases numéricas: binária, octal, decimal e hexadecimal",
-                topic: "base-binaria",
-                timeLimit: 15,
-                active: true
-            },
-            {
-                title: "História da Computação",
-                description: "Conheça a evolução dos computadores através das gerações",
-                topic: "historia-computadores",
-                timeLimit: 15,
-                active: true
-            },
-            {
-                title: "Arquitetura de Von Neumann",
-                description: "Entenda os fundamentos da arquitetura que revolucionou a computação",
-                topic: "arquitetura-von-neumann",
-                timeLimit: 20,
-                active: true
-            },
-            {
-                title: "Componentes do Computador",
-                description: "Aprenda sobre os principais componentes de hardware",
-                topic: "componentes-computador",
-                timeLimit: 15,
-                active: true
-            },
-            {
-                title: "Instruções de Máquina",
-                description: "Compreenda como o processador executa instruções",
-                topic: "instrucoes-maquina",
-                timeLimit: 20,
-                active: true
-            },
-            {
-                title: "Tradução de Instruções",
-                description: "Entenda como as linguagens de programação são traduzidas para código de máquina",
-                topic: "traducao-instrucoes",
-                timeLimit: 15,
-                active: true
-            }
-        ];
-        
-        for (const quiz of defaultQuizzes) {
-            await db.collection('quizzes').add({
-                ...quiz,
-                questions: questionsPool[quiz.topic] || [],
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    if (quizId) {
+        // Atualizar quiz existente
+        db.collection('quizzes').doc(quizId).update(quizData)
+            .then(() => {
+                hideLoading();
+                closeModal('quiz-modal');
+                showSuccessMessage('Quiz atualizado com sucesso!');
+                loadQuizzesAdmin();
+            })
+            .catch(error => {
+                hideLoading();
+                alert('Erro ao atualizar quiz: ' + error.message);
             });
-        }
+    } else {
+        // Criar novo quiz
+        quizData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        quizData.createdBy = currentUser.uid;
         
-        console.log('Quizzes padrão criados com sucesso!');
+        db.collection('quizzes').add(quizData)
+            .then(() => {
+                hideLoading();
+                closeModal('quiz-modal');
+                showSuccessMessage('Quiz criado com sucesso!');
+                loadQuizzesAdmin();
+            })
+            .catch(error => {
+                hideLoading();
+                alert('Erro ao criar quiz: ' + error.message);
+            });
     }
 }
 
-// Inicializar a aplicação
-initializeDefaultQuizzes();
+// Editar quiz
+function editQuiz(quizId) {
+    showLoading();
+    db.collection('quizzes').doc(quizId).get()
+        .then(doc => {
+            hideLoading();
+            if (doc.exists) {
+                const quiz = { id: doc.id, ...doc.data() };
+                openQuizModal(quiz);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Erro ao carregar quiz: ' + error.message);
+        });
+}
+
+// Excluir quiz
+function deleteQuiz(quizId) {
+    if (confirm('Tem certeza que deseja excluir este quiz?')) {
+        showLoading();
+        db.collection('quizzes').doc(quizId).delete()
+            .then(() => {
+                hideLoading();
+                showSuccessMessage('Quiz excluído com sucesso!');
+                loadQuizzesAdmin();
+            })
+            .catch(error => {
+                hideLoading();
+                alert('Erro ao excluir quiz: ' + error.message);
+            });
+    }
+}
+
+// Alternar status do quiz
+function toggleQuizStatus(quizId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    
+    showLoading();
+    db.collection('quizzes').doc(quizId).update({
+        status: newStatus,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        hideLoading();
+        showSuccessMessage(`Quiz ${newStatus === 'active' ? 'ativado' : 'desativado'} com sucesso!`);
+        loadQuizzesAdmin();
+    })
+    .catch(error => {
+        hideLoading();
+        alert('Erro ao alterar status do quiz: ' + error.message);
+    });
+}
+
+// ===============================
+// GERENCIAMENTO DE QUESTÕES
+// ===============================
+
+// Carregar questões
+function loadQuestions() {
+    const questionsList = document.getElementById('questions-list');
+    questionsList.innerHTML = '<div class="card"><div class="card-content">Carregando questões...</div></div>';
+    
+    db.collection('questions').get()
+        .then(querySnapshot => {
+            questionsList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                questionsList.innerHTML = '<div class="card"><div class="card-content">Nenhuma questão cadastrada ainda.</div></div>';
+                return;
+            }
+            
+            const categories = new Set();
+            
+            querySnapshot.forEach(doc => {
+                const question = { id: doc.id, ...doc.data() };
+                const questionCard = createQuestionCard(question);
+                questionsList.appendChild(questionCard);
+                
+                if (question.category) {
+                    categories.add(question.category);
+                }
+            });
+            
+            // Atualizar categorias disponíveis
+            categories.forEach(category => availableCategories.add(category));
+            updateCategorySelects();
+        })
+        .catch(error => {
+            questionsList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar questões.</div></div>';
+            console.error('Erro ao carregar questões:', error);
+        });
+}
+
+// Filtrar questões
+function filterQuestions() {
+    const searchTerm = document.getElementById('question-search').value.toLowerCase();
+    const selectedCategory = document.getElementById('category-filter').value;
+    const questions = document.querySelectorAll('#questions-list .card');
+    
+    questions.forEach(question => {
+        const text = question.textContent.toLowerCase();
+        const category = question.querySelector('.card-content p:first-child').textContent;
+        
+        const matchesSearch = text.includes(searchTerm);
+        const matchesCategory = !selectedCategory || category.includes(selectedCategory);
+        
+        if (matchesSearch && matchesCategory) {
+            question.style.display = '';
+        } else {
+            question.style.display = 'none';
+        }
+    });
+}
+
+// Criar card de questão
+function createQuestionCard(question) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    card.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${question.text.substring(0, 100)}${question.text.length > 100 ? '...' : ''}</h3>
+            <span class="card-badge">${question.difficulty || 'N/A'}</span>
+        </div>
+        <div class="card-content">
+            <p><strong>Categoria:</strong> ${question.category || 'Sem categoria'}</p>
+            <p><strong>Resposta correta:</strong> ${question.correctAnswer.toUpperCase()}</p>
+            ${question.explanation ? `<p><strong>Explicação:</strong> ${question.explanation}</p>` : ''}
+        </div>
+        <div class="card-meta">
+            <span><i class="fas fa-calendar"></i> ${question.createdAt ? question.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</span>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-primary" data-action="edit" data-question-id="${question.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-danger" data-action="delete" data-question-id="${question.id}">
+                <i class="fas fa-trash"></i>
+                <span class="btn-text">Excluir</span>
+            </button>
+        </div>
+    `;
+    
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
+        const action = button.getAttribute('data-action');
+        const questionId = button.getAttribute('data-question-id');
+        
+        button.addEventListener('click', () => {
+            if (action === 'edit') {
+                editQuestion(questionId);
+            } else if (action === 'delete') {
+                deleteQuestion(questionId);
+            }
+        });
+    });
+    
+    return card;
+}
+
+// Abrir modal de questão
+function openQuestionModal(question = null) {
+    const modal = document.getElementById('question-modal');
+    const title = document.getElementById('question-modal-title');
+    const form = document.getElementById('question-form');
+    
+    // Carregar categorias antes de abrir o modal
+    loadCategories().then(() => {
+        if (question) {
+            // Modo edição
+            title.textContent = 'Editar Questão';
+            document.getElementById('question-text').value = question.text;
+            document.getElementById('option-a').value = question.options.a;
+            document.getElementById('option-b').value = question.options.b;
+            document.getElementById('option-c').value = question.options.c;
+            document.getElementById('option-d').value = question.options.d;
+            document.getElementById('correct-answer').value = question.correctAnswer;
+            document.getElementById('question-category').value = question.category || '';
+            document.getElementById('question-explanation').value = question.explanation || '';
+            document.getElementById('question-difficulty').value = question.difficulty || 'fácil';
+            form.setAttribute('data-question-id', question.id);
+        } else {
+            // Modo criação
+            title.textContent = 'Adicionar Questão';
+            form.reset();
+            form.removeAttribute('data-question-id');
+        }
+        
+        modal.classList.remove('hidden');
+    });
+}
+
+// Manipular envio do formulário de questão
+function handleQuestionSubmit(e) {
+    e.preventDefault();
+    saveQuestion();
+}
+
+// Salvar questão
+function saveQuestion() {
+    const form = document.getElementById('question-form');
+    const questionId = form.getAttribute('data-question-id');
+    const questionData = {
+        text: document.getElementById('question-text').value,
+        options: {
+            a: document.getElementById('option-a').value,
+            b: document.getElementById('option-b').value,
+            c: document.getElementById('option-c').value,
+            d: document.getElementById('option-d').value
+        },
+        correctAnswer: document.getElementById('correct-answer').value,
+        category: document.getElementById('question-category').value,
+        explanation: document.getElementById('question-explanation').value,
+        difficulty: document.getElementById('question-difficulty').value,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    showLoading();
+    
+    if (questionId) {
+        // Atualizar questão existente
+        db.collection('questions').doc(questionId).update(questionData)
+            .then(() => {
+                hideLoading();
+                closeModal('question-modal');
+                showSuccessMessage('Questão atualizada com sucesso!');
+                loadQuestions();
+            })
+            .catch(error => {
+                hideLoading();
+                alert('Erro ao atualizar questão: ' + error.message);
+            });
+    } else {
+        // Criar nova questão
+        questionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        questionData.createdBy = currentUser.uid;
+        
+        db.collection('questions').add(questionData)
+            .then(() => {
+                hideLoading();
+                closeModal('question-modal');
+                showSuccessMessage('Questão criada com sucesso!');
+                loadQuestions();
+            })
+            .catch(error => {
+                hideLoading();
+                alert('Erro ao criar questão: ' + error.message);
+            });
+    }
+}
+
+// Editar questão
+function editQuestion(questionId) {
+    showLoading();
+    db.collection('questions').doc(questionId).get()
+        .then(doc => {
+            hideLoading();
+            if (doc.exists) {
+                const question = { id: doc.id, ...doc.data() };
+                openQuestionModal(question);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Erro ao carregar questão: ' + error.message);
+        });
+}
+
+// Excluir questão
+function deleteQuestion(questionId) {
+    if (confirm('Tem certeza que deseja excluir esta questão?')) {
+        showLoading();
+        db.collection('questions').doc(questionId).delete()
+            .then(() => {
+                hideLoading();
+                showSuccessMessage('Questão excluída com sucesso!');
+                loadQuestions();
+            })
+            .catch(error => {
+                hideLoading();
+                alert('Erro ao excluir questão: ' + error.message);
+            });
+    }
+}
+
+// Importar questões de JSON
+function handleJsonImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            let questions = [];
+
+            // Verificar diferentes estruturas possíveis do JSON
+            if (Array.isArray(data)) {
+                // Estrutura 1: Array direto de questões
+                questions = data;
+                console.log('Estrutura detectada: Array direto');
+            } else if (data.questions && Array.isArray(data.questions)) {
+                // Estrutura 2: Objeto com propriedade "questions"
+                questions = data.questions;
+                console.log('Estrutura detectada: Objeto com propriedade "questions"');
+            } else if (data.quizAppQuestions && data.quizAppQuestions.questions && Array.isArray(data.quizAppQuestions.questions)) {
+                // Estrutura 3: Objeto com propriedade "quizAppQuestions.questions"
+                questions = data.quizAppQuestions.questions;
+                console.log('Estrutura detectada: Objeto com propriedade "quizAppQuestions.questions"');
+            } else {
+                alert('O arquivo JSON deve conter um array de questões na estrutura correta.\n\nEstruturas aceitas:\n1. Array direto de questões\n2. { "questions": [...] }\n3. { "quizAppQuestions": { "questions": [...] } }');
+                return;
+            }
+
+            if (questions.length === 0) {
+                alert('O arquivo JSON não contém questões válidas.');
+                return;
+            }
+
+            console.log(`Encontradas ${questions.length} questões para importar`);
+            
+            // Validar estrutura das questões
+            const invalidQuestions = [];
+            questions.forEach((question, index) => {
+                if (!question.text || !question.options || !question.correctAnswer) {
+                    invalidQuestions.push(index + 1);
+                }
+            });
+
+            if (invalidQuestions.length > 0) {
+                alert(`Algumas questões estão com estrutura inválida (números: ${invalidQuestions.join(', ')}).\n\nCada questão deve ter: text, options e correctAnswer.`);
+                return;
+            }
+
+            // Confirmar importação
+            if (confirm(`Deseja importar ${questions.length} questões?`)) {
+                importQuestions(questions);
+            }
+
+        } catch (error) {
+            alert('Erro ao processar arquivo JSON: ' + error.message);
+            console.error('Erro no JSON:', error);
+        }
+    };
+    reader.onerror = function() {
+        alert('Erro ao ler o arquivo. Tente novamente.');
+    };
+    reader.readAsText(file);
+
+    // Limpar o input para permitir importar o mesmo arquivo novamente
+    event.target.value = '';
+}
+
+// Importar questões para o Firestore
+function importQuestions(questions) {
+    let importedCount = 0;
+    let errorCount = 0;
+    
+    showLoading();
+    
+    const importNext = (index) => {
+        if (index >= questions.length) {
+            hideLoading();
+            const message = `Importação concluída! ${importedCount} questões importadas com sucesso${errorCount > 0 ? `, ${errorCount} erros.` : '.'}`;
+            showSuccessMessage(message);
+            loadQuestions();
+            return;
+        }
+        
+        const question = questions[index];
+        
+        // Validar estrutura da questão
+        if (!question.text || !question.options || !question.correctAnswer) {
+            console.error(`Questão ${index} inválida: estrutura incorreta`);
+            errorCount++;
+            importNext(index + 1);
+            return;
+        }
+
+        // Validar se as opções estão completas
+        if (!question.options.a || !question.options.b || !question.options.c || !question.options.d) {
+            console.error(`Questão ${index} inválida: opções incompletas`);
+            errorCount++;
+            importNext(index + 1);
+            return;
+        }
+
+        // Validar resposta correta
+        if (!['a', 'b', 'c', 'd'].includes(question.correctAnswer.toLowerCase())) {
+            console.error(`Questão ${index} inválida: resposta correta deve ser a, b, c ou d`);
+            errorCount++;
+            importNext(index + 1);
+            return;
+        }
+        
+        const questionData = {
+            text: question.text,
+            options: question.options,
+            correctAnswer: question.correctAnswer.toLowerCase(),
+            category: question.category || '',
+            explanation: question.explanation || '',
+            difficulty: question.difficulty || 'fácil',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdBy: currentUser.uid
+        };
+        
+        db.collection('questions').add(questionData)
+            .then(() => {
+                importedCount++;
+                // Atualizar categorias disponíveis
+                if (questionData.category && questionData.category.trim() !== '') {
+                    availableCategories.add(questionData.category);
+                }
+                console.log(`Questão ${index + 1} importada com sucesso`);
+                importNext(index + 1);
+            })
+            .catch(error => {
+                errorCount++;
+                console.error(`Erro ao importar questão ${index + 1}:`, error);
+                importNext(index + 1);
+            });
+    };
+    
+    importNext(0);
+}
+
+// Exportar questões para JSON
+function exportQuestions() {
+    showLoading();
+    db.collection('questions').get()
+        .then(querySnapshot => {
+            hideLoading();
+            const questions = [];
+            
+            querySnapshot.forEach(doc => {
+                const question = doc.data();
+                questions.push({
+                    text: question.text,
+                    options: question.options,
+                    correctAnswer: question.correctAnswer,
+                    category: question.category,
+                    explanation: question.explanation,
+                    difficulty: question.difficulty
+                });
+            });
+            
+            const dataStr = JSON.stringify({ questions: questions }, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `questoes_${new Date().toISOString().split('T')[0]}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Erro ao exportar questões: ' + error.message);
+        });
+}
+
+// ===============================
+// GERENCIAMENTO DE USUÁRIOS
+// ===============================
+
+// Carregar usuários (apenas para administradores)
+function loadUsers() {
+    const usersList = document.getElementById('users-list');
+    usersList.innerHTML = '<div class="card"><div class="card-content">Carregando usuários...</div></div>';
+    
+    db.collection('users').get()
+        .then(querySnapshot => {
+            usersList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                usersList.innerHTML = '<div class="card"><div class="card-content">Nenhum usuário cadastrado.</div></div>';
+                return;
+            }
+            
+            querySnapshot.forEach(doc => {
+                const user = { id: doc.id, ...doc.data() };
+                const userCard = createUserCard(user);
+                usersList.appendChild(userCard);
+            });
+        })
+        .catch(error => {
+            usersList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar usuários.</div></div>';
+            console.error('Erro ao carregar usuários:', error);
+        });
+}
+
+// Criar card de usuário
+function createUserCard(user) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    card.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${user.name}</h3>
+            <span class="card-badge ${user.userType === 'admin' ? 'card-badge-secondary' : ''}">
+                ${user.userType === 'admin' ? 'Administrador' : 'Aluno'}
+            </span>
+        </div>
+        <div class="card-content">
+            <p><strong>E-mail:</strong> ${user.email}</p>
+            <p><strong>Cadastrado em:</strong> ${user.createdAt ? user.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-primary" data-action="edit" data-user-id="${user.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            ${user.userType !== 'admin' ? `
+                <button class="btn btn-danger" data-action="delete" data-user-id="${user.id}">
+                    <i class="fas fa-trash"></i>
+                    <span class="btn-text">Excluir</span>
+                </button>
+            ` : ''}
+        </div>
+    `;
+    
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
+        const action = button.getAttribute('data-action');
+        const userId = button.getAttribute('data-user-id');
+        
+        button.addEventListener('click', () => {
+            if (action === 'edit') {
+                editUser(userId);
+            } else if (action === 'delete') {
+                deleteUser(userId);
+            }
+        });
+    });
+    
+    return card;
+}
+
+// Abrir modal de usuário
+function openUserModal(user = null) {
+    const modal = document.getElementById('user-modal');
+    const title = document.getElementById('user-modal-title');
+    const form = document.getElementById('user-form');
+    
+    if (user) {
+        // Modo edição
+        title.textContent = 'Editar Usuário';
+        document.getElementById('user-name').value = user.name;
+        document.getElementById('user-email').value = user.email;
+        document.getElementById('user-type').value = user.userType;
+        form.setAttribute('data-user-id', user.id);
+    } else {
+        // Modo criação
+        title.textContent = 'Adicionar Usuário';
+        form.reset();
+        form.removeAttribute('data-user-id');
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+// Manipular envio do formulário de usuário
+function handleUserSubmit(e) {
+    e.preventDefault();
+    saveUser();
+}
+
+// Salvar usuário
+function saveUser() {
+    const form = document.getElementById('user-form');
+    const userId = form.getAttribute('data-user-id');
+    const name = document.getElementById('user-name').value;
+    const email = document.getElementById('user-email').value;
+    const password = document.getElementById('user-password').value;
+    const userType = document.getElementById('user-type').value;
+    
+    if (!name || !email) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    showLoading();
+    
+    const userData = {
+        name: name,
+        email: email,
+        userType: userType,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    // Atualizar no Firestore
+    db.collection('users').doc(userId).update(userData)
+        .then(() => {
+            hideLoading();
+            closeModal('user-modal');
+            showSuccessMessage('Usuário atualizado com sucesso!');
+            loadUsers();
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Erro ao atualizar usuário: ' + error.message);
+        });
+}
+
+// Editar usuário
+function editUser(userId) {
+    showLoading();
+    db.collection('users').doc(userId).get()
+        .then(doc => {
+            hideLoading();
+            if (doc.exists) {
+                const user = { id: doc.id, ...doc.data() };
+                openUserModal(user);
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Erro ao carregar usuário: ' + error.message);
+        });
+}
+
+// Excluir usuário
+function deleteUser(userId) {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
+        showLoading();
+        
+        // Excluir do Firestore
+        db.collection('users').doc(userId).delete()
+            .then(() => {
+                hideLoading();
+                showSuccessMessage('Usuário excluído com sucesso!');
+                loadUsers();
+            })
+            .catch(error => {
+                hideLoading();
+                alert('Erro ao excluir usuário: ' + error.message);
+            });
+    }
+}
+
+// ===============================
+// RECUPERAÇÃO DE SENHA
+// ===============================
+
+// Abrir modal de recuperação de senha
+function openForgotPasswordModal() {
+    document.getElementById('forgot-password-modal').classList.remove('hidden');
+}
+
+// Manipular recuperação de senha
+function handlePasswordReset(e) {
+    e.preventDefault();
+    const email = document.getElementById('reset-email').value;
+    
+    if (!email) {
+        alert('Por favor, digite seu e-mail.');
+        return;
+    }
+    
+    showLoading();
+    
+    auth.sendPasswordResetEmail(email)
+        .then(() => {
+            hideLoading();
+            closeModal('forgot-password-modal');
+            alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+        })
+        .catch((error) => {
+            hideLoading();
+            alert('Erro ao enviar e-mail de recuperação: ' + getAuthErrorMessage(error.code));
+        });
+}
+
+// ===============================
+// QUIZ - EXECUÇÃO
+// ===============================
+
+// Iniciar quiz
+function startQuiz(quiz) {
+    // Verificar se o usuário já iniciou este quiz
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quiz.id)
+        .where('status', 'in', ['in-progress', 'completed'])
+        .get()
+        .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+                const userQuizDoc = querySnapshot.docs[0];
+                const userQuiz = userQuizDoc.data();
+                userQuizId = userQuizDoc.id;
+                
+                if (userQuiz.status === 'completed') {
+                    showQuizResult(quiz.id);
+                    return;
+                } else if (userQuiz.status === 'in-progress') {
+                    // Continuar quiz em andamento
+                    if (userQuiz.attempts >= 3) {
+                        alert('Você já usou todas as 3 tentativas permitidas para este quiz.');
+                        return;
+                    }
+                    
+                    currentQuiz = quiz;
+                    userAnswers = userQuiz.answers || [];
+                    currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
+                    
+                    // Buscar questões do quiz
+                    loadQuizQuestions(quiz.id);
+                }
+            } else {
+                // Iniciar novo quiz
+                currentQuiz = quiz;
+                userAnswers = new Array(quiz.questionsCount).fill(null);
+                currentQuestionIndex = 0;
+                
+                // Criar registro do quiz do usuário
+                db.collection('userQuizzes').add({
+                    userId: currentUser.uid,
+                    quizId: quiz.id,
+                    status: 'in-progress',
+                    answers: userAnswers,
+                    currentQuestionIndex: 0,
+                    startTime: firebase.firestore.FieldValue.serverTimestamp(),
+                    attempts: 1,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                })
+                .then((docRef) => {
+                    userQuizId = docRef.id;
+                    // Buscar questões do quiz
+                    loadQuizQuestions(quiz.id);
+                })
+                .catch(error => {
+                    alert('Erro ao iniciar quiz: ' + error.message);
+                });
+            }
+        })
+        .catch(error => {
+            alert('Erro ao verificar status do quiz: ' + error.message);
+        });
+}
+
+// Carregar questões do quiz
+function loadQuizQuestions(quizId) {
+    showLoading();
+    
+    // Buscar questões da mesma categoria do quiz
+    db.collection('questions')
+        .where('category', '==', currentQuiz.category)
+        .get()
+        .then(querySnapshot => {
+            hideLoading();
+            if (querySnapshot.empty) {
+                alert('Nenhuma questão disponível para a categoria deste quiz.');
+                return;
+            }
+            
+            const allQuestions = [];
+            querySnapshot.forEach(doc => {
+                allQuestions.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Selecionar questões aleatórias
+            currentQuestions = [];
+            const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
+            
+            // Embaralhar questões
+            for (let i = allQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+            }
+            
+            // Selecionar as primeiras N questões
+            currentQuestions = allQuestions.slice(0, questionCount);
+            
+            // Iniciar quiz
+            showQuiz();
+        })
+        .catch(error => {
+            hideLoading();
+            alert('Erro ao carregar questões: ' + error.message);
+        });
+}
+
+// Mostrar tela do quiz
+function showQuiz() {
+    authContainer.classList.add('hidden');
+    studentDashboard.classList.add('hidden');
+    adminDashboard.classList.add('hidden');
+    quizResult.classList.add('hidden');
+    quizContainer.classList.remove('hidden');
+    
+    // Configurar informações do quiz
+    document.getElementById('quiz-title-display').textContent = currentQuiz.title;
+    document.getElementById('quiz-description-display').textContent = currentQuiz.description || '';
+    
+    // Iniciar timer
+    totalTime = currentQuiz.time * 60; // Converter para segundos
+    timeRemaining = totalTime;
+    startTimer();
+    
+    // Exibir primeira questão
+    displayQuestion();
+}
+
+// Iniciar timer do quiz
+function startTimer() {
+    updateTimerDisplay();
+    
+    quizTimer = setInterval(() => {
+        timeRemaining--;
+        updateTimerDisplay();
+        
+        if (timeRemaining <= 0) {
+            finishQuiz();
+        }
+    }, 1000);
+}
+
+// Atualizar display do timer
+function updateTimerDisplay() {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    const timerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    document.getElementById('quiz-timer').textContent = timerText;
+    
+    // Atualizar progresso do círculo do timer
+    const progress = document.getElementById('timer-progress');
+    const circumference = 2 * Math.PI * 28;
+    const offset = circumference - (timeRemaining / totalTime) * circumference;
+    progress.style.strokeDashoffset = offset;
+}
+
+// Exibir questão atual
+function displayQuestion() {
+    const question = currentQuestions[currentQuestionIndex];
+    
+    document.getElementById('question-text').textContent = question.text;
+    document.getElementById('option-a-text').textContent = question.options.a;
+    document.getElementById('option-b-text').textContent = question.options.b;
+    document.getElementById('option-c-text').textContent = question.options.c;
+    document.getElementById('option-d-text').textContent = question.options.d;
+    
+    // Atualizar progresso
+    const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
+    document.getElementById('progress-fill').style.width = `${progress}%`;
+    document.getElementById('quiz-progress-text').textContent = `Questão ${currentQuestionIndex + 1}/${currentQuestions.length}`;
+    document.getElementById('current-question').textContent = currentQuestionIndex + 1;
+    document.getElementById('total-questions').textContent = currentQuestions.length;
+    
+    // Limpar seleção anterior
+    document.querySelectorAll('.option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Restaurar resposta salva, se houver
+    if (userAnswers[currentQuestionIndex]) {
+        const selectedOption = document.querySelector(`.option[data-value="${userAnswers[currentQuestionIndex]}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+    }
+    
+    // Atualizar estado dos botões de navegação
+    document.getElementById('prev-question').disabled = currentQuestionIndex === 0;
+    document.getElementById('next-question').style.display = currentQuestionIndex === currentQuestions.length - 1 ? 'none' : 'flex';
+    document.getElementById('finish-quiz').classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
+}
+
+// Selecionar opção
+function selectOption(value) {
+    // Limpar seleção anterior
+    document.querySelectorAll('.option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Selecionar nova opção
+    const selectedOption = document.querySelector(`.option[data-value="${value}"]`);
+    selectedOption.classList.add('selected');
+    
+    // Salvar resposta
+    userAnswers[currentQuestionIndex] = value;
+    
+    // Atualizar no Firestore
+    updateUserQuizProgress();
+}
+
+// Atualizar progresso do quiz do usuário
+function updateUserQuizProgress() {
+    if (!userQuizId) return;
+    
+    db.collection('userQuizzes').doc(userQuizId).update({
+        answers: userAnswers,
+        currentQuestionIndex: currentQuestionIndex,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .catch(error => {
+        console.error('Erro ao atualizar progresso do quiz:', error);
+    });
+}
+
+// Abrir modal de saída do quiz
+function openExitQuizModal() {
+    // Buscar informações atualizadas do quiz
+    db.collection('userQuizzes').doc(userQuizId).get()
+        .then(doc => {
+            if (doc.exists) {
+                const userQuiz = doc.data();
+                const remainingAttempts = 3 - userQuiz.attempts;
+                document.getElementById('remaining-attempts').textContent = remainingAttempts;
+                openModal('exit-quiz-modal');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar informações do quiz:', error);
+            openModal('exit-quiz-modal');
+        });
+}
+
+// Confirmar saída do quiz
+function confirmExitQuiz() {
+    clearInterval(quizTimer);
+    closeModal('exit-quiz-modal');
+    showDashboard();
+}
+
+// Finalizar quiz
+function finishQuiz() {
+    clearInterval(quizTimer);
+    
+    // Calcular pontuação
+    let score = 0;
+    currentQuestions.forEach((question, index) => {
+        if (userAnswers[index] === question.correctAnswer) {
+            score++;
+        }
+    });
+    
+    const percentage = (score / currentQuestions.length) * 100;
+    const timeTaken = totalTime - timeRemaining;
+    
+    // Atualizar status do quiz do usuário
+    db.collection('userQuizzes').doc(userQuizId).update({
+        status: 'completed',
+        score: score,
+        percentage: percentage,
+        timeTaken: timeTaken,
+        completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        // Mostrar resultado
+        showQuizResult(currentQuiz.id, score, percentage, timeTaken);
+    })
+    .catch(error => {
+        console.error('Erro ao finalizar quiz:', error);
+        // Mostrar resultado mesmo com erro
+        showQuizResult(currentQuiz.id, score, percentage, timeTaken);
+    });
+}
+
+// Mostrar resultado do quiz
+function showQuizResult(quizId, score = null, percentage = null, timeTaken = null) {
+    if (score !== null && percentage !== null) {
+        // Exibir resultado recém-calculado
+        const minutes = Math.floor(timeTaken / 60);
+        const seconds = timeTaken % 60;
+        const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        document.getElementById('score-percentage').textContent = `${percentage.toFixed(1)}%`;
+        document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length}`;
+        document.getElementById('correct-answers').textContent = score;
+        document.getElementById('wrong-answers').textContent = currentQuestions.length - score;
+        document.getElementById('time-taken').textContent = timeText;
+        
+        // Animar o círculo de progresso
+        const circleProgress = document.getElementById('circle-progress');
+        const degrees = (percentage / 100) * 360;
+        circleProgress.style.transform = `rotate(${degrees}deg)`;
+        
+        quizContainer.classList.add('hidden');
+        quizResult.classList.remove('hidden');
+    } else {
+        // Buscar resultado do Firestore
+        db.collection('userQuizzes')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId)
+            .where('status', '==', 'completed')
+            .get()
+            .then(querySnapshot => {
+                if (!querySnapshot.empty) {
+                    const userQuiz = querySnapshot.docs[0].data();
+                    
+                    document.getElementById('score-percentage').textContent = `${userQuiz.percentage.toFixed(1)}%`;
+                    document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions.length}`;
+                    document.getElementById('correct-answers').textContent = userQuiz.score;
+                    document.getElementById('wrong-answers').textContent = currentQuestions.length - userQuiz.score;
+                    
+                    const minutes = Math.floor(userQuiz.timeTaken / 60);
+                    const seconds = userQuiz.timeTaken % 60;
+                    document.getElementById('time-taken').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    // Animar o círculo de progresso
+                    const circleProgress = document.getElementById('circle-progress');
+                    const degrees = (userQuiz.percentage / 100) * 360;
+                    circleProgress.style.transform = `rotate(${degrees}deg)`;
+                    
+                    studentDashboard.classList.add('hidden');
+                    quizResult.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                alert('Erro ao carregar resultado: ' + error.message);
+            });
+    }
+}
+
+// ===============================
+// RANKING E RELATÓRIOS
+// ===============================
+
+// Carregar ranking
+function loadRanking() {
+    const rankingList = document.getElementById('ranking-list');
+    rankingList.innerHTML = '<div class="card"><div class="card-content">Carregando ranking...</div></div>';
+    
+    // Buscar todos os quizzes completados
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter objeto em array e ordenar por pontuação
+            const ranking = Object.values(userScores).sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Buscar informações dos usuários
+            const userIds = ranking.map(item => item.userId);
+            
+            if (userIds.length === 0) {
+                rankingList.innerHTML = '<div class="card"><div class="card-content">Nenhum resultado disponível no ranking.</div></div>';
+                return;
+            }
+            
+            db.collection('users')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds.slice(0, 20)) // Limitar a 20 usuários
+                .get()
+                .then(usersSnapshot => {
+                    const usersMap = {};
+                    usersSnapshot.forEach(doc => {
+                        usersMap[doc.id] = doc.data();
+                    });
+                    
+                    // Exibir ranking
+                    rankingList.innerHTML = '';
+                    
+                    ranking.slice(0, 20).forEach((item, index) => {
+                        const user = usersMap[item.userId];
+                        if (!user) return;
+                        
+                        const rankingItem = document.createElement('div');
+                        rankingItem.className = 'ranking-item';
+                        
+                        // Destacar usuário atual
+                        if (item.userId === currentUser.uid) {
+                            rankingItem.style.background = 'rgba(74, 108, 247, 0.1)';
+                            rankingItem.style.borderLeft = '4px solid var(--primary-color)';
+                        }
+                        
+                        rankingItem.innerHTML = `
+                            <div class="ranking-position">${index + 1}</div>
+                            <div class="ranking-info">
+                                <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
+                                <div class="ranking-details">${item.totalQuizzes} quiz(s) realizado(s)</div>
+                            </div>
+                            <div class="ranking-score">${item.totalScore} pts</div>
+                        `;
+                        
+                        rankingList.appendChild(rankingItem);
+                    });
+                });
+        })
+        .catch(error => {
+            rankingList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar ranking.</div></div>';
+            console.error('Erro ao carregar ranking:', error);
+        });
+}
+
+// Carregar histórico do usuário
+function loadUserHistory() {
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
+    
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('status', '==', 'completed')
+        .orderBy('completedAt', 'desc')
+        .get()
+        .then(querySnapshot => {
+            historyList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz concluído ainda.</div></div>';
+                return;
+            }
+            
+            // Buscar informações dos quizzes
+            const quizIds = [];
+            const userQuizzesMap = {};
+            
+            querySnapshot.forEach(doc => {
+                const userQuiz = { id: doc.id, ...doc.data() };
+                quizIds.push(userQuiz.quizId);
+                userQuizzesMap[userQuiz.quizId] = userQuiz;
+            });
+            
+            db.collection('quizzes')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
+                .get()
+                .then(quizzesSnapshot => {
+                    const quizzesMap = {};
+                    quizzesSnapshot.forEach(doc => {
+                        quizzesMap[doc.id] = doc.data();
+                    });
+                    
+                    quizIds.forEach(quizId => {
+                        const quiz = quizzesMap[quizId];
+                        const userQuiz = userQuizzesMap[quizId];
+                        
+                        if (quiz && userQuiz) {
+                            const historyCard = document.createElement('div');
+                            historyCard.className = 'card';
+                            
+                            historyCard.innerHTML = `
+                                <div class="card-header">
+                                    <h3 class="card-title">${quiz.title}</h3>
+                                    <span class="card-badge">${userQuiz.percentage.toFixed(1)}%</span>
+                                </div>
+                                <div class="card-content">
+                                    <p>${quiz.description || 'Sem descrição'}</p>
+                                    <p><strong>Pontuação:</strong> ${userQuiz.score}/${quiz.questionsCount}</p>
+                                    <p><strong>Concluído em:</strong> ${userQuiz.completedAt.toDate().toLocaleDateString('pt-BR')}</p>
+                                </div>
+                                <div class="card-actions">
+                                    <button class="btn btn-primary" data-quiz-id="${quizId}">
+                                        <i class="fas fa-chart-bar"></i>
+                                        <span class="btn-text">Ver Detalhes</span>
+                                    </button>
+                                </div>
+                            `;
+                            
+                            const button = historyCard.querySelector('button');
+                            button.addEventListener('click', () => {
+                                showQuizResult(quizId);
+                            });
+                            
+                            historyList.appendChild(historyCard);
+                        }
+                    });
+                });
+        })
+        .catch(error => {
+            historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
+            console.error('Erro ao carregar histórico:', error);
+        });
+}
+
+// Carregar relatórios
+function loadReports() {
+    // Estatísticas básicas
+    loadBasicStats();
+    
+    // Gráficos (implementação básica)
+    loadCharts();
+}
+
+// Carregar estatísticas básicas
+function loadBasicStats() {
+    // Total de usuários
+    db.collection('users').get().then(snapshot => {
+        document.getElementById('total-users').textContent = snapshot.size;
+    });
+    
+    // Quizzes ativos
+    db.collection('quizzes').where('status', '==', 'active').get().then(snapshot => {
+        document.getElementById('total-quizzes').textContent = snapshot.size;
+    });
+    
+    // Total de questões
+    db.collection('questions').get().then(snapshot => {
+        document.getElementById('total-questions').textContent = snapshot.size;
+    });
+    
+    // Total de tentativas
+    db.collection('userQuizzes').where('status', '==', 'completed').get().then(snapshot => {
+        document.getElementById('total-attempts').textContent = snapshot.size;
+    });
+}
+
+// Carregar gráficos
+function loadCharts() {
+    // Implementação básica de gráficos
+    const ctx = document.getElementById('category-chart').getContext('2d');
+    
+    // Dados de exemplo - em uma implementação real, você buscaria esses dados do Firestore
+    const exampleData = {
+        labels: Array.from(availableCategories).slice(0, 5),
+        datasets: [{
+            label: 'Desempenho por Categoria',
+            data: [85, 72, 68, 90, 78],
+            backgroundColor: [
+                'rgba(74, 108, 247, 0.8)',
+                'rgba(40, 167, 69, 0.8)',
+                'rgba(220, 53, 69, 0.8)',
+                'rgba(255, 193, 7, 0.8)',
+                'rgba(23, 162, 184, 0.8)'
+            ],
+            borderColor: [
+                'rgba(74, 108, 247, 1)',
+                'rgba(40, 167, 69, 1)',
+                'rgba(220, 53, 69, 1)',
+                'rgba(255, 193, 7, 1)',
+                'rgba(23, 162, 184, 1)'
+            ],
+            borderWidth: 1
+        }]
+    };
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: exampleData,
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+}
+
+// Função auxiliar para mostrar mensagens de sucesso
+function showSuccessMessage(message) {
+    // Você pode implementar um sistema de notificação mais sofisticado aqui
+    alert(message);
+}
