@@ -106,15 +106,15 @@
                 <nav class="tabs">
                     <button id="quizzes-tab" class="tab active">
                         <i class="fas fa-list-alt"></i>
-                        <span class="tab-text">Quizzes</span>
+                        Quizzes
                     </button>
                     <button id="ranking-tab" class="tab">
                         <i class="fas fa-trophy"></i>
-                        <span class="tab-text">Ranking</span>
+                        Ranking
                     </button>
                     <button id="history-tab" class="tab">
                         <i class="fas fa-history"></i>
-                        <span class="tab-text">Histórico</span>
+                        Meu Histórico
                     </button>
                 </nav>
             </div>
@@ -125,7 +125,7 @@
                 </div>
                 <button id="student-logout" class="btn btn-secondary">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span class="btn-text">Sair</span>
+                    Sair
                 </button>
             </div>
         </header>
@@ -171,19 +171,19 @@
                 <nav class="tabs">
                     <button id="manage-quizzes-tab" class="tab active">
                         <i class="fas fa-list-alt"></i>
-                        <span class="tab-text">Quizzes</span>
+                        Quizzes
                     </button>
                     <button id="manage-questions-tab" class="tab">
                         <i class="fas fa-question-circle"></i>
-                        <span class="tab-text">Questões</span>
+                        Questões
                     </button>
                     <button id="manage-users-tab" class="tab">
                         <i class="fas fa-users"></i>
-                        <span class="tab-text">Usuários</span>
+                        Usuários
                     </button>
                     <button id="reports-tab" class="tab">
                         <i class="fas fa-chart-bar"></i>
-                        <span class="tab-text">Relatórios</span>
+                        Relatórios
                     </button>
                 </nav>
             </div>
@@ -194,7 +194,7 @@
                 </div>
                 <button id="admin-logout" class="btn btn-secondary">
                     <i class="fas fa-sign-out-alt"></i>
-                    <span class="btn-text">Sair</span>
+                    Sair
                 </button>
             </div>
         </header>
@@ -207,7 +207,7 @@
                     <p>Crie e gerencie os quizzes disponíveis</p>
                     <button id="create-quiz-btn" class="btn btn-primary">
                         <i class="fas fa-plus"></i>
-                        <span class="btn-text">Criar Novo Quiz</span>
+                        Criar Novo Quiz
                     </button>
                 </div>
                 <div id="quizzes-admin-list" class="cards-container"></div>
@@ -221,29 +221,24 @@
                     <div class="action-buttons">
                         <button id="add-question-btn" class="btn btn-primary">
                             <i class="fas fa-plus"></i>
-                            <span class="btn-text">Adicionar Questão</span>
+                            Adicionar Questão
                         </button>
                         <input type="file" id="json-file" accept=".json" style="display: none;">
                         <button id="import-json-btn" class="btn btn-secondary">
                             <i class="fas fa-file-import"></i>
-                            <span class="btn-text">Importar JSON</span>
+                            Importar JSON
                         </button>
                         <button id="export-questions-btn" class="btn btn-secondary">
                             <i class="fas fa-file-export"></i>
-                            <span class="btn-text">Exportar Questões</span>
+                            Exportar Questões
                         </button>
                     </div>
                 </div>
                 <div class="filters">
-                    <div class="input-group">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="question-search" placeholder="Buscar questões...">
-                    </div>
-                    <div class="input-group">
-                        <select id="category-filter">
-                            <option value="">Todas as categorias</option>
-                        </select>
-                    </div>
+                    <input type="text" id="question-search" placeholder="Buscar questões...">
+                    <select id="category-filter">
+                        <option value="">Todas as categorias</option>
+                    </select>
                 </div>
                 <div id="questions-list" class="cards-container"></div>
             </div>
@@ -339,9 +334,7 @@
                 </div>
                 <div class="input-group">
                     <label for="quiz-category">Categoria</label>
-                    <select id="quiz-category" required>
-                        <option value="">Selecione uma categoria</option>
-                    </select>
+                    <input type="text" id="quiz-category" placeholder="Categoria do quiz">
                 </div>
                 <div class="input-group">
                     <label for="quiz-status">Status</label>
@@ -403,8 +396,7 @@
                     </div>
                     <div class="input-group">
                         <label for="question-category">Categoria</label>
-                        <input type="text" id="question-category" placeholder="Categoria da questão" list="categories-list">
-                        <datalist id="categories-list"></datalist>
+                        <input type="text" id="question-category" placeholder="Categoria da questão">
                     </div>
                 </div>
                 <div class="input-group">
@@ -483,24 +475,6 @@
         </div>
     </div>
 
-    <!-- Modal de Confirmação de Saída do Quiz -->
-    <div id="exit-quiz-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Sair do Quiz</h2>
-                <span class="close">&times;</span>
-            </div>
-            <div class="modal-form">
-                <p>Tem certeza que deseja sair do quiz? Seu progresso será salvo e você poderá continuar depois.</p>
-                <p><strong>Tentativas restantes:</strong> <span id="remaining-attempts">2</span></p>
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" id="cancel-exit">Continuar Quiz</button>
-                    <button type="button" class="btn btn-danger" id="confirm-exit">Sair do Quiz</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Tela do Quiz -->
     <div id="quiz-container" class="container hidden">
         <header class="quiz-header">
@@ -508,20 +482,14 @@
                 <h1 id="quiz-title-display"></h1>
                 <p id="quiz-description-display"></p>
             </div>
-            <div class="quiz-controls-top">
-                <button id="exit-quiz-btn" class="btn btn-secondary">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span class="btn-text">Sair do Quiz</span>
-                </button>
-                <div class="quiz-timer">
-                    <div class="timer-circle">
-                        <svg width="60" height="60">
-                            <circle cx="30" cy="30" r="28" stroke="#e0e0e0" stroke-width="3" fill="none"></circle>
-                            <circle id="timer-progress" cx="30" cy="30" r="28" stroke="#4a6cf7" stroke-width="3" fill="none" 
-                                    stroke-dasharray="175" stroke-dashoffset="0" transform="rotate(-90 30 30)"></circle>
-                        </svg>
-                        <span id="quiz-timer">00:00</span>
-                    </div>
+            <div class="quiz-timer">
+                <div class="timer-circle">
+                    <svg width="60" height="60">
+                        <circle cx="30" cy="30" r="28" stroke="#e0e0e0" stroke-width="3" fill="none"></circle>
+                        <circle id="timer-progress" cx="30" cy="30" r="28" stroke="#4a6cf7" stroke-width="3" fill="none" 
+                                stroke-dasharray="175" stroke-dashoffset="0" transform="rotate(-90 30 30)"></circle>
+                    </svg>
+                    <span id="quiz-timer">00:00</span>
                 </div>
             </div>
         </header>
@@ -559,18 +527,18 @@
             <div class="quiz-controls">
                 <button id="prev-question" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i>
-                    <span class="btn-text">Anterior</span>
+                    Anterior
                 </button>
                 <div class="quiz-nav">
                     <span id="current-question">1</span> de <span id="total-questions">0</span>
                 </div>
                 <button id="next-question" class="btn btn-primary">
-                    <span class="btn-text">Próxima</span>
+                    Próxima
                     <i class="fas fa-arrow-right"></i>
                 </button>
                 <button id="finish-quiz" class="btn btn-success hidden">
                     <i class="fas fa-flag-checkered"></i>
-                    <span class="btn-text">Finalizar Quiz</span>
+                    Finalizar Quiz
                 </button>
             </div>
         </main>
@@ -620,15 +588,15 @@
             <div class="result-actions">
                 <button id="review-quiz" class="btn btn-secondary">
                     <i class="fas fa-redo"></i>
-                    <span class="btn-text">Revisar Respostas</span>
+                    Revisar Respostas
                 </button>
                 <button id="back-to-dashboard" class="btn btn-primary">
                     <i class="fas fa-home"></i>
-                    <span class="btn-text">Voltar ao Dashboard</span>
+                    Voltar ao Dashboard
                 </button>
                 <button id="new-quiz" class="btn btn-success">
                     <i class="fas fa-play"></i>
-                    <span class="btn-text">Fazer Outro Quiz</span>
+                    Fazer Outro Quiz
                 </button>
             </div>
         </div>
