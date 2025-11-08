@@ -40,21 +40,25 @@ const loading = document.getElementById('loading');
 
 // Inicializar a aplicação
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Aplicação inicializada');
     initAuth();
     initEventListeners();
     
     // Verificar se há um usuário logado
     auth.onAuthStateChanged(user => {
+        console.log('Estado de autenticação alterado:', user);
         if (user) {
             // Usuário está logado
             showLoading();
             getUserData(user.uid).then(userData => {
                 currentUser = { ...user, ...userData };
+                console.log('Usuário carregado:', currentUser);
                 hideLoading();
                 showDashboard();
             }).catch(error => {
                 hideLoading();
                 console.error('Erro ao carregar dados do usuário:', error);
+                showError('login-error', 'Erro ao carregar dados do usuário.');
                 auth.signOut();
             });
         } else {
@@ -67,15 +71,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Funções de loading
 function showLoading() {
+    console.log('Mostrando loading...');
     loading.classList.remove('hidden');
 }
 
 function hideLoading() {
+    console.log('Escondendo loading...');
     loading.classList.add('hidden');
 }
 
 // Inicializar autenticação
 function initAuth() {
+    console.log('Inicializando autenticação...');
+    
     const loginTab = document.getElementById('login-tab');
     const registerTab = document.getElementById('register-tab');
     const loginForm = document.getElementById('login-form');
@@ -87,18 +95,24 @@ function initAuth() {
     
     // Alternar entre login e cadastro
     loginTab.addEventListener('click', () => {
+        console.log('Clicou na aba login');
         switchAuthTab('login');
     });
     
     registerTab.addEventListener('click', () => {
+        console.log('Clicou na aba cadastro');
         switchAuthTab('register');
     });
     
     // Login
     loginBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        console.log('Tentando fazer login...');
+        
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
+        
+        console.log('Email:', email);
         
         if (!email || !password) {
             showError('login-error', 'Por favor, preencha todos os campos.');
@@ -109,11 +123,13 @@ function initAuth() {
         auth.signInWithEmailAndPassword(email, password)
             .then((userCredential) => {
                 // Login bem-sucedido
+                console.log('Login bem-sucedido:', userCredential.user);
                 document.getElementById('login-error').textContent = '';
-                hideLoading();
+                // O onAuthStateChanged vai lidar com o redirecionamento
             })
             .catch((error) => {
                 hideLoading();
+                console.error('Erro no login:', error);
                 showError('login-error', getAuthErrorMessage(error.code));
             });
     });
@@ -121,10 +137,14 @@ function initAuth() {
     // Cadastro
     registerBtn.addEventListener('click', (e) => {
         e.preventDefault();
+        console.log('Tentando cadastrar...');
+        
         const name = document.getElementById('register-name').value;
         const email = document.getElementById('register-email').value;
         const password = document.getElementById('register-password').value;
         const userType = document.getElementById('register-type').value;
+        
+        console.log('Dados do cadastro:', { name, email, userType });
         
         if (!name || !email || !password) {
             showError('register-error', 'Por favor, preencha todos os campos.');
@@ -148,6 +168,10 @@ function initAuth() {
                 } else {
                     registerUser(name, email, password, userType);
                 }
+            }).catch(error => {
+                hideLoading();
+                console.error('Erro ao verificar admin:', error);
+                showError('register-error', 'Erro ao verificar administradores.');
             });
         } else {
             registerUser(name, email, password, userType);
@@ -164,12 +188,17 @@ function initAuth() {
     checkAdminExists().then(adminExists => {
         if (adminExists) {
             adminOption.disabled = true;
+            console.log('Administrador já existe, desabilitando opção');
         }
+    }).catch(error => {
+        console.error('Erro ao verificar admin:', error);
     });
 }
 
 // Alternar entre abas de autenticação
 function switchAuthTab(tab) {
+    console.log('Alternando para aba:', tab);
+    
     const loginTab = document.getElementById('login-tab');
     const registerTab = document.getElementById('register-tab');
     const loginForm = document.getElementById('login-form');
@@ -191,9 +220,12 @@ function switchAuthTab(tab) {
 // Registrar novo usuário
 function registerUser(name, email, password, userType) {
     showLoading();
+    console.log('Registrando usuário...');
+    
     auth.createUserWithEmailAndPassword(email, password)
         .then((userCredential) => {
             const user = userCredential.user;
+            console.log('Usuário criado no Auth:', user.uid);
             
             // Salvar dados adicionais do usuário no Firestore
             return db.collection('users').doc(user.uid).set({
@@ -205,6 +237,7 @@ function registerUser(name, email, password, userType) {
             });
         })
         .then(() => {
+            console.log('Usuário salvo no Firestore com sucesso');
             hideLoading();
             document.getElementById('register-error').textContent = '';
             showSuccess('register-error', 'Cadastro realizado com sucesso!');
@@ -217,6 +250,7 @@ function registerUser(name, email, password, userType) {
         })
         .catch((error) => {
             hideLoading();
+            console.error('Erro no cadastro:', error);
             showError('register-error', getAuthErrorMessage(error.code));
         });
 }
@@ -238,13 +272,15 @@ function getUserData(uid) {
             if (doc.exists) {
                 return doc.data();
             } else {
-                throw new Error('Usuário não encontrado');
+                throw new Error('Usuário não encontrado no Firestore');
             }
         });
 }
 
 // Inicializar event listeners
 function initEventListeners() {
+    console.log('Inicializando event listeners...');
+    
     // Logout
     document.getElementById('student-logout').addEventListener('click', logout);
     document.getElementById('admin-logout').addEventListener('click', logout);
@@ -268,6 +304,8 @@ function initEventListeners() {
 
 // Inicializar navegação por abas
 function initTabNavigation() {
+    console.log('Inicializando navegação por abas...');
+    
     // Abas do aluno
     document.getElementById('quizzes-tab').addEventListener('click', () => {
         switchTab('quizzes-tab', 'quizzes-section');
@@ -340,6 +378,8 @@ function initTabNavigation() {
 
 // Inicializar modais
 function initModals() {
+    console.log('Inicializando modais...');
+    
     // Modal de quiz
     const quizModal = document.getElementById('quiz-modal');
     const quizCloseBtn = document.querySelector('#quiz-modal .close');
@@ -403,6 +443,8 @@ function initModals() {
 
 // Inicializar controles do quiz
 function initQuizControls() {
+    console.log('Inicializando controles do quiz...');
+    
     document.getElementById('prev-question').addEventListener('click', () => {
         if (currentQuestionIndex > 0) {
             currentQuestionIndex--;
@@ -430,6 +472,8 @@ function initQuizControls() {
 
 // Alternar entre abas
 function switchTab(tabId, sectionId) {
+    console.log('Alternando para tab:', tabId);
+    
     // Remover classe active de todas as abas e seções
     const tabs = document.querySelectorAll('.dashboard-header .tab');
     const sections = document.querySelectorAll('.dashboard-content .section');
@@ -444,6 +488,7 @@ function switchTab(tabId, sectionId) {
 
 // Mostrar tela de autenticação
 function showAuth() {
+    console.log('Mostrando tela de autenticação');
     authContainer.classList.remove('hidden');
     studentDashboard.classList.add('hidden');
     adminDashboard.classList.add('hidden');
@@ -453,6 +498,8 @@ function showAuth() {
 
 // Mostrar dashboard apropriado
 function showDashboard() {
+    console.log('Mostrando dashboard para:', currentUser.userType);
+    
     authContainer.classList.add('hidden');
     quizContainer.classList.add('hidden');
     quizResult.classList.add('hidden');
@@ -472,11 +519,15 @@ function showDashboard() {
 
 // Fazer logout
 function logout() {
+    console.log('Fazendo logout...');
     showLoading();
     auth.signOut().then(() => {
         currentUser = null;
         hideLoading();
         showAuth();
+    }).catch(error => {
+        hideLoading();
+        console.error('Erro no logout:', error);
     });
 }
 
@@ -485,6 +536,7 @@ function showError(elementId, message) {
     const element = document.getElementById(elementId);
     element.textContent = message;
     element.className = 'error-message';
+    console.error('Erro:', message);
 }
 
 // Mostrar sucesso
@@ -492,6 +544,7 @@ function showSuccess(elementId, message) {
     const element = document.getElementById(elementId);
     element.textContent = message;
     element.className = 'success-message';
+    console.log('Sucesso:', message);
 }
 
 // Obter mensagem de erro amigável
@@ -504,7 +557,8 @@ function getAuthErrorMessage(errorCode) {
         'auth/email-already-in-use': 'Este e-mail já está em uso.',
         'auth/weak-password': 'A senha é muito fraca.',
         'auth/operation-not-allowed': 'Operação não permitida.',
-        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.'
+        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.',
+        'auth/network-request-failed': 'Erro de conexão. Verifique sua internet.'
     };
     
     return messages[errorCode] || 'Ocorreu um erro. Tente novamente.';
@@ -512,11 +566,13 @@ function getAuthErrorMessage(errorCode) {
 
 // Abrir modal
 function openModal(modalId) {
+    console.log('Abrindo modal:', modalId);
     document.getElementById(modalId).classList.remove('hidden');
 }
 
 // Fechar modal
 function closeModal(modalId) {
+    console.log('Fechando modal:', modalId);
     document.getElementById(modalId).classList.add('hidden');
 }
 
@@ -2120,3 +2176,5 @@ function showSuccessMessage(message) {
     alert(message);
 }
 
+// Adicionar console.log para debug
+console.log('Script carregado com sucesso!');
