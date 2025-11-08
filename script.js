@@ -27,6 +27,8 @@ let userAnswers = [];
 let quizTimer = null;
 let timeRemaining = 0;
 let totalTime = 0;
+let userQuizId = null;
+let availableCategories = new Set();
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -258,6 +260,10 @@ function initEventListeners() {
     
     // Exportação de questões
     document.getElementById('export-questions-btn').addEventListener('click', exportQuestions);
+    
+    // Busca e filtros
+    document.getElementById('question-search').addEventListener('input', filterQuestions);
+    document.getElementById('category-filter').addEventListener('change', filterQuestions);
 }
 
 // Inicializar navegação por abas
@@ -373,6 +379,19 @@ function initModals() {
     forgotPasswordCloseBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
     cancelResetBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
     forgotPasswordForm.addEventListener('submit', handlePasswordReset);
+    
+    // Modal de saída do quiz
+    const exitQuizModal = document.getElementById('exit-quiz-modal');
+    const exitQuizCloseBtn = document.querySelector('#exit-quiz-modal .close');
+    const cancelExitBtn = document.getElementById('cancel-exit');
+    const confirmExitBtn = document.getElementById('confirm-exit');
+    
+    exitQuizCloseBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
+    cancelExitBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
+    confirmExitBtn.addEventListener('click', confirmExitQuiz);
+    
+    // Botão de sair do quiz
+    document.getElementById('exit-quiz-btn').addEventListener('click', openExitQuizModal);
     
     // Fechar modal ao clicar fora
     window.addEventListener('click', (e) => {
@@ -502,6 +521,72 @@ function closeModal(modalId) {
 }
 
 // ===============================
+// GERENCIAMENTO DE CATEGORIAS
+// ===============================
+
+// Carregar categorias disponíveis
+function loadCategories() {
+    return db.collection('questions').get()
+        .then(querySnapshot => {
+            availableCategories.clear();
+            
+            querySnapshot.forEach(doc => {
+                const question = doc.data();
+                if (question.category && question.category.trim() !== '') {
+                    availableCategories.add(question.category);
+                }
+            });
+            
+            updateCategorySelects();
+            return Array.from(availableCategories);
+        })
+        .catch(error => {
+            console.error('Erro ao carregar categorias:', error);
+            return [];
+        });
+}
+
+// Atualizar selects de categoria
+function updateCategorySelects() {
+    const quizCategorySelect = document.getElementById('quiz-category');
+    const categoryFilter = document.getElementById('category-filter');
+    const categoriesList = document.getElementById('categories-list');
+    
+    // Limpar opções existentes
+    while (quizCategorySelect.children.length > 1) {
+        quizCategorySelect.removeChild(quizCategorySelect.lastChild);
+    }
+    
+    while (categoryFilter.children.length > 1) {
+        categoryFilter.removeChild(categoryFilter.lastChild);
+    }
+    
+    while (categoriesList.children.length > 0) {
+        categoriesList.removeChild(categoriesList.lastChild);
+    }
+    
+    // Adicionar categorias
+    availableCategories.forEach(category => {
+        // Select do quiz
+        const quizOption = document.createElement('option');
+        quizOption.value = category;
+        quizOption.textContent = category;
+        quizCategorySelect.appendChild(quizOption);
+        
+        // Select do filtro
+        const filterOption = document.createElement('option');
+        filterOption.value = category;
+        filterOption.textContent = category;
+        categoryFilter.appendChild(filterOption);
+        
+        // Datalist para input
+        const datalistOption = document.createElement('option');
+        datalistOption.value = category;
+        categoriesList.appendChild(datalistOption);
+    });
+}
+
+// ===============================
 // GERENCIAMENTO DE QUIZZES
 // ===============================
 
@@ -578,6 +663,7 @@ function createQuizCard(quiz) {
         
         if (!querySnapshot.empty) {
             const userQuiz = querySnapshot.docs[0].data();
+            userQuizId = querySnapshot.docs[0].id;
             
             if (userQuiz.status === 'in-progress') {
                 buttonText = 'Continuar Quiz';
@@ -608,7 +694,7 @@ function createQuizCard(quiz) {
             <div class="card-actions">
                 <button class="${buttonClass}" data-quiz-id="${quiz.id}">
                     <i class="fas fa-play"></i>
-                    ${buttonText}
+                    <span class="btn-text">${buttonText}</span>
                 </button>
             </div>
         `;
@@ -649,16 +735,16 @@ function createQuizAdminCard(quiz) {
         <div class="card-actions">
             <button class="btn btn-primary" data-action="edit" data-quiz-id="${quiz.id}">
                 <i class="fas fa-edit"></i>
-                Editar
+                <span class="btn-text">Editar</span>
             </button>
             <button class="btn btn-danger" data-action="delete" data-quiz-id="${quiz.id}">
                 <i class="fas fa-trash"></i>
-                Excluir
+                <span class="btn-text">Excluir</span>
             </button>
             <button class="btn ${quiz.status === 'active' ? 'btn-secondary' : 'btn-success'}" 
                     data-action="toggle-status" data-quiz-id="${quiz.id}">
                 <i class="fas fa-power-off"></i>
-                ${quiz.status === 'active' ? 'Desativar' : 'Ativar'}
+                <span class="btn-text">${quiz.status === 'active' ? 'Desativar' : 'Ativar'}</span>
             </button>
         </div>
     `;
@@ -689,24 +775,27 @@ function openQuizModal(quiz = null) {
     const title = document.getElementById('quiz-modal-title');
     const form = document.getElementById('quiz-form');
     
-    if (quiz) {
-        // Modo edição
-        title.textContent = 'Editar Quiz';
-        document.getElementById('quiz-title').value = quiz.title;
-        document.getElementById('quiz-description').value = quiz.description || '';
-        document.getElementById('quiz-time').value = quiz.time;
-        document.getElementById('quiz-questions-count').value = quiz.questionsCount;
-        document.getElementById('quiz-category').value = quiz.category || '';
-        document.getElementById('quiz-status').value = quiz.status;
-        form.setAttribute('data-quiz-id', quiz.id);
-    } else {
-        // Modo criação
-        title.textContent = 'Criar Quiz';
-        form.reset();
-        form.removeAttribute('data-quiz-id');
-    }
-    
-    modal.classList.remove('hidden');
+    // Carregar categorias antes de abrir o modal
+    loadCategories().then(() => {
+        if (quiz) {
+            // Modo edição
+            title.textContent = 'Editar Quiz';
+            document.getElementById('quiz-title').value = quiz.title;
+            document.getElementById('quiz-description').value = quiz.description || '';
+            document.getElementById('quiz-time').value = quiz.time;
+            document.getElementById('quiz-questions-count').value = quiz.questionsCount;
+            document.getElementById('quiz-category').value = quiz.category || '';
+            document.getElementById('quiz-status').value = quiz.status;
+            form.setAttribute('data-quiz-id', quiz.id);
+        } else {
+            // Modo criação
+            title.textContent = 'Criar Quiz';
+            form.reset();
+            form.removeAttribute('data-quiz-id');
+        }
+        
+        modal.classList.remove('hidden');
+    });
 }
 
 // Manipular envio do formulário de quiz
@@ -847,8 +936,9 @@ function loadQuestions() {
                 }
             });
             
-            // Atualizar filtro de categorias
-            updateCategoryFilter(Array.from(categories));
+            // Atualizar categorias disponíveis
+            categories.forEach(category => availableCategories.add(category));
+            updateCategorySelects();
         })
         .catch(error => {
             questionsList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar questões.</div></div>';
@@ -856,16 +946,24 @@ function loadQuestions() {
         });
 }
 
-// Atualizar filtro de categorias
-function updateCategoryFilter(categories) {
-    const filter = document.getElementById('category-filter');
-    filter.innerHTML = '<option value="">Todas as categorias</option>';
+// Filtrar questões
+function filterQuestions() {
+    const searchTerm = document.getElementById('question-search').value.toLowerCase();
+    const selectedCategory = document.getElementById('category-filter').value;
+    const questions = document.querySelectorAll('#questions-list .card');
     
-    categories.forEach(category => {
-        const option = document.createElement('option');
-        option.value = category;
-        option.textContent = category;
-        filter.appendChild(option);
+    questions.forEach(question => {
+        const text = question.textContent.toLowerCase();
+        const category = question.querySelector('.card-content p:first-child').textContent;
+        
+        const matchesSearch = text.includes(searchTerm);
+        const matchesCategory = !selectedCategory || category.includes(selectedCategory);
+        
+        if (matchesSearch && matchesCategory) {
+            question.style.display = '';
+        } else {
+            question.style.display = 'none';
+        }
     });
 }
 
@@ -890,11 +988,11 @@ function createQuestionCard(question) {
         <div class="card-actions">
             <button class="btn btn-primary" data-action="edit" data-question-id="${question.id}">
                 <i class="fas fa-edit"></i>
-                Editar
+                <span class="btn-text">Editar</span>
             </button>
             <button class="btn btn-danger" data-action="delete" data-question-id="${question.id}">
                 <i class="fas fa-trash"></i>
-                Excluir
+                <span class="btn-text">Excluir</span>
             </button>
         </div>
     `;
@@ -923,27 +1021,30 @@ function openQuestionModal(question = null) {
     const title = document.getElementById('question-modal-title');
     const form = document.getElementById('question-form');
     
-    if (question) {
-        // Modo edição
-        title.textContent = 'Editar Questão';
-        document.getElementById('question-text').value = question.text;
-        document.getElementById('option-a').value = question.options.a;
-        document.getElementById('option-b').value = question.options.b;
-        document.getElementById('option-c').value = question.options.c;
-        document.getElementById('option-d').value = question.options.d;
-        document.getElementById('correct-answer').value = question.correctAnswer;
-        document.getElementById('question-category').value = question.category || '';
-        document.getElementById('question-explanation').value = question.explanation || '';
-        document.getElementById('question-difficulty').value = question.difficulty || 'fácil';
-        form.setAttribute('data-question-id', question.id);
-    } else {
-        // Modo criação
-        title.textContent = 'Adicionar Questão';
-        form.reset();
-        form.removeAttribute('data-question-id');
-    }
-    
-    modal.classList.remove('hidden');
+    // Carregar categorias antes de abrir o modal
+    loadCategories().then(() => {
+        if (question) {
+            // Modo edição
+            title.textContent = 'Editar Questão';
+            document.getElementById('question-text').value = question.text;
+            document.getElementById('option-a').value = question.options.a;
+            document.getElementById('option-b').value = question.options.b;
+            document.getElementById('option-c').value = question.options.c;
+            document.getElementById('option-d').value = question.options.d;
+            document.getElementById('correct-answer').value = question.correctAnswer;
+            document.getElementById('question-category').value = question.category || '';
+            document.getElementById('question-explanation').value = question.explanation || '';
+            document.getElementById('question-difficulty').value = question.difficulty || 'fácil';
+            form.setAttribute('data-question-id', question.id);
+        } else {
+            // Modo criação
+            title.textContent = 'Adicionar Questão';
+            form.reset();
+            form.removeAttribute('data-question-id');
+        }
+        
+        modal.classList.remove('hidden');
+    });
 }
 
 // Manipular envio do formulário de questão
@@ -1163,7 +1264,10 @@ function importQuestions(questions) {
         db.collection('questions').add(questionData)
             .then(() => {
                 importedCount++;
-                // Atualizar contador visual se necessário
+                // Atualizar categorias disponíveis
+                if (questionData.category && questionData.category.trim() !== '') {
+                    availableCategories.add(questionData.category);
+                }
                 console.log(`Questão ${index + 1} importada com sucesso`);
                 importNext(index + 1);
             })
@@ -1262,12 +1366,12 @@ function createUserCard(user) {
         <div class="card-actions">
             <button class="btn btn-primary" data-action="edit" data-user-id="${user.id}">
                 <i class="fas fa-edit"></i>
-                Editar
+                <span class="btn-text">Editar</span>
             </button>
             ${user.userType !== 'admin' ? `
                 <button class="btn btn-danger" data-action="delete" data-user-id="${user.id}">
                     <i class="fas fa-trash"></i>
-                    Excluir
+                    <span class="btn-text">Excluir</span>
                 </button>
             ` : ''}
         </div>
@@ -1345,14 +1449,6 @@ function saveUser() {
     
     // Atualizar no Firestore
     db.collection('users').doc(userId).update(userData)
-        .then(() => {
-            // Se uma nova senha foi fornecida, atualizar a senha
-            if (password) {
-                return auth.updatePassword(userId, password);
-            } else {
-                return Promise.resolve();
-            }
-        })
         .then(() => {
             hideLoading();
             closeModal('user-modal');
@@ -1450,6 +1546,7 @@ function startQuiz(quiz) {
             if (!querySnapshot.empty) {
                 const userQuizDoc = querySnapshot.docs[0];
                 const userQuiz = userQuizDoc.data();
+                userQuizId = userQuizDoc.id;
                 
                 if (userQuiz.status === 'completed') {
                     showQuizResult(quiz.id);
@@ -1485,7 +1582,8 @@ function startQuiz(quiz) {
                     attempts: 1,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 })
-                .then(() => {
+                .then((docRef) => {
+                    userQuizId = docRef.id;
                     // Buscar questões do quiz
                     loadQuizQuestions(quiz.id);
                 })
@@ -1503,13 +1601,14 @@ function startQuiz(quiz) {
 function loadQuizQuestions(quizId) {
     showLoading();
     
-    // Em uma implementação real, você teria uma relação entre quizzes e questões
-    // Aqui vamos buscar questões aleatórias do banco
-    db.collection('questions').get()
+    // Buscar questões da mesma categoria do quiz
+    db.collection('questions')
+        .where('category', '==', currentQuiz.category)
+        .get()
         .then(querySnapshot => {
             hideLoading();
             if (querySnapshot.empty) {
-                alert('Nenhuma questão disponível para este quiz.');
+                alert('Nenhuma questão disponível para a categoria deste quiz.');
                 return;
             }
             
@@ -1645,25 +1744,41 @@ function selectOption(value) {
 
 // Atualizar progresso do quiz do usuário
 function updateUserQuizProgress() {
-    // Encontrar o documento do userQuiz
-    db.collection('userQuizzes')
-        .where('userId', '==', currentUser.uid)
-        .where('quizId', '==', currentQuiz.id)
-        .where('status', '==', 'in-progress')
-        .get()
-        .then(querySnapshot => {
-            if (!querySnapshot.empty) {
-                const doc = querySnapshot.docs[0];
-                return doc.ref.update({
-                    answers: userAnswers,
-                    currentQuestionIndex: currentQuestionIndex,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+    if (!userQuizId) return;
+    
+    db.collection('userQuizzes').doc(userQuizId).update({
+        answers: userAnswers,
+        currentQuestionIndex: currentQuestionIndex,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .catch(error => {
+        console.error('Erro ao atualizar progresso do quiz:', error);
+    });
+}
+
+// Abrir modal de saída do quiz
+function openExitQuizModal() {
+    // Buscar informações atualizadas do quiz
+    db.collection('userQuizzes').doc(userQuizId).get()
+        .then(doc => {
+            if (doc.exists) {
+                const userQuiz = doc.data();
+                const remainingAttempts = 3 - userQuiz.attempts;
+                document.getElementById('remaining-attempts').textContent = remainingAttempts;
+                openModal('exit-quiz-modal');
             }
         })
         .catch(error => {
-            console.error('Erro ao atualizar progresso do quiz:', error);
+            console.error('Erro ao buscar informações do quiz:', error);
+            openModal('exit-quiz-modal');
         });
+}
+
+// Confirmar saída do quiz
+function confirmExitQuiz() {
+    clearInterval(quizTimer);
+    closeModal('exit-quiz-modal');
+    showDashboard();
 }
 
 // Finalizar quiz
@@ -1682,32 +1797,22 @@ function finishQuiz() {
     const timeTaken = totalTime - timeRemaining;
     
     // Atualizar status do quiz do usuário
-    db.collection('userQuizzes')
-        .where('userId', '==', currentUser.uid)
-        .where('quizId', '==', currentQuiz.id)
-        .where('status', '==', 'in-progress')
-        .get()
-        .then(querySnapshot => {
-            if (!querySnapshot.empty) {
-                const doc = querySnapshot.docs[0];
-                return doc.ref.update({
-                    status: 'completed',
-                    score: score,
-                    percentage: percentage,
-                    timeTaken: timeTaken,
-                    completedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-        })
-        .then(() => {
-            // Mostrar resultado
-            showQuizResult(currentQuiz.id, score, percentage, timeTaken);
-        })
-        .catch(error => {
-            console.error('Erro ao finalizar quiz:', error);
-            // Mostrar resultado mesmo com erro
-            showQuizResult(currentQuiz.id, score, percentage, timeTaken);
-        });
+    db.collection('userQuizzes').doc(userQuizId).update({
+        status: 'completed',
+        score: score,
+        percentage: percentage,
+        timeTaken: timeTaken,
+        completedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        // Mostrar resultado
+        showQuizResult(currentQuiz.id, score, percentage, timeTaken);
+    })
+    .catch(error => {
+        console.error('Erro ao finalizar quiz:', error);
+        // Mostrar resultado mesmo com erro
+        showQuizResult(currentQuiz.id, score, percentage, timeTaken);
+    });
 }
 
 // Mostrar resultado do quiz
@@ -1912,7 +2017,7 @@ function loadUserHistory() {
                                 <div class="card-actions">
                                     <button class="btn btn-primary" data-quiz-id="${quizId}">
                                         <i class="fas fa-chart-bar"></i>
-                                        Ver Detalhes
+                                        <span class="btn-text">Ver Detalhes</span>
                                     </button>
                                 </div>
                             `;
@@ -1972,7 +2077,7 @@ function loadCharts() {
     
     // Dados de exemplo - em uma implementação real, você buscaria esses dados do Firestore
     const exampleData = {
-        labels: ['Matemática', 'Ciências', 'História', 'Geografia', 'Português'],
+        labels: Array.from(availableCategories).slice(0, 5),
         datasets: [{
             label: 'Desempenho por Categoria',
             data: [85, 72, 68, 90, 78],
@@ -2015,32 +2120,3 @@ function showSuccessMessage(message) {
     alert(message);
 }
 
-// Inicializar busca de questões
-document.getElementById('question-search').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const questions = document.querySelectorAll('#questions-list .card');
-    
-    questions.forEach(question => {
-        const text = question.textContent.toLowerCase();
-        if (text.includes(searchTerm)) {
-            question.style.display = '';
-        } else {
-            question.style.display = 'none';
-        }
-    });
-});
-
-// Inicializar filtro de categorias
-document.getElementById('category-filter').addEventListener('change', function(e) {
-    const selectedCategory = e.target.value;
-    const questions = document.querySelectorAll('#questions-list .card');
-    
-    questions.forEach(question => {
-        const category = question.querySelector('.card-content p:first-child').textContent;
-        if (!selectedCategory || category.includes(selectedCategory)) {
-            question.style.display = '';
-        } else {
-            question.style.display = 'none';
-        }
-    });
-});
