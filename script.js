@@ -1604,13 +1604,20 @@ function loadQuizQuestions(quizId, isResuming = false) {
     console.log('Carregando questões para o quiz:', currentQuiz.title);
     console.log('Categoria do quiz:', currentQuiz.category);
     
-    // CORREÇÃO: Buscar TODAS as questões primeiro, depois filtrar por categoria
-    db.collection('questions').get()
+    // CORREÇÃO: Buscar questões baseado na categoria do quiz
+    let questionsQuery = db.collection('questions');
+    
+    // Se o quiz tem uma categoria específica, filtrar por ela
+    if (currentQuiz.category && currentQuiz.category.trim() !== '') {
+        questionsQuery = questionsQuery.where('category', '==', currentQuiz.category);
+    }
+    
+    questionsQuery.get()
         .then(querySnapshot => {
             hideLoading();
             
             if (querySnapshot.empty) {
-                alert('Nenhuma questão disponível no sistema.');
+                alert('Nenhuma questão disponível para este quiz. Tente selecionar outra categoria.');
                 return;
             }
             
@@ -1620,35 +1627,14 @@ function loadQuizQuestions(quizId, isResuming = false) {
                 allQuestions.push(question);
             });
             
-            console.log('Total de questões no sistema:', allQuestions.length);
+            console.log('Total de questões encontradas:', allQuestions.length);
             
-            // CORREÇÃO: Filtrar por categoria (case insensitive)
-            let filteredQuestions = allQuestions;
-            if (currentQuiz.category && currentQuiz.category.trim() !== '') {
-                filteredQuestions = allQuestions.filter(q => 
-                    q.category && q.category.toLowerCase().trim() === currentQuiz.category.toLowerCase().trim()
-                );
-            }
-            
-            console.log('Questões filtradas por categoria:', filteredQuestions.length);
-            
-            // CORREÇÃO: Se não encontrou questões da categoria, usar todas as questões
-            if (filteredQuestions.length === 0) {
-                console.log('Nenhuma questão encontrada para a categoria. Usando todas as questões disponíveis.');
-                filteredQuestions = allQuestions;
-            }
-            
-            if (filteredQuestions.length === 0) {
-                alert('Nenhuma questão disponível para este quiz.');
-                return;
-            }
-            
-            // CORREÇÃO: Selecionar questões aleatórias de forma mais robusta
-            const questionCount = Math.min(currentQuiz.questionsCount, filteredQuestions.length);
-            console.log('Selecionando', questionCount, 'questões de', filteredQuestions.length, 'disponíveis');
+            // CORREÇÃO: Selecionar questões aleatórias
+            const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
+            console.log('Selecionando', questionCount, 'questões de', allQuestions.length, 'disponíveis');
             
             // Embaralhar questões usando Fisher-Yates
-            const shuffledQuestions = [...filteredQuestions];
+            const shuffledQuestions = [...allQuestions];
             for (let i = shuffledQuestions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
@@ -1733,31 +1719,8 @@ function updateTimerDisplay() {
     progress.style.strokeDashoffset = offset;
 }
 
-// Exibir questão atual (FUNÇÃO CORRIGIDA)
-function displayQuestion() {
-    if (!currentQuestions || currentQuestions.length === 0) {
-        console.error('Nenhuma questão disponível para exibir');
-        return;
-    }
-    
-    const question = currentQuestions[currentQuestionIndex];
-    
-    console.log('Exibindo questão:', currentQuestionIndex, question);
-    
-    // CORREÇÃO: Verificar se os elementos existem antes de acessá-los
-    const questionTextElement = document.getElementById('question-text');
-    const optionATextElement = document.getElementById('option-a-text');
-    const optionBTextElement = document.getElementById('option-b-text');
-    const optionCTextElement = document.getElementById('option-c-text');
-    const optionDTextElement = document.getElementById('option-d-text');
-    
-    if (questionTextElement) questionTextElement.textContent = question.text || 'Questão sem texto';
-    if (optionATextElement) optionATextElement.textContent = question.options?.a || 'Opção A';
-    if (optionBTextElement) optionBTextElement.textContent = question.options?.b || 'Opção B';
-    if (optionCTextElement) optionCTextElement.textContent = question.options?.c || 'Opção C';
-    if (optionDTextElement) optionDTextElement.textContent = question.options?.d || 'Opção D';
-    
-    // Atualizar progresso
+// Função auxiliar para atualizar progresso do quiz
+function updateQuizProgress() {
     const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
     const progressFill = document.getElementById('progress-fill');
     const progressText = document.getElementById('quiz-progress-text');
@@ -1768,6 +1731,67 @@ function displayQuestion() {
     if (progressText) progressText.textContent = `Questão ${currentQuestionIndex + 1}/${currentQuestions.length}`;
     if (currentQuestionElement) currentQuestionElement.textContent = currentQuestionIndex + 1;
     if (totalQuestionsElement) totalQuestionsElement.textContent = currentQuestions.length;
+}
+
+// Função auxiliar para atualizar botões de navegação
+function updateNavigationButtons() {
+    const prevButton = document.getElementById('prev-question');
+    const nextButton = document.getElementById('next-question');
+    const finishButton = document.getElementById('finish-quiz');
+    
+    if (prevButton) prevButton.disabled = currentQuestionIndex === 0;
+    if (nextButton) nextButton.style.display = currentQuestionIndex === currentQuestions.length - 1 ? 'none' : 'flex';
+    if (finishButton) finishButton.classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
+}
+
+// Exibir questão atual (FUNÇÃO CORRIGIDA)
+function displayQuestion() {
+    if (!currentQuestions || currentQuestions.length === 0 || currentQuestionIndex >= currentQuestions.length) {
+        console.error('Nenhuma questão disponível para exibir ou índice inválido');
+        console.log('currentQuestions:', currentQuestions);
+        console.log('currentQuestionIndex:', currentQuestionIndex);
+        return;
+    }
+    
+    const question = currentQuestions[currentQuestionIndex];
+    
+    console.log('Exibindo questão:', currentQuestionIndex, question);
+    
+    // CORREÇÃO: Verificar se a questão tem os dados necessários
+    if (!question) {
+        console.error('Questão não encontrada no índice:', currentQuestionIndex);
+        return;
+    }
+    
+    // CORREÇÃO: Atualizar elementos da DOM com verificações de segurança
+    const questionTextElement = document.getElementById('question-text');
+    const optionATextElement = document.getElementById('option-a-text');
+    const optionBTextElement = document.getElementById('option-b-text');
+    const optionCTextElement = document.getElementById('option-c-text');
+    const optionDTextElement = document.getElementById('option-d-text');
+    
+    if (questionTextElement) {
+        questionTextElement.textContent = question.text || 'Questão sem texto definido';
+    }
+    
+    if (optionATextElement) {
+        optionATextElement.textContent = question.options?.a || 'Opção A não definida';
+    }
+    
+    if (optionBTextElement) {
+        optionBTextElement.textContent = question.options?.b || 'Opção B não definida';
+    }
+    
+    if (optionCTextElement) {
+        optionCTextElement.textContent = question.options?.c || 'Opção C não definida';
+    }
+    
+    if (optionDTextElement) {
+        optionDTextElement.textContent = question.options?.d || 'Opção D não definida';
+    }
+    
+    // Atualizar progresso
+    updateQuizProgress();
     
     // Limpar seleção anterior
     document.querySelectorAll('.option').forEach(option => {
@@ -1783,13 +1807,7 @@ function displayQuestion() {
     }
     
     // Atualizar estado dos botões de navegação
-    const prevButton = document.getElementById('prev-question');
-    const nextButton = document.getElementById('next-question');
-    const finishButton = document.getElementById('finish-quiz');
-    
-    if (prevButton) prevButton.disabled = currentQuestionIndex === 0;
-    if (nextButton) nextButton.style.display = currentQuestionIndex === currentQuestions.length - 1 ? 'none' : 'flex';
-    if (finishButton) finishButton.classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
+    updateNavigationButtons();
 }
 
 // Selecionar opção
