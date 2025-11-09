@@ -501,11 +501,11 @@
         </div>
     </div>
 
-    <!-- Tela do Quiz -->
+    <!-- Tela do Quiz - ESTRUTURA MELHORADA -->
     <div id="quiz-container" class="container hidden">
         <header class="quiz-header">
             <div class="quiz-info">
-                <h1 id="quiz-title-display"></h1>
+                <h1 id="quiz-title-display">Carregando quiz...</h1>
                 <p id="quiz-description-display"></p>
             </div>
             <div class="quiz-controls-top">
@@ -535,44 +535,50 @@
             </div>
             
             <div id="question-container" class="question-container">
-                <div class="question-text-container">
-                    <h2 id="question-text">Carregando questão...</h2>
+                <div class="question-header">
+                    <h3>Enunciado da Questão</h3>
                 </div>
-                <div id="options-container" class="options-container">
-                    <div class="option" data-value="a">
-                        <div class="option-content">
-                            <span class="option-letter">A</span>
-                            <span id="option-a-text" class="option-text">Carregando opção A...</span>
+                <div class="question-text-container">
+                    <p id="question-text" class="question-text">Carregando questão...</p>
+                </div>
+                <div class="options-section">
+                    <h4>Selecione uma alternativa:</h4>
+                    <div id="options-container" class="options-container">
+                        <div class="option" data-value="a">
+                            <div class="option-content">
+                                <span class="option-letter">A</span>
+                                <span id="option-a-text" class="option-text">Carregando opção A...</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="option" data-value="b">
-                        <div class="option-content">
-                            <span class="option-letter">B</span>
-                            <span id="option-b-text" class="option-text">Carregando opção B...</span>
+                        <div class="option" data-value="b">
+                            <div class="option-content">
+                                <span class="option-letter">B</span>
+                                <span id="option-b-text" class="option-text">Carregando opção B...</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="option" data-value="c">
-                        <div class="option-content">
-                            <span class="option-letter">C</span>
-                            <span id="option-c-text" class="option-text">Carregando opção C...</span>
+                        <div class="option" data-value="c">
+                            <div class="option-content">
+                                <span class="option-letter">C</span>
+                                <span id="option-c-text" class="option-text">Carregando opção C...</span>
+                            </div>
                         </div>
-                    </div>
-                    <div class="option" data-value="d">
-                        <div class="option-content">
-                            <span class="option-letter">D</span>
-                            <span id="option-d-text" class="option-text">Carregando opção D...</span>
+                        <div class="option" data-value="d">
+                            <div class="option-content">
+                                <span class="option-letter">D</span>
+                                <span id="option-d-text" class="option-text">Carregando opção D...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
             <div class="quiz-controls">
-                <button id="prev-question" class="btn btn-secondary">
+                <button id="prev-question" class="btn btn-secondary" disabled>
                     <i class="fas fa-arrow-left"></i>
                     <span class="btn-text">Anterior</span>
                 </button>
                 <div class="quiz-nav">
-                    <span id="current-question">1</span> de <span id="total-questions">0</span>
+                    <span id="current-question">0</span> de <span id="total-questions">0</span>
                 </div>
                 <button id="next-question" class="btn btn-primary">
                     <span class="btn-text">Próxima</span>
