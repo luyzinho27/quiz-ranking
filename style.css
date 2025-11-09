@@ -661,6 +661,14 @@ body {
     width: 100%;
 }
 
+/* Estilos específicos para exibição de questões */
+.question-text-container {
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
 #question-text {
     font-size: 1.1rem;
     margin-bottom: 1.5rem;
@@ -669,6 +677,7 @@ body {
     word-wrap: break-word;
     overflow-wrap: break-word;
     word-break: break-word;
+    width: 100%;
 }
 
 .options-container {
@@ -700,6 +709,13 @@ body {
     background: rgba(74, 108, 247, 0.1);
 }
 
+.option-content {
+    display: flex;
+    align-items: flex-start;
+    width: 100%;
+    min-height: 60px;
+}
+
 .option-letter {
     background: var(--secondary-color);
     color: white;
@@ -725,6 +741,8 @@ body {
     word-wrap: break-word;
     overflow-wrap: break-word;
     word-break: break-word;
+    line-height: 1.4;
+    padding: 0.25rem 0;
 }
 
 .quiz-controls {
@@ -1017,6 +1035,30 @@ body {
     margin: 0 auto 1rem;
 }
 
+/* Indicador visual de carregamento de questões */
+.questions-loading-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--secondary-color);
+}
+
+.questions-loading-state .spinner {
+    width: 40px;
+    height: 40px;
+    margin: 0 auto 1rem;
+}
+
+/* Estados de erro para questões */
+.question-error {
+    background: #f8d7da;
+    color: #721c24;
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    border: 1px solid #f5c6cb;
+    text-align: center;
+    margin: 1rem 0;
+}
+
 /* Responsividade */
 @media (min-width: 768px) {
     .dashboard-header {
@@ -1136,6 +1178,20 @@ body {
     
     .btn .btn-text {
         display: inline;
+    }
+    
+    /* Melhorar responsividade para questões longas */
+    #question-text {
+        font-size: 1rem;
+        line-height: 1.5;
+    }
+    
+    .option {
+        padding: 0.75rem 1rem;
+    }
+    
+    .option-text {
+        font-size: 0.9rem;
     }
 }
 
