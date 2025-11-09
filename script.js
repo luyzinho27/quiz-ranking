@@ -1531,10 +1531,10 @@ function handlePasswordReset(e) {
 }
 
 // ===============================
-// QUIZ - EXECUÇÃO
+// QUIZ - EXECUÇÃO (FUNÇÕES CORRIGIDAS)
 // ===============================
 
-// Iniciar quiz
+// Iniciar quiz (função corrigida)
 function startQuiz(quiz) {
     // Verificar se o usuário já iniciou este quiz
     db.collection('userQuizzes')
@@ -1562,8 +1562,8 @@ function startQuiz(quiz) {
                     userAnswers = userQuiz.answers || [];
                     currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
                     
-                    // Buscar questões do quiz
-                    loadQuizQuestions(quiz.id);
+                    // Buscar questões do quiz (CORREÇÃO: garantir que as questões sejam carregadas)
+                    loadQuizQuestions(quiz.id, true);
                 }
             } else {
                 // Iniciar novo quiz
@@ -1585,7 +1585,7 @@ function startQuiz(quiz) {
                 .then((docRef) => {
                     userQuizId = docRef.id;
                     // Buscar questões do quiz
-                    loadQuizQuestions(quiz.id);
+                    loadQuizQuestions(quiz.id, false);
                 })
                 .catch(error => {
                     alert('Erro ao iniciar quiz: ' + error.message);
@@ -1597,44 +1597,89 @@ function startQuiz(quiz) {
         });
 }
 
-// Carregar questões do quiz
-function loadQuizQuestions(quizId) {
+// Carregar questões do quiz (FUNÇÃO COMPLETAMENTE CORRIGIDA)
+function loadQuizQuestions(quizId, isResuming = false) {
     showLoading();
     
-    // Buscar questões da mesma categoria do quiz
-    db.collection('questions')
-        .where('category', '==', currentQuiz.category)
-        .get()
+    console.log('Carregando questões para o quiz:', currentQuiz.title);
+    console.log('Categoria do quiz:', currentQuiz.category);
+    
+    // CORREÇÃO: Buscar TODAS as questões primeiro, depois filtrar por categoria
+    db.collection('questions').get()
         .then(querySnapshot => {
             hideLoading();
+            
             if (querySnapshot.empty) {
-                alert('Nenhuma questão disponível para a categoria deste quiz.');
+                alert('Nenhuma questão disponível no sistema.');
                 return;
             }
             
             const allQuestions = [];
             querySnapshot.forEach(doc => {
-                allQuestions.push({ id: doc.id, ...doc.data() });
+                const question = { id: doc.id, ...doc.data() };
+                allQuestions.push(question);
             });
             
-            // Selecionar questões aleatórias
-            currentQuestions = [];
-            const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
+            console.log('Total de questões no sistema:', allQuestions.length);
             
-            // Embaralhar questões
-            for (let i = allQuestions.length - 1; i > 0; i--) {
+            // CORREÇÃO: Filtrar por categoria (case insensitive)
+            let filteredQuestions = allQuestions;
+            if (currentQuiz.category && currentQuiz.category.trim() !== '') {
+                filteredQuestions = allQuestions.filter(q => 
+                    q.category && q.category.toLowerCase().trim() === currentQuiz.category.toLowerCase().trim()
+                );
+            }
+            
+            console.log('Questões filtradas por categoria:', filteredQuestions.length);
+            
+            // CORREÇÃO: Se não encontrou questões da categoria, usar todas as questões
+            if (filteredQuestions.length === 0) {
+                console.log('Nenhuma questão encontrada para a categoria. Usando todas as questões disponíveis.');
+                filteredQuestions = allQuestions;
+            }
+            
+            if (filteredQuestions.length === 0) {
+                alert('Nenhuma questão disponível para este quiz.');
+                return;
+            }
+            
+            // CORREÇÃO: Selecionar questões aleatórias de forma mais robusta
+            const questionCount = Math.min(currentQuiz.questionsCount, filteredQuestions.length);
+            console.log('Selecionando', questionCount, 'questões de', filteredQuestions.length, 'disponíveis');
+            
+            // Embaralhar questões usando Fisher-Yates
+            const shuffledQuestions = [...filteredQuestions];
+            for (let i = shuffledQuestions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
-                [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+                [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
             }
             
             // Selecionar as primeiras N questões
-            currentQuestions = allQuestions.slice(0, questionCount);
+            currentQuestions = shuffledQuestions.slice(0, questionCount);
+            
+            console.log('Questões selecionadas para o quiz:', currentQuestions.length);
+            
+            // CORREÇÃO: Garantir que userAnswers tenha o tamanho correto
+            if (!isResuming) {
+                userAnswers = new Array(currentQuestions.length).fill(null);
+            } else {
+                // Se estiver retomando, ajustar o array de respostas se necessário
+                if (userAnswers.length !== currentQuestions.length) {
+                    const newAnswers = new Array(currentQuestions.length).fill(null);
+                    // Copiar respostas existentes
+                    for (let i = 0; i < Math.min(userAnswers.length, currentQuestions.length); i++) {
+                        newAnswers[i] = userAnswers[i];
+                    }
+                    userAnswers = newAnswers;
+                }
+            }
             
             // Iniciar quiz
             showQuiz();
         })
         .catch(error => {
             hideLoading();
+            console.error('Erro detalhado ao carregar questões:', error);
             alert('Erro ao carregar questões: ' + error.message);
         });
 }
@@ -1688,22 +1733,41 @@ function updateTimerDisplay() {
     progress.style.strokeDashoffset = offset;
 }
 
-// Exibir questão atual
+// Exibir questão atual (FUNÇÃO CORRIGIDA)
 function displayQuestion() {
+    if (!currentQuestions || currentQuestions.length === 0) {
+        console.error('Nenhuma questão disponível para exibir');
+        return;
+    }
+    
     const question = currentQuestions[currentQuestionIndex];
     
-    document.getElementById('question-text').textContent = question.text;
-    document.getElementById('option-a-text').textContent = question.options.a;
-    document.getElementById('option-b-text').textContent = question.options.b;
-    document.getElementById('option-c-text').textContent = question.options.c;
-    document.getElementById('option-d-text').textContent = question.options.d;
+    console.log('Exibindo questão:', currentQuestionIndex, question);
+    
+    // CORREÇÃO: Verificar se os elementos existem antes de acessá-los
+    const questionTextElement = document.getElementById('question-text');
+    const optionATextElement = document.getElementById('option-a-text');
+    const optionBTextElement = document.getElementById('option-b-text');
+    const optionCTextElement = document.getElementById('option-c-text');
+    const optionDTextElement = document.getElementById('option-d-text');
+    
+    if (questionTextElement) questionTextElement.textContent = question.text || 'Questão sem texto';
+    if (optionATextElement) optionATextElement.textContent = question.options?.a || 'Opção A';
+    if (optionBTextElement) optionBTextElement.textContent = question.options?.b || 'Opção B';
+    if (optionCTextElement) optionCTextElement.textContent = question.options?.c || 'Opção C';
+    if (optionDTextElement) optionDTextElement.textContent = question.options?.d || 'Opção D';
     
     // Atualizar progresso
     const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
-    document.getElementById('progress-fill').style.width = `${progress}%`;
-    document.getElementById('quiz-progress-text').textContent = `Questão ${currentQuestionIndex + 1}/${currentQuestions.length}`;
-    document.getElementById('current-question').textContent = currentQuestionIndex + 1;
-    document.getElementById('total-questions').textContent = currentQuestions.length;
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('quiz-progress-text');
+    const currentQuestionElement = document.getElementById('current-question');
+    const totalQuestionsElement = document.getElementById('total-questions');
+    
+    if (progressFill) progressFill.style.width = `${progress}%`;
+    if (progressText) progressText.textContent = `Questão ${currentQuestionIndex + 1}/${currentQuestions.length}`;
+    if (currentQuestionElement) currentQuestionElement.textContent = currentQuestionIndex + 1;
+    if (totalQuestionsElement) totalQuestionsElement.textContent = currentQuestions.length;
     
     // Limpar seleção anterior
     document.querySelectorAll('.option').forEach(option => {
@@ -1719,9 +1783,13 @@ function displayQuestion() {
     }
     
     // Atualizar estado dos botões de navegação
-    document.getElementById('prev-question').disabled = currentQuestionIndex === 0;
-    document.getElementById('next-question').style.display = currentQuestionIndex === currentQuestions.length - 1 ? 'none' : 'flex';
-    document.getElementById('finish-quiz').classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
+    const prevButton = document.getElementById('prev-question');
+    const nextButton = document.getElementById('next-question');
+    const finishButton = document.getElementById('finish-quiz');
+    
+    if (prevButton) prevButton.disabled = currentQuestionIndex === 0;
+    if (nextButton) nextButton.style.display = currentQuestionIndex === currentQuestions.length - 1 ? 'none' : 'flex';
+    if (finishButton) finishButton.classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
 }
 
 // Selecionar opção
@@ -2112,6 +2180,17 @@ function loadCharts() {
             }
         }
     });
+}
+
+// Função auxiliar para debug (adicionar no início do arquivo)
+function debugQuizState() {
+    console.log('=== DEBUG QUIZ STATE ===');
+    console.log('currentQuiz:', currentQuiz);
+    console.log('currentQuestions:', currentQuestions);
+    console.log('currentQuestionIndex:', currentQuestionIndex);
+    console.log('userAnswers:', userAnswers);
+    console.log('userQuizId:', userQuizId);
+    console.log('========================');
 }
 
 // Função auxiliar para mostrar mensagens de sucesso
