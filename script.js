@@ -1531,7 +1531,7 @@ function handlePasswordReset(e) {
 }
 
 // ===============================
-// QUIZ - EXECUÇÃO (FUNÇÕES COMPLETAMENTE CORRIGIDAS)
+// QUIZ - EXECUÇÃO (FUNÇÕES CORRIGIDAS)
 // ===============================
 
 // Iniciar quiz (função corrigida)
@@ -1604,50 +1604,37 @@ function loadQuizQuestions(quizId, isResuming = false) {
     console.log('Carregando questões para o quiz:', currentQuiz.title);
     console.log('Categoria do quiz:', currentQuiz.category);
     
-    // CORREÇÃO: Buscar TODAS as questões primeiro para debug
-    db.collection('questions').get()
+    // CORREÇÃO: Buscar questões baseado na categoria do quiz
+    let questionsQuery = db.collection('questions');
+    
+    // Se o quiz tem uma categoria específica, filtrar por ela
+    if (currentQuiz.category && currentQuiz.category.trim() !== '') {
+        questionsQuery = questionsQuery.where('category', '==', currentQuiz.category);
+    }
+    
+    questionsQuery.get()
         .then(querySnapshot => {
-            console.log('Total de questões no banco:', querySnapshot.size);
+            hideLoading();
             
-            const allQuestions = [];
-            querySnapshot.forEach(doc => {
-                const questionData = doc.data();
-                console.log('Questão encontrada:', {
-                    id: doc.id,
-                    text: questionData.text,
-                    category: questionData.category,
-                    options: questionData.options
-                });
-                allQuestions.push({ id: doc.id, ...questionData });
-            });
-            
-            // Filtrar por categoria se especificada
-            let filteredQuestions = allQuestions;
-            if (currentQuiz.category && currentQuiz.category.trim() !== '') {
-                filteredQuestions = allQuestions.filter(q => 
-                    q.category && q.category.toLowerCase().trim() === currentQuiz.category.toLowerCase().trim()
-                );
-                console.log(`Questões filtradas por categoria "${currentQuiz.category}":`, filteredQuestions.length);
-            }
-            
-            // Se não encontrou questões da categoria, usar todas
-            if (filteredQuestions.length === 0) {
-                console.log('Nenhuma questão encontrada para a categoria. Usando todas as questões disponíveis.');
-                filteredQuestions = allQuestions;
-            }
-            
-            if (filteredQuestions.length === 0) {
-                hideLoading();
-                alert('Nenhuma questão disponível para este quiz.');
+            if (querySnapshot.empty) {
+                alert('Nenhuma questão disponível para este quiz. Tente selecionar outra categoria.');
                 return;
             }
             
-            // Selecionar questões aleatórias
-            const questionCount = Math.min(currentQuiz.questionsCount, filteredQuestions.length);
-            console.log('Selecionando', questionCount, 'questões de', filteredQuestions.length, 'disponíveis');
+            const allQuestions = [];
+            querySnapshot.forEach(doc => {
+                const question = { id: doc.id, ...doc.data() };
+                allQuestions.push(question);
+            });
             
-            // Embaralhar questões
-            const shuffledQuestions = [...filteredQuestions];
+            console.log('Total de questões encontradas:', allQuestions.length);
+            
+            // CORREÇÃO: Selecionar questões aleatórias
+            const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
+            console.log('Selecionando', questionCount, 'questões de', allQuestions.length, 'disponíveis');
+            
+            // Embaralhar questões usando Fisher-Yates
+            const shuffledQuestions = [...allQuestions];
             for (let i = shuffledQuestions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
@@ -1656,14 +1643,16 @@ function loadQuizQuestions(quizId, isResuming = false) {
             // Selecionar as primeiras N questões
             currentQuestions = shuffledQuestions.slice(0, questionCount);
             
-            console.log('Questões selecionadas para o quiz:', currentQuestions);
+            console.log('Questões selecionadas para o quiz:', currentQuestions.length);
             
-            // Garantir que userAnswers tenha o tamanho correto
+            // CORREÇÃO: Garantir que userAnswers tenha o tamanho correto
             if (!isResuming) {
                 userAnswers = new Array(currentQuestions.length).fill(null);
             } else {
+                // Se estiver retomando, ajustar o array de respostas se necessário
                 if (userAnswers.length !== currentQuestions.length) {
                     const newAnswers = new Array(currentQuestions.length).fill(null);
+                    // Copiar respostas existentes
                     for (let i = 0; i < Math.min(userAnswers.length, currentQuestions.length); i++) {
                         newAnswers[i] = userAnswers[i];
                     }
@@ -1671,7 +1660,6 @@ function loadQuizQuestions(quizId, isResuming = false) {
                 }
             }
             
-            hideLoading();
             // Iniciar quiz
             showQuiz();
         })
@@ -1756,7 +1744,7 @@ function updateNavigationButtons() {
     if (finishButton) finishButton.classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
 }
 
-// Exibir questão atual (FUNÇÃO COMPLETAMENTE CORRIGIDA)
+// Exibir questão atual (FUNÇÃO CORRIGIDA)
 function displayQuestion() {
     if (!currentQuestions || currentQuestions.length === 0 || currentQuestionIndex >= currentQuestions.length) {
         console.error('Nenhuma questão disponível para exibir ou índice inválido');
@@ -1784,27 +1772,22 @@ function displayQuestion() {
     
     if (questionTextElement) {
         questionTextElement.textContent = question.text || 'Questão sem texto definido';
-        console.log('Texto da questão definido:', question.text);
     }
     
-    if (optionATextElement && question.options) {
-        optionATextElement.textContent = question.options.a || 'Opção A não definida';
-        console.log('Opção A:', question.options.a);
+    if (optionATextElement) {
+        optionATextElement.textContent = question.options?.a || 'Opção A não definida';
     }
     
-    if (optionBTextElement && question.options) {
-        optionBTextElement.textContent = question.options.b || 'Opção B não definida';
-        console.log('Opção B:', question.options.b);
+    if (optionBTextElement) {
+        optionBTextElement.textContent = question.options?.b || 'Opção B não definida';
     }
     
-    if (optionCTextElement && question.options) {
-        optionCTextElement.textContent = question.options.c || 'Opção C não definida';
-        console.log('Opção C:', question.options.c);
+    if (optionCTextElement) {
+        optionCTextElement.textContent = question.options?.c || 'Opção C não definida';
     }
     
-    if (optionDTextElement && question.options) {
-        optionDTextElement.textContent = question.options.d || 'Opção D não definida';
-        console.log('Opção D:', question.options.d);
+    if (optionDTextElement) {
+        optionDTextElement.textContent = question.options?.d || 'Opção D não definida';
     }
     
     // Atualizar progresso
@@ -2217,7 +2200,7 @@ function loadCharts() {
     });
 }
 
-// Função auxiliar para debug
+// Função auxiliar para debug (adicionar no início do arquivo)
 function debugQuizState() {
     console.log('=== DEBUG QUIZ STATE ===');
     console.log('currentQuiz:', currentQuiz);
