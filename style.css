@@ -661,20 +661,17 @@ body {
     width: 100%;
 }
 
-/* ESTILOS ESSENCIAIS PARA EXIBIR ENUNCIADO */
+/* Estilos específicos para exibição de questões */
 .question-text-container {
     min-height: 80px;
     display: flex;
     align-items: center;
     margin-bottom: 1.5rem;
-    background: var(--light-color);
-    border-left: 5px solid var(--primary-color);
-    border-radius: 8px;
-    padding: 1rem;
 }
 
 #question-text {
     font-size: 1.3rem;
+    margin-bottom: 1.5rem;
     color: var(--dark-color);
     line-height: 1.6;
     word-wrap: break-word;
@@ -682,7 +679,10 @@ body {
     word-break: break-word;
     width: 100%;
     font-weight: 500;
-    margin: 0;
+    padding: 1rem;
+    background: var(--light-color);
+    border-left: 5px solid var(--primary-color);
+    border-radius: 8px;
 }
 
 .options-container {
@@ -1153,11 +1153,11 @@ body {
         width: 100%;
     }
     
-    .result-actions {
+    .modal-actions {
         flex-direction: column;
     }
     
-    .result-actions .btn {
+    .modal-actions .btn {
         width: 100%;
     }
     
