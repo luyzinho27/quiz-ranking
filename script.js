@@ -167,8 +167,8 @@ function togglePasswordVisibility(passwordFieldId, toggleIcon) {
     passwordField.setAttribute('type', type);
     
     // Alterar ícone
-    toggleIcon.classList.toggle('fa-eye');
-    toggleIcon.classList.toggle('fa-eye-slash');
+    //toggleIcon.classList.toggle('fa-eye');
+    //toggleIcon.classList.toggle('fa-eye-slash');
 }
 
 // Verificar se já existe administrador
@@ -2256,5 +2256,6 @@ function showSuccessMessage(message) {
     // Você pode implementar um sistema de notificação mais sofisticado aqui
     alert(message);
 }
+
 
 
