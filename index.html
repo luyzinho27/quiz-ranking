@@ -39,18 +39,17 @@
                 </div>
                 
                 <!-- Formulário de Login -->
-                <form id="login-form" class="form active">
+                <div id="login-form" class="form active">
                     <h2>Entre na sua conta</h2>
                     <div class="input-group">
                         <i class="fas fa-envelope"></i>
                         <input type="email" id="login-email" placeholder="E-mail" required>
                     </div>
-                    <div class="input-group password-group">
+                    <div class="input-group">
                         <i class="fas fa-lock"></i>
                         <input type="password" id="login-password" placeholder="Senha" required>
-                        <i class="toggle-password" id="toggle-login-password"></i>
                     </div>
-                    <button type="button" id="login-btn" class="btn btn-primary">
+                    <button id="login-btn" class="btn btn-primary">
                         <i class="fas fa-sign-in-alt"></i>
                         Entrar
                     </button>
@@ -58,10 +57,10 @@
                         <a href="#" id="forgot-password">Esqueci minha senha</a>
                     </div>
                     <p id="login-error" class="error-message"></p>
-                </form>
+                </div>
                 
                 <!-- Formulário de Cadastro -->
-                <form id="register-form" class="form">
+                <div id="register-form" class="form">
                     <h2>Crie sua conta</h2>
                     <div class="input-group">
                         <i class="fas fa-user"></i>
@@ -71,10 +70,9 @@
                         <i class="fas fa-envelope"></i>
                         <input type="email" id="register-email" placeholder="E-mail" required>
                     </div>
-                    <div class="input-group password-group">
+                    <div class="input-group">
                         <i class="fas fa-lock"></i>
                         <input type="password" id="register-password" placeholder="Senha" required>
-                        <i class="toggle-password" id="toggle-register-password"></i>
                     </div>
                     <div class="input-group">
                         <i class="fas fa-users"></i>
@@ -83,12 +81,12 @@
                             <option value="admin" id="admin-option">Administrador</option>
                         </select>
                     </div>
-                    <button type="button" id="register-btn" class="btn btn-primary">
+                    <button id="register-btn" class="btn btn-primary">
                         <i class="fas fa-user-plus"></i>
                         Cadastrar
                     </button>
                     <p id="register-error" class="error-message"></p>
-                </form>
+                </div>
             </div>
             
             <div class="auth-footer">
@@ -134,31 +132,31 @@
         
         <main class="dashboard-content">
             <!-- Lista de Quizzes -->
-            <section id="quizzes-section" class="section active">
+            <div id="quizzes-section" class="section active">
                 <div class="section-header">
                     <h2>Quizzes Disponíveis</h2>
                     <p>Teste seus conhecimentos e suba no ranking!</p>
                 </div>
                 <div id="quizzes-list" class="cards-container"></div>
-            </section>
+            </div>
             
             <!-- Ranking -->
-            <section id="ranking-section" class="section">
+            <div id="ranking-section" class="section">
                 <div class="section-header">
                     <h2>Ranking Geral</h2>
                     <p>Veja os melhores colocados</p>
                 </div>
                 <div id="ranking-list" class="ranking-container"></div>
-            </section>
+            </div>
 
             <!-- Histórico -->
-            <section id="history-section" class="section">
+            <div id="history-section" class="section">
                 <div class="section-header">
                     <h2>Meu Histórico</h2>
                     <p>Veja seu desempenho nos quizzes</p>
                 </div>
                 <div id="history-list" class="cards-container"></div>
-            </section>
+            </div>
         </main>
     </div>
 
@@ -203,7 +201,7 @@
         
         <main class="dashboard-content">
             <!-- Gerenciar Quizzes -->
-            <section id="manage-quizzes-section" class="section active">
+            <div id="manage-quizzes-section" class="section active">
                 <div class="section-header">
                     <h2>Gerenciar Quizzes</h2>
                     <p>Crie e gerencie os quizzes disponíveis</p>
@@ -213,10 +211,10 @@
                     </button>
                 </div>
                 <div id="quizzes-admin-list" class="cards-container"></div>
-            </section>
+            </div>
             
             <!-- Gerenciar Questões -->
-            <section id="manage-questions-section" class="section">
+            <div id="manage-questions-section" class="section">
                 <div class="section-header">
                     <h2>Gerenciar Questões</h2>
                     <p>Adicione e edite o banco de questões</p>
@@ -225,7 +223,7 @@
                             <i class="fas fa-plus"></i>
                             <span class="btn-text">Adicionar Questão</span>
                         </button>
-                        <input type="file" id="json-file" accept=".json" class="hidden">
+                        <input type="file" id="json-file" accept=".json" style="display: none;">
                         <button id="import-json-btn" class="btn btn-secondary">
                             <i class="fas fa-file-import"></i>
                             <span class="btn-text">Importar JSON</span>
@@ -248,19 +246,19 @@
                     </div>
                 </div>
                 <div id="questions-list" class="cards-container"></div>
-            </section>
+            </div>
             
             <!-- Gerenciar Usuários -->
-            <section id="manage-users-section" class="section">
+            <div id="manage-users-section" class="section">
                 <div class="section-header">
                     <h2>Gerenciar Usuários</h2>
                     <p>Gerencie os usuários do sistema</p>
                 </div>
                 <div id="users-list" class="cards-container"></div>
-            </section>
+            </div>
 
             <!-- Relatórios -->
-            <section id="reports-section" class="section">
+            <div id="reports-section" class="section">
                 <div class="section-header">
                     <h2>Relatórios e Estatísticas</h2>
                     <p>Visualize o desempenho do sistema</p>
@@ -306,10 +304,10 @@
                 <div class="reports-content">
                     <div class="chart-container">
                         <h3>Desempenho por Categoria</h3>
-                        <canvas id="category-chart" width="400" height="200"></canvas>
+                        <canvas id="category-chart"></canvas>
                     </div>
                 </div>
-            </section>
+            </div>
         </main>
     </div>
 
@@ -517,7 +515,7 @@
                 </button>
                 <div class="quiz-timer">
                     <div class="timer-circle">
-                        <svg width="60" height="60" viewBox="0 0 60 60">
+                        <svg width="60" height="60">
                             <circle cx="30" cy="30" r="28" stroke="#e0e0e0" stroke-width="3" fill="none"></circle>
                             <circle id="timer-progress" cx="30" cy="30" r="28" stroke="#4a6cf7" stroke-width="3" fill="none" 
                                     stroke-dasharray="175" stroke-dashoffset="0" transform="rotate(-90 30 30)"></circle>
@@ -536,11 +534,11 @@
                 <span id="quiz-progress-text">Questão 0/0</span>
             </div>
             
-            <div class="question-container">
+            <div id="question-container" class="question-container">
                 <div class="question-text-container">
                     <h2 id="question-text">Carregando questão...</h2>
                 </div>
-                <div class="options-container">
+                <div id="options-container" class="options-container">
                     <div class="option" data-value="a">
                         <div class="option-content">
                             <span class="option-letter">A</span>
@@ -602,7 +600,7 @@
             <div class="result-content">
                 <div class="score-circle">
                     <div class="circle-background"></div>
-                    <div id="circle-progress" class="circle-progress"></div>
+                    <div class="circle-progress" id="circle-progress"></div>
                     <div class="score-text">
                         <span id="score-percentage">0%</span>
                         <span id="score-fraction">0/0</span>
@@ -656,4 +654,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
