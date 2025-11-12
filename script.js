@@ -375,19 +375,6 @@ function initModals() {
     cancelResetBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
     forgotPasswordForm.addEventListener('submit', handlePasswordReset);
     
-    // Modal de saída do quiz
-    const exitQuizModal = document.getElementById('exit-quiz-modal');
-    const exitQuizCloseBtn = document.querySelector('#exit-quiz-modal .close');
-    const cancelExitBtn = document.getElementById('cancel-exit');
-    const confirmExitBtn = document.getElementById('confirm-exit');
-    
-    exitQuizCloseBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
-    cancelExitBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
-    confirmExitBtn.addEventListener('click', confirmExitQuiz);
-    
-    // Botão de sair do quiz
-    document.getElementById('exit-quiz-btn').addEventListener('click', openExitQuizModal);
-    
     // Fechar modal ao clicar fora
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
@@ -421,6 +408,9 @@ function initQuizControls() {
             selectOption(selectedValue);
         });
     });
+    
+    // Botão de sair do quiz
+    document.getElementById('exit-quiz-btn').addEventListener('click', confirmExitQuiz);
 }
 
 // Alternar entre abas
@@ -1273,7 +1263,7 @@ function importQuestions(questions) {
             });
     };
     
-    importNext(0);
+        importNext(0);
 }
 
 // Exportar questões para JSON
@@ -1526,10 +1516,10 @@ function handlePasswordReset(e) {
 }
 
 // ===============================
-// QUIZ - EXECUÇÃO (FUNÇÕES CORRIGIDAS)
+// QUIZ - EXECUÇÃO (FUNÇÕES CORRIGIDAS E ESSENCIAIS)
 // ===============================
 
-// Iniciar quiz (função corrigida)
+// Iniciar quiz (função corrigida e completa)
 function startQuiz(quiz) {
     // Verificar se o usuário já iniciou este quiz
     db.collection('userQuizzes')
@@ -1557,7 +1547,7 @@ function startQuiz(quiz) {
                     userAnswers = userQuiz.answers || [];
                     currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
                     
-                    // Buscar questões do quiz (CORREÇÃO: garantir que as questões sejam carregadas)
+                    // Buscar questões do quiz
                     loadQuizQuestions(quiz.id, true);
                 }
             } else {
@@ -1744,7 +1734,7 @@ function updateNavigationButtons() {
     if (finishButton) finishButton.classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
 }
 
-// Exibir questão atual (FUNÇÃO CORRIGIDA - AGORA MOSTRA O ENUNCIADO)
+// Exibir questão atual (FUNÇÃO CORRIGIDA - ESSENCIAL PARA MOSTRAR ENUNCIADO)
 function displayQuestion() {
     if (!currentQuestions || currentQuestions.length === 0 || currentQuestionIndex >= currentQuestions.length) {
         console.error('Nenhuma questão disponível para exibir ou índice inválido');
@@ -1842,29 +1832,12 @@ function updateUserQuizProgress() {
     });
 }
 
-// Abrir modal de saída do quiz
-function openExitQuizModal() {
-    // Buscar informações atualizadas do quiz
-    db.collection('userQuizzes').doc(userQuizId).get()
-        .then(doc => {
-            if (doc.exists) {
-                const userQuiz = doc.data();
-                const remainingAttempts = 3 - userQuiz.attempts;
-                document.getElementById('remaining-attempts').textContent = remainingAttempts;
-                openModal('exit-quiz-modal');
-            }
-        })
-        .catch(error => {
-            console.error('Erro ao buscar informações do quiz:', error);
-            openModal('exit-quiz-modal');
-        });
-}
-
 // Confirmar saída do quiz
 function confirmExitQuiz() {
-    clearInterval(quizTimer);
-    closeModal('exit-quiz-modal');
-    showDashboard();
+    if (confirm('Tem certeza que deseja sair do quiz? Seu progresso será salvo.')) {
+        clearInterval(quizTimer);
+        showDashboard();
+    }
 }
 
 // Finalizar quiz
@@ -2129,7 +2102,7 @@ function loadReports() {
     // Estatísticas básicas
     loadBasicStats();
     
-    // Gráficos (implementação básica)
+    // Gráficos
     loadCharts();
 }
 
@@ -2198,17 +2171,6 @@ function loadCharts() {
             }
         }
     });
-}
-
-// Função auxiliar para debug (adicionar no início do arquivo)
-function debugQuizState() {
-    console.log('=== DEBUG QUIZ STATE ===');
-    console.log('currentQuiz:', currentQuiz);
-    console.log('currentQuestions:', currentQuestions);
-    console.log('currentQuestionIndex:', currentQuestionIndex);
-    console.log('userAnswers:', userAnswers);
-    console.log('userQuizId:', userQuizId);
-    console.log('========================');
 }
 
 // Função auxiliar para mostrar mensagens de sucesso
