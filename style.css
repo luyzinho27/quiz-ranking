@@ -670,7 +670,7 @@ body {
 }
 
 #question-text {
-    font-size: 1.3rem;
+    font-size: 1.25rem;
     margin-bottom: 1.5rem;
     color: var(--dark-color);
     line-height: 1.6;
@@ -748,7 +748,6 @@ body {
     word-break: break-word;
     line-height: 1.4;
     padding: 0.25rem 0;
-    font-size: 1rem;
 }
 
 .quiz-controls {
@@ -1111,6 +1110,10 @@ body {
     
     .result-actions {
         flex-direction: row;
+    }
+    
+    .modal-content {
+        margin: 2rem;
     }
 }
 
