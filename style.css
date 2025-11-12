@@ -1065,12 +1065,12 @@ body {
 
 /* Grupo de senha com ícone de mostrar/ocultar */
 .password-group {
-    position: right;
+    position: relative;
 }
 
 .toggle-password {
     position: absolute;
-    right: 1rem;
+    right: 10rem;
     top: 50%;
     transform: translateY(-50%);
     cursor: pointer;
@@ -1105,3 +1105,4 @@ body {
         width: 100%;
     }
 }
+
