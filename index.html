@@ -483,6 +483,24 @@
         </div>
     </div>
 
+    <!-- Modal de Confirmação de Saída do Quiz -->
+    <div id="exit-quiz-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Sair do Quiz</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-form">
+                <p>Tem certeza que deseja sair do quiz? Seu progresso será salvo e você poderá continuar depois.</p>
+                <p><strong>Tentativas restantes:</strong> <span id="remaining-attempts">2</span></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" id="cancel-exit">Continuar Quiz</button>
+                    <button type="button" class="btn btn-danger" id="confirm-exit">Sair do Quiz</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tela do Quiz -->
     <div id="quiz-container" class="container hidden">
         <header class="quiz-header">
@@ -517,7 +535,6 @@
             </div>
             
             <div id="question-container" class="question-container">
-                <!-- Elemento CRÍTICO para exibir enunciado -->
                 <div class="question-text-container">
                     <h2 id="question-text">Carregando questão...</h2>
                 </div>
