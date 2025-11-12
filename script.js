@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Verificar se há um usuário logado
     auth.onAuthStateChanged(user => {
         if (user) {
+            // Usuário está logado
             showLoading();
             getUserData(user.uid).then(userData => {
                 currentUser = { ...user, ...userData };
@@ -52,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 auth.signOut();
             });
         } else {
+            // Nenhum usuário logado
             hideLoading();
             showAuth();
         }
@@ -73,12 +75,17 @@ function initAuth() {
     const registerTab = document.getElementById('register-tab');
     const loginBtn = document.getElementById('login-btn');
     const registerBtn = document.getElementById('register-btn');
-    const adminOption = document.getElementById('admin-option');
     const forgotPasswordLink = document.getElementById('forgot-password');
+    const adminOption = document.getElementById('admin-option');
     
     // Alternar entre login e cadastro
-    loginTab.addEventListener('click', () => switchAuthTab('login'));
-    registerTab.addEventListener('click', () => switchAuthTab('register'));
+    loginTab.addEventListener('click', () => {
+        switchAuthTab('login');
+    });
+    
+    registerTab.addEventListener('click', () => {
+        switchAuthTab('register');
+    });
     
     // Login
     loginBtn.addEventListener('click', (e) => {
@@ -93,7 +100,8 @@ function initAuth() {
         
         showLoading();
         auth.signInWithEmailAndPassword(email, password)
-            .then(() => {
+            .then((userCredential) => {
+                // Login bem-sucedido
                 document.getElementById('login-error').textContent = '';
                 hideLoading();
             })
@@ -121,6 +129,7 @@ function initAuth() {
             return;
         }
         
+        // Verificar se já existe um administrador
         if (userType === 'admin') {
             showLoading();
             checkAdminExists().then(adminExists => {
@@ -129,8 +138,9 @@ function initAuth() {
                     showError('register-error', 'Já existe um administrador cadastrado.');
                     adminOption.disabled = true;
                     return;
+                } else {
+                    registerUser(name, email, password, userType);
                 }
-                registerUser(name, email, password, userType);
             });
         } else {
             registerUser(name, email, password, userType);
@@ -143,9 +153,11 @@ function initAuth() {
         openForgotPasswordModal();
     });
     
-    // Verificar admin existente
+    // Verificar se já existe um administrador
     checkAdminExists().then(adminExists => {
-        if (adminExists) adminOption.disabled = true;
+        if (adminExists) {
+            adminOption.disabled = true;
+        }
     });
 }
 
@@ -175,6 +187,8 @@ function registerUser(name, email, password, userType) {
     auth.createUserWithEmailAndPassword(email, password)
         .then((userCredential) => {
             const user = userCredential.user;
+            
+            // Salvar dados adicionais do usuário no Firestore
             return db.collection('users').doc(user.uid).set({
                 name: name,
                 email: email,
@@ -188,6 +202,7 @@ function registerUser(name, email, password, userType) {
             document.getElementById('register-error').textContent = '';
             showSuccess('register-error', 'Cadastro realizado com sucesso!');
             
+            // Limpar formulário e mudar para login após 2 segundos
             setTimeout(() => {
                 document.getElementById('register-form').reset();
                 switchAuthTab('login');
@@ -204,15 +219,20 @@ function checkAdminExists() {
     return db.collection('users')
         .where('userType', '==', 'admin')
         .get()
-        .then(querySnapshot => !querySnapshot.empty);
+        .then(querySnapshot => {
+            return !querySnapshot.empty;
+        });
 }
 
 // Obter dados do usuário
 function getUserData(uid) {
     return db.collection('users').doc(uid).get()
         .then(doc => {
-            if (doc.exists) return doc.data();
-            throw new Error('Usuário não encontrado');
+            if (doc.exists) {
+                return doc.data();
+            } else {
+                throw new Error('Usuário não encontrado');
+            }
         });
 }
 
@@ -237,6 +257,23 @@ function initEventListeners() {
     // Busca e filtros
     document.getElementById('question-search').addEventListener('input', filterQuestions);
     document.getElementById('category-filter').addEventListener('change', filterQuestions);
+    
+    // Navegação dos resultados
+    document.getElementById('back-to-dashboard').addEventListener('click', () => {
+        showDashboard();
+    });
+    
+    document.getElementById('new-quiz').addEventListener('click', () => {
+        showDashboard();
+        setTimeout(() => {
+            switchTab('quizzes-tab', 'quizzes-section');
+            loadQuizzes();
+        }, 100);
+    });
+    
+    document.getElementById('review-quiz').addEventListener('click', () => {
+        alert('Funcionalidade de revisão em desenvolvimento');
+    });
 }
 
 // Inicializar navegação por abas
@@ -279,60 +316,72 @@ function initTabNavigation() {
     });
     
     // Botões de ação
-    document.getElementById('create-quiz-btn').addEventListener('click', () => openQuizModal());
-    document.getElementById('add-question-btn').addEventListener('click', () => openQuestionModal());
-    document.getElementById('import-json-btn').addEventListener('click', () => document.getElementById('json-file').click());
+    document.getElementById('create-quiz-btn').addEventListener('click', () => {
+        openQuizModal();
+    });
+    
+    document.getElementById('add-question-btn').addEventListener('click', () => {
+        openQuestionModal();
+    });
+    
+    document.getElementById('import-json-btn').addEventListener('click', () => {
+        document.getElementById('json-file').click();
+    });
+    
     document.getElementById('json-file').addEventListener('change', handleJsonImport);
     
-    // Resultados
-    document.getElementById('back-to-dashboard').addEventListener('click', () => showDashboard());
-    document.getElementById('new-quiz').addEventListener('click', () => {
-        showDashboard();
-        setTimeout(() => {
-            switchTab('quizzes-tab', 'quizzes-section');
-            loadQuizzes();
-        }, 100);
-    });
-    
-    document.getElementById('review-quiz').addEventListener('click', () => {
-        alert('Funcionalidade de revisão em desenvolvimento');
-    });
+    // Botão de sair do quiz
+    document.getElementById('exit-quiz-btn').addEventListener('click', openExitQuizModal);
 }
 
 // Inicializar modais
 function initModals() {
     // Modal de quiz
+    const quizModal = document.getElementById('quiz-modal');
     const quizCloseBtn = document.querySelector('#quiz-modal .close');
+    const quizForm = document.getElementById('quiz-form');
     const cancelQuizBtn = document.getElementById('cancel-quiz');
+    
     quizCloseBtn.addEventListener('click', () => closeModal('quiz-modal'));
     cancelQuizBtn.addEventListener('click', () => closeModal('quiz-modal'));
-    document.getElementById('quiz-form').addEventListener('submit', handleQuizSubmit);
+    quizForm.addEventListener('submit', handleQuizSubmit);
     
     // Modal de questão
+    const questionModal = document.getElementById('question-modal');
     const questionCloseBtn = document.querySelector('#question-modal .close');
+    const questionForm = document.getElementById('question-form');
     const cancelQuestionBtn = document.getElementById('cancel-question');
+    
     questionCloseBtn.addEventListener('click', () => closeModal('question-modal'));
     cancelQuestionBtn.addEventListener('click', () => closeModal('question-modal'));
-    document.getElementById('question-form').addEventListener('submit', handleQuestionSubmit);
+    questionForm.addEventListener('submit', handleQuestionSubmit);
     
     // Modal de usuário
+    const userModal = document.getElementById('user-modal');
     const userCloseBtn = document.querySelector('#user-modal .close');
+    const userForm = document.getElementById('user-form');
     const cancelUserBtn = document.getElementById('cancel-user');
+    
     userCloseBtn.addEventListener('click', () => closeModal('user-modal'));
     cancelUserBtn.addEventListener('click', () => closeModal('user-modal'));
-    document.getElementById('user-form').addEventListener('submit', handleUserSubmit);
+    userForm.addEventListener('submit', handleUserSubmit);
     
     // Modal de recuperação de senha
+    const forgotPasswordModal = document.getElementById('forgot-password-modal');
     const forgotPasswordCloseBtn = document.querySelector('#forgot-password-modal .close');
+    const forgotPasswordForm = document.getElementById('forgot-password-form');
     const cancelResetBtn = document.getElementById('cancel-reset');
+    
     forgotPasswordCloseBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
     cancelResetBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
-    document.getElementById('forgot-password-form').addEventListener('submit', handlePasswordReset);
+    forgotPasswordForm.addEventListener('submit', handlePasswordReset);
     
     // Modal de saída do quiz
+    const exitQuizModal = document.getElementById('exit-quiz-modal');
     const exitQuizCloseBtn = document.querySelector('#exit-quiz-modal .close');
     const cancelExitBtn = document.getElementById('cancel-exit');
     const confirmExitBtn = document.getElementById('confirm-exit');
+    
     exitQuizCloseBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
     cancelExitBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
     confirmExitBtn.addEventListener('click', confirmExitQuiz);
@@ -374,12 +423,14 @@ function initQuizControls() {
 
 // Alternar entre abas
 function switchTab(tabId, sectionId) {
+    // Remover classe active de todas as abas e seções
     const tabs = document.querySelectorAll('.dashboard-header .tab');
     const sections = document.querySelectorAll('.dashboard-content .section');
     
     tabs.forEach(tab => tab.classList.remove('active'));
     sections.forEach(section => section.classList.remove('active'));
     
+    // Adicionar classe active à aba e seção selecionadas
     document.getElementById(tabId).classList.add('active');
     document.getElementById(sectionId).classList.add('active');
 }
@@ -494,6 +545,7 @@ function updateCategorySelects() {
     const categoryFilter = document.getElementById('category-filter');
     const categoriesList = document.getElementById('categories-list');
     
+    // Limpar opções existentes
     while (quizCategorySelect.children.length > 1) {
         quizCategorySelect.removeChild(quizCategorySelect.lastChild);
     }
@@ -506,17 +558,21 @@ function updateCategorySelects() {
         categoriesList.removeChild(categoriesList.lastChild);
     }
     
+    // Adicionar categorias
     availableCategories.forEach(category => {
+        // Select do quiz
         const quizOption = document.createElement('option');
         quizOption.value = category;
         quizOption.textContent = category;
         quizCategorySelect.appendChild(quizOption);
         
+        // Select do filtro
         const filterOption = document.createElement('option');
         filterOption.value = category;
         filterOption.textContent = category;
         categoryFilter.appendChild(filterOption);
         
+        // Datalist para input
         const datalistOption = document.createElement('option');
         datalistOption.value = category;
         categoriesList.appendChild(datalistOption);
@@ -532,6 +588,7 @@ function loadQuizzes() {
     const quizzesList = document.getElementById('quizzes-list');
     quizzesList.innerHTML = '<div class="card"><div class="card-content">Carregando quizzes...</div></div>';
     
+    // Buscar quizzes ativos
     db.collection('quizzes')
         .where('status', '==', 'active')
         .get()
@@ -586,6 +643,7 @@ function createQuizCard(quiz) {
     const card = document.createElement('div');
     card.className = 'card';
     
+    // Verificar se o usuário já iniciou este quiz
     const userQuizRef = db.collection('userQuizzes')
         .where('userId', '==', currentUser.uid)
         .where('quizId', '==', quiz.id)
@@ -595,6 +653,7 @@ function createQuizCard(quiz) {
         let buttonText = 'Iniciar Quiz';
         let buttonClass = 'btn btn-primary';
         let statusText = 'Não iniciado';
+        let statusClass = 'card-badge';
         
         if (!querySnapshot.empty) {
             const userQuiz = querySnapshot.docs[0].data();
@@ -604,17 +663,19 @@ function createQuizCard(quiz) {
                 buttonText = 'Continuar Quiz';
                 buttonClass = 'btn btn-success';
                 statusText = 'Em andamento';
+                statusClass = 'card-badge';
             } else if (userQuiz.status === 'completed') {
                 buttonText = 'Ver Resultado';
                 buttonClass = 'btn btn-secondary';
                 statusText = 'Concluído';
+                statusClass = 'card-badge';
             }
         }
         
         card.innerHTML = `
             <div class="card-header">
                 <h3 class="card-title">${quiz.title}</h3>
-                <span class="card-badge">${statusText}</span>
+                <span class="${statusClass}">${statusText}</span>
             </div>
             <div class="card-content">
                 <p>${quiz.description || 'Sem descrição'}</p>
@@ -682,14 +743,20 @@ function createQuizAdminCard(quiz) {
         </div>
     `;
     
-    card.querySelectorAll('button').forEach(button => {
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
         const action = button.getAttribute('data-action');
         const quizId = button.getAttribute('data-quiz-id');
         
         button.addEventListener('click', () => {
-            if (action === 'edit') editQuiz(quizId);
-            else if (action === 'delete') deleteQuiz(quizId);
-            else if (action === 'toggle-status') toggleQuizStatus(quizId, quiz.status);
+            if (action === 'edit') {
+                editQuiz(quizId);
+            } else if (action === 'delete') {
+                deleteQuiz(quizId);
+            } else if (action === 'toggle-status') {
+                toggleQuizStatus(quizId, quiz.status);
+            }
         });
     });
     
@@ -702,8 +769,10 @@ function openQuizModal(quiz = null) {
     const title = document.getElementById('quiz-modal-title');
     const form = document.getElementById('quiz-form');
     
+    // Carregar categorias antes de abrir o modal
     loadCategories().then(() => {
         if (quiz) {
+            // Modo edição
             title.textContent = 'Editar Quiz';
             document.getElementById('quiz-title').value = quiz.title;
             document.getElementById('quiz-description').value = quiz.description || '';
@@ -713,6 +782,7 @@ function openQuizModal(quiz = null) {
             document.getElementById('quiz-status').value = quiz.status;
             form.setAttribute('data-quiz-id', quiz.id);
         } else {
+            // Modo criação
             title.textContent = 'Criar Quiz';
             form.reset();
             form.removeAttribute('data-quiz-id');
@@ -745,6 +815,7 @@ function saveQuiz() {
     showLoading();
     
     if (quizId) {
+        // Atualizar quiz existente
         db.collection('quizzes').doc(quizId).update(quizData)
             .then(() => {
                 hideLoading();
@@ -757,6 +828,7 @@ function saveQuiz() {
                 alert('Erro ao atualizar quiz: ' + error.message);
             });
     } else {
+        // Criar novo quiz
         quizData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
         quizData.createdBy = currentUser.uid;
         
@@ -853,9 +925,12 @@ function loadQuestions() {
                 const questionCard = createQuestionCard(question);
                 questionsList.appendChild(questionCard);
                 
-                if (question.category) categories.add(question.category);
+                if (question.category) {
+                    categories.add(question.category);
+                }
             });
             
+            // Atualizar categorias disponíveis
             categories.forEach(category => availableCategories.add(category));
             updateCategorySelects();
         })
@@ -878,7 +953,11 @@ function filterQuestions() {
         const matchesSearch = text.includes(searchTerm);
         const matchesCategory = !selectedCategory || category.includes(selectedCategory);
         
-        question.style.display = (matchesSearch && matchesCategory) ? '' : 'none';
+        if (matchesSearch && matchesCategory) {
+            question.style.display = '';
+        } else {
+            question.style.display = 'none';
+        }
     });
 }
 
@@ -912,13 +991,18 @@ function createQuestionCard(question) {
         </div>
     `;
     
-    card.querySelectorAll('button').forEach(button => {
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
         const action = button.getAttribute('data-action');
         const questionId = button.getAttribute('data-question-id');
         
         button.addEventListener('click', () => {
-            if (action === 'edit') editQuestion(questionId);
-            else if (action === 'delete') deleteQuestion(questionId);
+            if (action === 'edit') {
+                editQuestion(questionId);
+            } else if (action === 'delete') {
+                deleteQuestion(questionId);
+            }
         });
     });
     
@@ -931,8 +1015,10 @@ function openQuestionModal(question = null) {
     const title = document.getElementById('question-modal-title');
     const form = document.getElementById('question-form');
     
+    // Carregar categorias antes de abrir o modal
     loadCategories().then(() => {
         if (question) {
+            // Modo edição
             title.textContent = 'Editar Questão';
             document.getElementById('question-text').value = question.text;
             document.getElementById('option-a').value = question.options.a;
@@ -945,6 +1031,7 @@ function openQuestionModal(question = null) {
             document.getElementById('question-difficulty').value = question.difficulty || 'fácil';
             form.setAttribute('data-question-id', question.id);
         } else {
+            // Modo criação
             title.textContent = 'Adicionar Questão';
             form.reset();
             form.removeAttribute('data-question-id');
@@ -982,6 +1069,7 @@ function saveQuestion() {
     showLoading();
     
     if (questionId) {
+        // Atualizar questão existente
         db.collection('questions').doc(questionId).update(questionData)
             .then(() => {
                 hideLoading();
@@ -994,6 +1082,7 @@ function saveQuestion() {
                 alert('Erro ao atualizar questão: ' + error.message);
             });
     } else {
+        // Criar nova questão
         questionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
         questionData.createdBy = currentUser.uid;
         
@@ -1056,14 +1145,21 @@ function handleJsonImport(event) {
             const data = JSON.parse(e.target.result);
             let questions = [];
 
+            // Verificar diferentes estruturas possíveis do JSON
             if (Array.isArray(data)) {
+                // Estrutura 1: Array direto de questões
                 questions = data;
+                console.log('Estrutura detectada: Array direto');
             } else if (data.questions && Array.isArray(data.questions)) {
+                // Estrutura 2: Objeto com propriedade "questions"
                 questions = data.questions;
+                console.log('Estrutura detectada: Objeto com propriedade "questions"');
             } else if (data.quizAppQuestions && data.quizAppQuestions.questions && Array.isArray(data.quizAppQuestions.questions)) {
+                // Estrutura 3: Objeto com propriedade "quizAppQuestions.questions"
                 questions = data.quizAppQuestions.questions;
+                console.log('Estrutura detectada: Objeto com propriedade "quizAppQuestions.questions"');
             } else {
-                alert('O arquivo JSON deve conter um array de questões na estrutura correta.');
+                alert('O arquivo JSON deve conter um array de questões na estrutura correta.\n\nEstruturas aceitas:\n1. Array direto de questões\n2. { "questions": [...] }\n3. { "quizAppQuestions": { "questions": [...] } }');
                 return;
             }
 
@@ -1071,16 +1167,38 @@ function handleJsonImport(event) {
                 alert('O arquivo JSON não contém questões válidas.');
                 return;
             }
+
+            console.log(`Encontradas ${questions.length} questões para importar`);
             
+            // Validar estrutura das questões
+            const invalidQuestions = [];
+            questions.forEach((question, index) => {
+                if (!question.text || !question.options || !question.correctAnswer) {
+                    invalidQuestions.push(index + 1);
+                }
+            });
+
+            if (invalidQuestions.length > 0) {
+                alert(`Algumas questões estão com estrutura inválida (números: ${invalidQuestions.join(', ')}).\n\nCada questão deve ter: text, options e correctAnswer.`);
+                return;
+            }
+
+            // Confirmar importação
             if (confirm(`Deseja importar ${questions.length} questões?`)) {
                 importQuestions(questions);
             }
 
         } catch (error) {
             alert('Erro ao processar arquivo JSON: ' + error.message);
+            console.error('Erro no JSON:', error);
         }
     };
+    reader.onerror = function() {
+        alert('Erro ao ler o arquivo. Tente novamente.');
+    };
     reader.readAsText(file);
+
+    // Limpar o input para permitir importar o mesmo arquivo novamente
     event.target.value = '';
 }
 
@@ -1094,7 +1212,7 @@ function importQuestions(questions) {
     const importNext = (index) => {
         if (index >= questions.length) {
             hideLoading();
-            const message = `Importação concluída! ${importedCount} questões importadas${errorCount > 0 ? `, ${errorCount} erros.` : '.'}`;
+            const message = `Importação concluída! ${importedCount} questões importadas com sucesso${errorCount > 0 ? `, ${errorCount} erros.` : '.'}`;
             showSuccessMessage(message);
             loadQuestions();
             return;
@@ -1102,19 +1220,25 @@ function importQuestions(questions) {
         
         const question = questions[index];
         
+        // Validar estrutura da questão
         if (!question.text || !question.options || !question.correctAnswer) {
+            console.error(`Questão ${index} inválida: estrutura incorreta`);
             errorCount++;
             importNext(index + 1);
             return;
         }
 
+        // Validar se as opções estão completas
         if (!question.options.a || !question.options.b || !question.options.c || !question.options.d) {
+            console.error(`Questão ${index} inválida: opções incompletas`);
             errorCount++;
             importNext(index + 1);
             return;
         }
 
+        // Validar resposta correta
         if (!['a', 'b', 'c', 'd'].includes(question.correctAnswer.toLowerCase())) {
+            console.error(`Questão ${index} inválida: resposta correta deve ser a, b, c ou d`);
             errorCount++;
             importNext(index + 1);
             return;
@@ -1134,13 +1258,16 @@ function importQuestions(questions) {
         db.collection('questions').add(questionData)
             .then(() => {
                 importedCount++;
+                // Atualizar categorias disponíveis
                 if (questionData.category && questionData.category.trim() !== '') {
                     availableCategories.add(questionData.category);
                 }
+                console.log(`Questão ${index + 1} importada com sucesso`);
                 importNext(index + 1);
             })
             .catch(error => {
                 errorCount++;
+                console.error(`Erro ao importar questão ${index + 1}:`, error);
                 importNext(index + 1);
             });
     };
@@ -1171,9 +1298,11 @@ function exportQuestions() {
             const dataStr = JSON.stringify({ questions: questions }, null, 2);
             const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
             
+            const exportFileDefaultName = `questoes_${new Date().toISOString().split('T')[0]}.json`;
+            
             const linkElement = document.createElement('a');
             linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', `questoes_${new Date().toISOString().split('T')[0]}.json`);
+            linkElement.setAttribute('download', exportFileDefaultName);
             linkElement.click();
         })
         .catch(error => {
@@ -1242,13 +1371,18 @@ function createUserCard(user) {
         </div>
     `;
     
-    card.querySelectorAll('button').forEach(button => {
+    // Adicionar event listeners aos botões
+    const buttons = card.querySelectorAll('button');
+    buttons.forEach(button => {
         const action = button.getAttribute('data-action');
         const userId = button.getAttribute('data-user-id');
         
         button.addEventListener('click', () => {
-            if (action === 'edit') editUser(userId);
-            else if (action === 'delete') deleteUser(userId);
+            if (action === 'edit') {
+                editUser(userId);
+            } else if (action === 'delete') {
+                deleteUser(userId);
+            }
         });
     });
     
@@ -1262,12 +1396,14 @@ function openUserModal(user = null) {
     const form = document.getElementById('user-form');
     
     if (user) {
+        // Modo edição
         title.textContent = 'Editar Usuário';
         document.getElementById('user-name').value = user.name;
         document.getElementById('user-email').value = user.email;
         document.getElementById('user-type').value = user.userType;
         form.setAttribute('data-user-id', user.id);
     } else {
+        // Modo criação
         title.textContent = 'Adicionar Usuário';
         form.reset();
         form.removeAttribute('data-user-id');
@@ -1305,6 +1441,7 @@ function saveUser() {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
+    // Atualizar no Firestore
     db.collection('users').doc(userId).update(userData)
         .then(() => {
             hideLoading();
@@ -1337,8 +1474,10 @@ function editUser(userId) {
 
 // Excluir usuário
 function deleteUser(userId) {
-    if (confirm('Tem certeza que deseja excluir este usuário?')) {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
         showLoading();
+        
+        // Excluir do Firestore
         db.collection('users').doc(userId).delete()
             .then(() => {
                 hideLoading();
@@ -1386,11 +1525,12 @@ function handlePasswordReset(e) {
 }
 
 // ===============================
-// QUIZ - EXECUÇÃO (CORRIGIDO)
+// QUIZ - EXECUÇÃO (FUNÇÕES CORRIGIDAS)
 // ===============================
 
-// Iniciar quiz
+// Iniciar quiz (função corrigida)
 function startQuiz(quiz) {
+    // Verificar se o usuário já iniciou este quiz
     db.collection('userQuizzes')
         .where('userId', '==', currentUser.uid)
         .where('quizId', '==', quiz.id)
@@ -1406,6 +1546,7 @@ function startQuiz(quiz) {
                     showQuizResult(quiz.id);
                     return;
                 } else if (userQuiz.status === 'in-progress') {
+                    // Continuar quiz em andamento
                     if (userQuiz.attempts >= 3) {
                         alert('Você já usou todas as 3 tentativas permitidas para este quiz.');
                         return;
@@ -1414,12 +1555,17 @@ function startQuiz(quiz) {
                     currentQuiz = quiz;
                     userAnswers = userQuiz.answers || [];
                     currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
+                    
+                    // Buscar questões do quiz (CORREÇÃO: garantir que as questões sejam carregadas)
                     loadQuizQuestions(quiz.id, true);
                 }
             } else {
+                // Iniciar novo quiz
                 currentQuiz = quiz;
                 userAnswers = new Array(quiz.questionsCount).fill(null);
                 currentQuestionIndex = 0;
+                
+                // Criar registro do quiz do usuário
                 db.collection('userQuizzes').add({
                     userId: currentUser.uid,
                     quizId: quiz.id,
@@ -1432,6 +1578,7 @@ function startQuiz(quiz) {
                 })
                 .then((docRef) => {
                     userQuizId = docRef.id;
+                    // Buscar questões do quiz
                     loadQuizQuestions(quiz.id, false);
                 })
                 .catch(error => {
@@ -1444,13 +1591,14 @@ function startQuiz(quiz) {
         });
 }
 
-// Carregar questões do quiz (FUNÇÃO CORRIGIDA - GARANTE EXIBIÇÃO DO ENUNCIADO)
+// Carregar questões do quiz (FUNÇÃO COMPLETAMENTE CORRIGIDA)
 function loadQuizQuestions(quizId, isResuming = false) {
     showLoading();
     
     console.log('Carregando questões para o quiz:', currentQuiz.title);
     console.log('Categoria do quiz:', currentQuiz.category);
     
+    // CORREÇÃO: Buscar questões baseado na categoria do quiz
     let questionsQuery = db.collection('questions');
     
     // Se o quiz tem uma categoria específica, filtrar por ela
@@ -1470,17 +1618,12 @@ function loadQuizQuestions(quizId, isResuming = false) {
             const allQuestions = [];
             querySnapshot.forEach(doc => {
                 const question = { id: doc.id, ...doc.data() };
-                // CORREÇÃO CRÍTICA: Validação de estrutura da questão
-                if (question.text && question.options && question.correctAnswer) {
-                    allQuestions.push(question);
-                } else {
-                    console.warn('Questão inválida ignorada:', question);
-                }
+                allQuestions.push(question);
             });
             
-            console.log('Total de questões válidas encontradas:', allQuestions.length);
+            console.log('Total de questões encontradas:', allQuestions.length);
             
-            // Selecionar questões aleatórias
+            // CORREÇÃO: Selecionar questões aleatórias
             const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
             console.log('Selecionando', questionCount, 'questões de', allQuestions.length, 'disponíveis');
             
@@ -1495,15 +1638,15 @@ function loadQuizQuestions(quizId, isResuming = false) {
             currentQuestions = shuffledQuestions.slice(0, questionCount);
             
             console.log('Questões selecionadas para o quiz:', currentQuestions.length);
-            console.log('Questões:', currentQuestions);
             
-            // Garantir que userAnswers tenha o tamanho correto
+            // CORREÇÃO: Garantir que userAnswers tenha o tamanho correto
             if (!isResuming) {
                 userAnswers = new Array(currentQuestions.length).fill(null);
             } else {
                 // Se estiver retomando, ajustar o array de respostas se necessário
                 if (userAnswers.length !== currentQuestions.length) {
                     const newAnswers = new Array(currentQuestions.length).fill(null);
+                    // Copiar respostas existentes
                     for (let i = 0; i < Math.min(userAnswers.length, currentQuestions.length); i++) {
                         newAnswers[i] = userAnswers[i];
                     }
@@ -1511,6 +1654,7 @@ function loadQuizQuestions(quizId, isResuming = false) {
                 }
             }
             
+            // Iniciar quiz
             showQuiz();
         })
         .catch(error => {
@@ -1533,7 +1677,7 @@ function showQuiz() {
     document.getElementById('quiz-description-display').textContent = currentQuiz.description || '';
     
     // Iniciar timer
-    totalTime = currentQuiz.time * 60;
+    totalTime = currentQuiz.time * 60; // Converter para segundos
     timeRemaining = totalTime;
     startTimer();
     
@@ -1594,10 +1738,12 @@ function updateNavigationButtons() {
     if (finishButton) finishButton.classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
 }
 
-// Exibir questão atual (FUNÇÃO CORRIGIDA - COM VERIFICAÇÕES DE SEGURANÇA)
+// Exibir questão atual (FUNÇÃO CORRIGIDA)
 function displayQuestion() {
     if (!currentQuestions || currentQuestions.length === 0 || currentQuestionIndex >= currentQuestions.length) {
         console.error('Nenhuma questão disponível para exibir ou índice inválido');
+        console.log('currentQuestions:', currentQuestions);
+        console.log('currentQuestionIndex:', currentQuestionIndex);
         return;
     }
     
@@ -1605,10 +1751,9 @@ function displayQuestion() {
     
     console.log('Exibindo questão:', currentQuestionIndex, question);
     
-    if (!question || !question.text) {
-        console.error('Questão não encontrada ou sem texto no índice:', currentQuestionIndex);
-        // Mostrar mensagem de erro amigável
-        document.getElementById('question-text').textContent = 'Erro: Questão não encontrada ou mal formatada.';
+    // CORREÇÃO: Verificar se a questão tem os dados necessários
+    if (!question) {
+        console.error('Questão não encontrada no índice:', currentQuestionIndex);
         return;
     }
     
@@ -1619,23 +1764,24 @@ function displayQuestion() {
     const optionCTextElement = document.getElementById('option-c-text');
     const optionDTextElement = document.getElementById('option-d-text');
     
-    // Exibir enunciado da questão
     if (questionTextElement) {
-        questionTextElement.textContent = question.text;
+        questionTextElement.textContent = question.text || 'Questão sem texto definido';
     }
     
-    // Exibir opções com verificação
     if (optionATextElement) {
-        optionATextElement.textContent = question.options?.a || 'Opção A não disponível';
+        optionATextElement.textContent = question.options?.a || 'Opção A não definida';
     }
+    
     if (optionBTextElement) {
-        optionBTextElement.textContent = question.options?.b || 'Opção B não disponível';
+        optionBTextElement.textContent = question.options?.b || 'Opção B não definida';
     }
+    
     if (optionCTextElement) {
-        optionCTextElement.textContent = question.options?.c || 'Opção C não disponível';
+        optionCTextElement.textContent = question.options?.c || 'Opção C não definida';
     }
+    
     if (optionDTextElement) {
-        optionDTextElement.textContent = question.options?.d || 'Opção D não disponível';
+        optionDTextElement.textContent = question.options?.d || 'Opção D não definida';
     }
     
     // Atualizar progresso
@@ -1692,6 +1838,7 @@ function updateUserQuizProgress() {
 
 // Abrir modal de saída do quiz
 function openExitQuizModal() {
+    // Buscar informações atualizadas do quiz
     db.collection('userQuizzes').doc(userQuizId).get()
         .then(doc => {
             if (doc.exists) {
@@ -1738,10 +1885,12 @@ function finishQuiz() {
         completedAt: firebase.firestore.FieldValue.serverTimestamp()
     })
     .then(() => {
+        // Mostrar resultado
         showQuizResult(currentQuiz.id, score, percentage, timeTaken);
     })
     .catch(error => {
         console.error('Erro ao finalizar quiz:', error);
+        // Mostrar resultado mesmo com erro
         showQuizResult(currentQuiz.id, score, percentage, timeTaken);
     });
 }
@@ -1974,7 +2123,7 @@ function loadReports() {
     // Estatísticas básicas
     loadBasicStats();
     
-    // Gráficos
+    // Gráficos (implementação básica)
     loadCharts();
 }
 
@@ -2003,9 +2152,10 @@ function loadBasicStats() {
 
 // Carregar gráficos
 function loadCharts() {
+    // Implementação básica de gráficos
     const ctx = document.getElementById('category-chart').getContext('2d');
     
-    // Dados de exemplo - em implementação real buscar do Firestore
+    // Dados de exemplo - em uma implementação real, você buscaria esses dados do Firestore
     const exampleData = {
         labels: Array.from(availableCategories).slice(0, 5),
         datasets: [{
@@ -2039,23 +2189,12 @@ function loadCharts() {
                     beginAtZero: true,
                     max: 100
                 }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                }
             }
         }
     });
 }
 
-// Função auxiliar para mostrar mensagens de sucesso
-function showSuccessMessage(message) {
-    // Criar um toast/notification seria ideal, mas por simplicidade usamos alert
-    setTimeout(() => alert(message), 100);
-}
-
-// Função de debug
+// Função auxiliar para debug (adicionar no início do arquivo)
 function debugQuizState() {
     console.log('=== DEBUG QUIZ STATE ===');
     console.log('currentQuiz:', currentQuiz);
@@ -2064,4 +2203,10 @@ function debugQuizState() {
     console.log('userAnswers:', userAnswers);
     console.log('userQuizId:', userQuizId);
     console.log('========================');
+}
+
+// Função auxiliar para mostrar mensagens de sucesso
+function showSuccessMessage(message) {
+    // Você pode implementar um sistema de notificação mais sofisticado aqui
+    alert(message);
 }
