@@ -670,7 +670,7 @@ body {
 }
 
 #question-text {
-    font-size: 1.1rem;
+    font-size: 1.3rem;
     margin-bottom: 1.5rem;
     color: var(--dark-color);
     line-height: 1.6;
@@ -678,6 +678,11 @@ body {
     overflow-wrap: break-word;
     word-break: break-word;
     width: 100%;
+    font-weight: 500;
+    padding: 1rem;
+    background: var(--light-color);
+    border-left: 5px solid var(--primary-color);
+    border-radius: 8px;
 }
 
 .options-container {
@@ -743,6 +748,7 @@ body {
     word-break: break-word;
     line-height: 1.4;
     padding: 0.25rem 0;
+    font-size: 1rem;
 }
 
 .quiz-controls {
@@ -1113,7 +1119,7 @@ body {
     }
     
     #question-text {
-        font-size: 1.25rem;
+        font-size: 1.4rem;
     }
     
     .result-details {
@@ -1182,8 +1188,9 @@ body {
     
     /* Melhorar responsividade para questões longas */
     #question-text {
-        font-size: 1rem;
+        font-size: 1.1rem;
         line-height: 1.5;
+        padding: 0.75rem;
     }
     
     .option {
