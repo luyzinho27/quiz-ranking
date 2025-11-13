@@ -249,8 +249,15 @@
                     <h2>Relatórios</h2>
                     <p>Visualize estatísticas e desempenho dos alunos</p>
                 </div>
-                <div id="admin-reports-content" class="reports-container">
-                    <!-- Conteúdo será carregado dinamicamente -->
+                <div id="admin-reports-content" class="cards-container">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Estatísticas Gerais</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>Relatórios em desenvolvimento</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -425,9 +432,7 @@
                 </div>
                 <div class="input-group">
                     <label for="quiz-category">Categoria</label>
-                    <select id="quiz-category">
-                        <option value="">Carregando categorias...</option>
-                    </select>
+                    <input type="text" id="quiz-category" placeholder="Ex: Informática, Matemática, História">
                 </div>
                 <div class="input-group">
                     <label for="quiz-questions-count">Número de Questões</label>
@@ -538,46 +543,6 @@
             </div>
             <div class="modal-footer">
                 <button id="close-review" class="btn btn-primary">Fechar</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal para editar usuário -->
-    <div id="user-modal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="user-modal-title">Editar Usuário</h3>
-                <button id="close-user-modal" class="btn btn-icon">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="input-group">
-                    <label for="user-name">Nome</label>
-                    <input type="text" id="user-name" placeholder="Nome completo">
-                </div>
-                <div class="input-group">
-                    <label for="user-email">E-mail</label>
-                    <input type="email" id="user-email" placeholder="E-mail">
-                </div>
-                <div class="input-group">
-                    <label for="user-type">Tipo de Usuário</label>
-                    <select id="user-type">
-                        <option value="aluno">Aluno</option>
-                        <option value="admin">Administrador</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label for="user-status">Status</label>
-                    <select id="user-status">
-                        <option value="active">Ativo</option>
-                        <option value="inactive">Inativo</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="cancel-user" class="btn btn-secondary">Cancelar</button>
-                <button id="save-user" class="btn btn-primary">Salvar Alterações</button>
             </div>
         </div>
     </div>
