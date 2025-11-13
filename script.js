@@ -23,6 +23,8 @@ let quizTimer = null;
 let timeRemaining = 0;
 let totalTime = 0;
 let userQuizId = null;
+let editingQuizId = null;
+let editingQuestionId = null;
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -36,6 +38,7 @@ const loading = document.getElementById('loading');
 document.addEventListener('DOMContentLoaded', function() {
     initAuth();
     initEventListeners();
+    initModals();
     
     // Verificar se há um usuário logado
     auth.onAuthStateChanged(user => {
@@ -178,8 +181,8 @@ function togglePasswordVisibility(passwordFieldId, toggleIcon) {
     passwordField.setAttribute('type', type);
     
     // Alterar ícone
-    //toggleIcon.classList.toggle('fa-eye');
-    //toggleIcon.classList.toggle('fa-eye-slash');
+    toggleIcon.classList.toggle('fa-eye');
+    toggleIcon.classList.toggle('fa-eye-slash');
 }
 
 // Verificar se já existe administrador
@@ -299,14 +302,12 @@ function initEventListeners() {
         }, 100);
     });
     
-    document.getElementById('review-quiz').addEventListener('click', () => {
-        alert('Funcionalidade de revisão em desenvolvimento');
-    });
+    document.getElementById('review-quiz').addEventListener('click', showReviewModal);
     
     // Botões do admin
-    document.getElementById('create-quiz-btn').addEventListener('click', createQuiz);
-    document.getElementById('create-question-btn').addEventListener('click', createQuestion);
-    document.getElementById('import-questions-btn').addEventListener('click', importQuestions);
+    document.getElementById('create-quiz-btn').addEventListener('click', () => openQuizModal());
+    document.getElementById('create-question-btn').addEventListener('click', () => openQuestionModal());
+    document.getElementById('import-questions-btn').addEventListener('click', openImportModal);
 }
 
 // Inicializar navegação por abas
@@ -375,6 +376,37 @@ function initQuizControls() {
         option.addEventListener('click', function() {
             const selectedValue = this.getAttribute('data-value');
             selectOption(selectedValue);
+        });
+    });
+}
+
+// Inicializar modais
+function initModals() {
+    // Modal do quiz
+    document.getElementById('close-quiz-modal').addEventListener('click', closeQuizModal);
+    document.getElementById('cancel-quiz').addEventListener('click', closeQuizModal);
+    document.getElementById('save-quiz').addEventListener('click', saveQuiz);
+    
+    // Modal da questão
+    document.getElementById('close-question-modal').addEventListener('click', closeQuestionModal);
+    document.getElementById('cancel-question').addEventListener('click', closeQuestionModal);
+    document.getElementById('save-question').addEventListener('click', saveQuestion);
+    
+    // Modal de importação
+    document.getElementById('close-import-modal').addEventListener('click', closeImportModal);
+    document.getElementById('cancel-import').addEventListener('click', closeImportModal);
+    document.getElementById('import-questions').addEventListener('click', importQuestions);
+    
+    // Modal de revisão
+    document.getElementById('close-review-modal').addEventListener('click', closeReviewModal);
+    document.getElementById('close-review').addEventListener('click', closeReviewModal);
+    
+    // Fechar modais ao clicar fora
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
         });
     });
 }
@@ -586,25 +618,46 @@ function startQuiz(quiz) {
     userAnswers = new Array(quiz.questionsCount).fill(null);
     currentQuestionIndex = 0;
     
-    // Criar registro do quiz do usuário
-    db.collection('userQuizzes').add({
-        userId: currentUser.uid,
-        quizId: quiz.id,
-        status: 'in-progress',
-        answers: userAnswers,
-        currentQuestionIndex: 0,
-        startTime: firebase.firestore.FieldValue.serverTimestamp(),
-        attempts: 1,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
-    .then((docRef) => {
-        userQuizId = docRef.id;
-        // Buscar questões do quiz
-        loadQuizQuestions(quiz.id);
-    })
-    .catch(error => {
-        alert('Erro ao iniciar quiz: ' + error.message);
-    });
+    // Verificar se já existe um quiz em andamento
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quiz.id)
+        .where('status', '==', 'in-progress')
+        .get()
+        .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+                // Continuar quiz existente
+                const userQuizDoc = querySnapshot.docs[0];
+                userQuizId = userQuizDoc.id;
+                const userQuiz = userQuizDoc.data();
+                
+                userAnswers = userQuiz.answers || new Array(quiz.questionsCount).fill(null);
+                currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
+                
+                // Buscar questões do quiz
+                loadQuizQuestions(quiz.id);
+            } else {
+                // Criar novo registro do quiz do usuário
+                db.collection('userQuizzes').add({
+                    userId: currentUser.uid,
+                    quizId: quiz.id,
+                    status: 'in-progress',
+                    answers: userAnswers,
+                    currentQuestionIndex: 0,
+                    startTime: firebase.firestore.FieldValue.serverTimestamp(),
+                    attempts: 1,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                })
+                .then((docRef) => {
+                    userQuizId = docRef.id;
+                    // Buscar questões do quiz
+                    loadQuizQuestions(quiz.id);
+                });
+            }
+        })
+        .catch(error => {
+            alert('Erro ao iniciar quiz: ' + error.message);
+        });
 }
 
 // Carregar questões do quiz
@@ -906,9 +959,124 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
         const degrees = (percentage / 100) * 360;
         circleProgress.style.transform = `rotate(${degrees}deg)`;
         
+        // Calcular posição no ranking
+        calculateRankingPosition(quizId, percentage);
+        
         quizContainer.classList.add('hidden');
         quizResult.classList.remove('hidden');
+    } else {
+        // Buscar resultado salvo
+        db.collection('userQuizzes')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId)
+            .where('status', '==', 'completed')
+            .get()
+            .then(querySnapshot => {
+                if (!querySnapshot.empty) {
+                    const userQuiz = querySnapshot.docs[0].data();
+                    const minutes = Math.floor(userQuiz.timeTaken / 60);
+                    const seconds = userQuiz.timeTaken % 60;
+                    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    document.getElementById('score-percentage').textContent = `${userQuiz.percentage.toFixed(1)}%`;
+                    document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions.length}`;
+                    document.getElementById('correct-answers').textContent = userQuiz.score;
+                    document.getElementById('wrong-answers').textContent = currentQuestions.length - userQuiz.score;
+                    document.getElementById('time-taken').textContent = timeText;
+                    
+                    // Animar o círculo de progresso
+                    const circleProgress = document.getElementById('circle-progress');
+                    const degrees = (userQuiz.percentage / 100) * 360;
+                    circleProgress.style.transform = `rotate(${degrees}deg)`;
+                    
+                    // Calcular posição no ranking
+                    calculateRankingPosition(quizId, userQuiz.percentage);
+                    
+                    quizContainer.classList.add('hidden');
+                    quizResult.classList.remove('hidden');
+                }
+            });
     }
+}
+
+// Calcular posição no ranking
+function calculateRankingPosition(quizId, percentage) {
+    db.collection('userQuizzes')
+        .where('quizId', '==', quizId)
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const rankings = [];
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                rankings.push({
+                    userId: userQuiz.userId,
+                    percentage: userQuiz.percentage
+                });
+            });
+            
+            // Ordenar por porcentagem (decrescente)
+            rankings.sort((a, b) => b.percentage - a.percentage);
+            
+            // Encontrar posição do usuário atual
+            const userPosition = rankings.findIndex(ranking => ranking.userId === currentUser.uid) + 1;
+            const totalPlayers = rankings.length;
+            
+            document.getElementById('ranking-position').textContent = userPosition > 0 ? 
+                `${userPosition}º de ${totalPlayers}` : '-';
+        })
+        .catch(error => {
+            console.error('Erro ao calcular ranking:', error);
+            document.getElementById('ranking-position').textContent = '-';
+        });
+}
+
+// Mostrar modal de revisão
+function showReviewModal() {
+    const reviewContent = document.getElementById('review-content');
+    reviewContent.innerHTML = '';
+    
+    currentQuestions.forEach((question, index) => {
+        const userAnswer = userAnswers[index];
+        const isCorrect = userAnswer === question.correctAnswer;
+        
+        const reviewItem = document.createElement('div');
+        reviewItem.className = `review-item ${isCorrect ? 'correct' : 'wrong'}`;
+        reviewItem.innerHTML = `
+            <div class="review-question">
+                <h4>Questão ${index + 1}</h4>
+                <p>${question.text}</p>
+            </div>
+            <div class="review-answers">
+                <div class="review-answer ${userAnswer === 'a' ? 'user-answer' : ''} ${question.correctAnswer === 'a' ? 'correct-answer' : ''}">
+                    <strong>A:</strong> ${question.options.a}
+                </div>
+                <div class="review-answer ${userAnswer === 'b' ? 'user-answer' : ''} ${question.correctAnswer === 'b' ? 'correct-answer' : ''}">
+                    <strong>B:</strong> ${question.options.b}
+                </div>
+                <div class="review-answer ${userAnswer === 'c' ? 'user-answer' : ''} ${question.correctAnswer === 'c' ? 'correct-answer' : ''}">
+                    <strong>C:</strong> ${question.options.c}
+                </div>
+                <div class="review-answer ${userAnswer === 'd' ? 'user-answer' : ''} ${question.correctAnswer === 'd' ? 'correct-answer' : ''}">
+                    <strong>D:</strong> ${question.options.d}
+                </div>
+            </div>
+            <div class="review-result">
+                <strong>Sua resposta:</strong> ${userAnswer ? userAnswer.toUpperCase() : 'Não respondida'} 
+                ${isCorrect ? '✓ Correto' : '✗ Incorreto'}
+                ${!isCorrect ? `<br><strong>Resposta correta:</strong> ${question.correctAnswer.toUpperCase()}` : ''}
+            </div>
+        `;
+        
+        reviewContent.appendChild(reviewItem);
+    });
+    
+    document.getElementById('review-modal').classList.remove('hidden');
+}
+
+// Fechar modal de revisão
+function closeReviewModal() {
+    document.getElementById('review-modal').classList.add('hidden');
 }
 
 // ===============================
@@ -922,6 +1090,7 @@ function loadAdminQuizzes() {
     
     // Buscar todos os quizzes
     db.collection('quizzes')
+        .orderBy('createdAt', 'desc')
         .get()
         .then(querySnapshot => {
             quizzesList.innerHTML = '';
@@ -958,6 +1127,7 @@ function createAdminQuizCard(quiz) {
             <p><strong>Categoria:</strong> ${quiz.category || 'Geral'}</p>
             <p><strong>Questões:</strong> ${quiz.questionsCount}</p>
             <p><strong>Tempo:</strong> ${quiz.time} minutos</p>
+            <p><strong>Criado em:</strong> ${quiz.createdAt ? quiz.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
             <button class="btn btn-primary edit-quiz" data-quiz-id="${quiz.id}">
@@ -977,7 +1147,7 @@ function createAdminQuizCard(quiz) {
     
     // Adicionar event listeners aos botões
     card.querySelector('.edit-quiz').addEventListener('click', () => {
-        editQuiz(quiz.id);
+        openQuizModal(quiz.id);
     });
     
     card.querySelector('.toggle-quiz').addEventListener('click', () => {
@@ -991,43 +1161,96 @@ function createAdminQuizCard(quiz) {
     return card;
 }
 
-// Criar novo quiz
-function createQuiz() {
-    const title = prompt('Título do quiz:');
-    if (!title) return;
+// Abrir modal do quiz
+function openQuizModal(quizId = null) {
+    editingQuizId = quizId;
+    const modal = document.getElementById('quiz-modal');
+    const title = document.getElementById('quiz-modal-title');
     
-    const description = prompt('Descrição do quiz:');
-    const category = prompt('Categoria do quiz:');
-    const questionsCount = parseInt(prompt('Número de questões:'));
-    const time = parseInt(prompt('Tempo em minutos:'));
+    if (quizId) {
+        // Modo edição
+        title.textContent = 'Editar Quiz';
+        
+        // Carregar dados do quiz
+        db.collection('quizzes').doc(quizId).get()
+            .then(doc => {
+                if (doc.exists) {
+                    const quiz = doc.data();
+                    document.getElementById('quiz-title').value = quiz.title;
+                    document.getElementById('quiz-description').value = quiz.description || '';
+                    document.getElementById('quiz-category').value = quiz.category || '';
+                    document.getElementById('quiz-questions-count').value = quiz.questionsCount;
+                    document.getElementById('quiz-time').value = quiz.time;
+                }
+            });
+    } else {
+        // Modo criação
+        title.textContent = 'Criar Novo Quiz';
+        // Limpar campos
+        document.getElementById('quiz-title').value = '';
+        document.getElementById('quiz-description').value = '';
+        document.getElementById('quiz-category').value = '';
+        document.getElementById('quiz-questions-count').value = '';
+        document.getElementById('quiz-time').value = '';
+    }
     
-    if (isNaN(questionsCount) || isNaN(time)) {
-        alert('Número de questões e tempo devem ser números válidos.');
+    modal.classList.remove('hidden');
+}
+
+// Fechar modal do quiz
+function closeQuizModal() {
+    document.getElementById('quiz-modal').classList.add('hidden');
+    editingQuizId = null;
+}
+
+// Salvar quiz
+function saveQuiz() {
+    const title = document.getElementById('quiz-title').value;
+    const description = document.getElementById('quiz-description').value;
+    const category = document.getElementById('quiz-category').value;
+    const questionsCount = parseInt(document.getElementById('quiz-questions-count').value);
+    const time = parseInt(document.getElementById('quiz-time').value);
+    
+    if (!title || !category || isNaN(questionsCount) || isNaN(time)) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
         return;
     }
     
-    db.collection('quizzes').add({
+    const quizData = {
         title: title,
-        description: description || '',
-        category: category || 'Geral',
+        description: description,
+        category: category,
         questionsCount: questionsCount,
         time: time,
-        status: 'active',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
-    .then(() => {
-        alert('Quiz criado com sucesso!');
-        loadAdminQuizzes();
-    })
-    .catch(error => {
-        alert('Erro ao criar quiz: ' + error.message);
-    });
-}
-
-// Editar quiz
-function editQuiz(quizId) {
-    alert('Funcionalidade de edição em desenvolvimento. Quiz ID: ' + quizId);
+    };
+    
+    if (editingQuizId) {
+        // Atualizar quiz existente
+        db.collection('quizzes').doc(editingQuizId).update(quizData)
+            .then(() => {
+                alert('Quiz atualizado com sucesso!');
+                closeQuizModal();
+                loadAdminQuizzes();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar quiz: ' + error.message);
+            });
+    } else {
+        // Criar novo quiz
+        quizData.status = 'active';
+        quizData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        
+        db.collection('quizzes').add(quizData)
+            .then(() => {
+                alert('Quiz criado com sucesso!');
+                closeQuizModal();
+                loadAdminQuizzes();
+            })
+            .catch(error => {
+                alert('Erro ao criar quiz: ' + error.message);
+            });
+    }
 }
 
 // Alternar status do quiz
@@ -1047,7 +1270,7 @@ function toggleQuizStatus(quizId, newStatus) {
 
 // Excluir quiz
 function deleteQuiz(quizId) {
-    if (confirm('Tem certeza que deseja excluir este quiz?')) {
+    if (confirm('Tem certeza que deseja excluir este quiz? Esta ação não pode ser desfeita.')) {
         db.collection('quizzes').doc(quizId).delete()
         .then(() => {
             alert('Quiz excluído com sucesso!');
@@ -1066,6 +1289,7 @@ function loadAdminQuestions() {
     
     // Buscar todas as questões
     db.collection('questions')
+        .orderBy('createdAt', 'desc')
         .get()
         .then(querySnapshot => {
             questionsList.innerHTML = '';
@@ -1094,16 +1318,27 @@ function createAdminQuestionCard(question) {
     
     card.innerHTML = `
         <div class="card-header">
-            <h3 class="card-title">${question.text.substring(0, 50)}${question.text.length > 50 ? '...' : ''}</h3>
+            <h3 class="card-title">${question.text.substring(0, 80)}${question.text.length > 80 ? '...' : ''}</h3>
             <span class="card-badge">${question.category || 'Geral'}</span>
         </div>
         <div class="card-content">
             <p><strong>Enunciado:</strong> ${question.text}</p>
-            <p><strong>A:</strong> ${question.options?.a || 'N/A'}</p>
-            <p><strong>B:</strong> ${question.options?.b || 'N/A'}</p>
-            <p><strong>C:</strong> ${question.options?.c || 'N/A'}</p>
-            <p><strong>D:</strong> ${question.options?.d || 'N/A'}</p>
-            <p><strong>Resposta correta:</strong> ${question.correctAnswer?.toUpperCase() || 'N/A'}</p>
+            <div class="options-grid">
+                <div class="option-item ${question.correctAnswer === 'a' ? 'correct-option' : ''}">
+                    <strong>A:</strong> ${question.options?.a || 'N/A'}
+                </div>
+                <div class="option-item ${question.correctAnswer === 'b' ? 'correct-option' : ''}">
+                    <strong>B:</strong> ${question.options?.b || 'N/A'}
+                </div>
+                <div class="option-item ${question.correctAnswer === 'c' ? 'correct-option' : ''}">
+                    <strong>C:</strong> ${question.options?.c || 'N/A'}
+                </div>
+                <div class="option-item ${question.correctAnswer === 'd' ? 'correct-option' : ''}">
+                    <strong>D:</strong> ${question.options?.d || 'N/A'}
+                </div>
+            </div>
+            <p><strong>Resposta correta:</strong> <span class="correct-answer">${question.correctAnswer?.toUpperCase() || 'N/A'}</span></p>
+            <p><strong>Criada em:</strong> ${question.createdAt ? question.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
             <button class="btn btn-primary edit-question" data-question-id="${question.id}">
@@ -1119,7 +1354,7 @@ function createAdminQuestionCard(question) {
     
     // Adicionar event listeners aos botões
     card.querySelector('.edit-question').addEventListener('click', () => {
-        editQuestion(question.id);
+        openQuestionModal(question.id);
     });
     
     card.querySelector('.delete-question').addEventListener('click', () => {
@@ -1129,25 +1364,70 @@ function createAdminQuestionCard(question) {
     return card;
 }
 
-// Criar nova questão
-function createQuestion() {
-    const text = prompt('Enunciado da questão:');
-    if (!text) return;
+// Abrir modal da questão
+function openQuestionModal(questionId = null) {
+    editingQuestionId = questionId;
+    const modal = document.getElementById('question-modal');
+    const title = document.getElementById('question-modal-title');
     
-    const optionA = prompt('Opção A:');
-    const optionB = prompt('Opção B:');
-    const optionC = prompt('Opção C:');
-    const optionD = prompt('Opção D:');
-    const correctAnswer = prompt('Resposta correta (A, B, C ou D):').toLowerCase();
-    const category = prompt('Categoria:');
+    if (questionId) {
+        // Modo edição
+        title.textContent = 'Editar Questão';
+        
+        // Carregar dados da questão
+        db.collection('questions').doc(questionId).get()
+            .then(doc => {
+                if (doc.exists) {
+                    const question = doc.data();
+                    document.getElementById('question-text').value = question.text;
+                    document.getElementById('question-category').value = question.category || '';
+                    document.getElementById('option-a').value = question.options?.a || '';
+                    document.getElementById('option-b').value = question.options?.b || '';
+                    document.getElementById('option-c').value = question.options?.c || '';
+                    document.getElementById('option-d').value = question.options?.d || '';
+                    document.getElementById('correct-answer').value = question.correctAnswer || 'a';
+                }
+            });
+    } else {
+        // Modo criação
+        title.textContent = 'Adicionar Nova Questão';
+        // Limpar campos
+        document.getElementById('question-text').value = '';
+        document.getElementById('question-category').value = '';
+        document.getElementById('option-a').value = '';
+        document.getElementById('option-b').value = '';
+        document.getElementById('option-c').value = '';
+        document.getElementById('option-d').value = '';
+        document.getElementById('correct-answer').value = 'a';
+    }
     
-    if (!['a', 'b', 'c', 'd'].includes(correctAnswer)) {
-        alert('Resposta correta deve ser A, B, C ou D.');
+    modal.classList.remove('hidden');
+}
+
+// Fechar modal da questão
+function closeQuestionModal() {
+    document.getElementById('question-modal').classList.add('hidden');
+    editingQuestionId = null;
+}
+
+// Salvar questão
+function saveQuestion() {
+    const text = document.getElementById('question-text').value;
+    const category = document.getElementById('question-category').value;
+    const optionA = document.getElementById('option-a').value;
+    const optionB = document.getElementById('option-b').value;
+    const optionC = document.getElementById('option-c').value;
+    const optionD = document.getElementById('option-d').value;
+    const correctAnswer = document.getElementById('correct-answer').value;
+    
+    if (!text || !optionA || !optionB || !optionC || !optionD || !correctAnswer) {
+        alert('Por favor, preencha todos os campos.');
         return;
     }
     
-    db.collection('questions').add({
+    const questionData = {
         text: text,
+        category: category || 'Geral',
         options: {
             a: optionA,
             b: optionB,
@@ -1155,27 +1435,39 @@ function createQuestion() {
             d: optionD
         },
         correctAnswer: correctAnswer,
-        category: category || 'Geral',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
-    .then(() => {
-        alert('Questão criada com sucesso!');
-        loadAdminQuestions();
-    })
-    .catch(error => {
-        alert('Erro ao criar questão: ' + error.message);
-    });
-}
-
-// Editar questão
-function editQuestion(questionId) {
-    alert('Funcionalidade de edição em desenvolvimento. Questão ID: ' + questionId);
+    };
+    
+    if (editingQuestionId) {
+        // Atualizar questão existente
+        db.collection('questions').doc(editingQuestionId).update(questionData)
+            .then(() => {
+                alert('Questão atualizada com sucesso!');
+                closeQuestionModal();
+                loadAdminQuestions();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar questão: ' + error.message);
+            });
+    } else {
+        // Criar nova questão
+        questionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        
+        db.collection('questions').add(questionData)
+            .then(() => {
+                alert('Questão criada com sucesso!');
+                closeQuestionModal();
+                loadAdminQuestions();
+            })
+            .catch(error => {
+                alert('Erro ao criar questão: ' + error.message);
+            });
+    }
 }
 
 // Excluir questão
 function deleteQuestion(questionId) {
-    if (confirm('Tem certeza que deseja excluir esta questão?')) {
+    if (confirm('Tem certeza que deseja excluir esta questão? Esta ação não pode ser desfeita.')) {
         db.collection('questions').doc(questionId).delete()
         .then(() => {
             alert('Questão excluída com sucesso!');
@@ -1187,9 +1479,71 @@ function deleteQuestion(questionId) {
     }
 }
 
+// Abrir modal de importação
+function openImportModal() {
+    document.getElementById('import-modal').classList.remove('hidden');
+}
+
+// Fechar modal de importação
+function closeImportModal() {
+    document.getElementById('import-modal').classList.add('hidden');
+}
+
 // Importar questões de JSON
 function importQuestions() {
-    alert('Funcionalidade de importação em desenvolvimento');
+    const jsonData = document.getElementById('json-data').value;
+    
+    if (!jsonData) {
+        alert('Por favor, cole o JSON com as questões.');
+        return;
+    }
+    
+    try {
+        const questions = JSON.parse(jsonData);
+        
+        if (!Array.isArray(questions)) {
+            alert('O JSON deve ser um array de questões.');
+            return;
+        }
+        
+        let importedCount = 0;
+        let errorCount = 0;
+        
+        // Importar cada questão
+        questions.forEach(question => {
+            if (question.text && question.options && question.correctAnswer) {
+                const questionData = {
+                    text: question.text,
+                    options: question.options,
+                    correctAnswer: question.correctAnswer.toLowerCase(),
+                    category: question.category || 'Geral',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                db.collection('questions').add(questionData)
+                    .then(() => {
+                        importedCount++;
+                    })
+                    .catch(error => {
+                        errorCount++;
+                        console.error('Erro ao importar questão:', error);
+                    });
+            } else {
+                errorCount++;
+            }
+        });
+        
+        // Aguardar um pouco para processar todas as importações
+        setTimeout(() => {
+            alert(`Importação concluída!\nQuestões importadas: ${importedCount}\nErros: ${errorCount}`);
+            closeImportModal();
+            loadAdminQuestions();
+        }, 2000);
+        
+    } catch (error) {
+        alert('Erro ao processar JSON: ' + error.message);
+    }
 }
 
 // Carregar usuários para administrador
@@ -1199,6 +1553,7 @@ function loadAdminUsers() {
     
     // Buscar todos os usuários
     db.collection('users')
+        .orderBy('createdAt', 'desc')
         .get()
         .then(querySnapshot => {
             usersList.innerHTML = '';
@@ -1253,7 +1608,7 @@ function createAdminUserCard(user) {
 
 // Excluir usuário
 function deleteUser(userId) {
-    if (confirm('Tem certeza que deseja excluir este usuário?')) {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
         // Excluir do Firestore
         db.collection('users').doc(userId).delete()
         .then(() => {
@@ -1268,25 +1623,259 @@ function deleteUser(userId) {
 
 // Carregar relatórios para administrador
 function loadAdminReports() {
-    // Implementação básica - pode ser expandida com gráficos e estatísticas
     const reportsContent = document.getElementById('admin-reports-content');
-    reportsContent.innerHTML = `
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Estatísticas Gerais</h3>
+    reportsContent.innerHTML = '<div class="card"><div class="card-content">Carregando relatórios...</div></div>';
+    
+    // Buscar estatísticas
+    Promise.all([
+        db.collection('users').get(),
+        db.collection('quizzes').get(),
+        db.collection('questions').get(),
+        db.collection('userQuizzes')
+            .where('status', '==', 'completed')
+            .get()
+    ]).then(([usersSnapshot, quizzesSnapshot, questionsSnapshot, userQuizzesSnapshot]) => {
+        
+        const totalUsers = usersSnapshot.size;
+        const totalQuizzes = quizzesSnapshot.size;
+        const totalQuestions = questionsSnapshot.size;
+        const totalAttempts = userQuizzesSnapshot.size;
+        
+        // Calcular média de pontuação
+        let totalScore = 0;
+        let totalPossibleScore = 0;
+        userQuizzesSnapshot.forEach(doc => {
+            const userQuiz = doc.data();
+            totalScore += userQuiz.score || 0;
+            
+            // Buscar quiz para obter o número total de questões
+            db.collection('quizzes').doc(userQuiz.quizId).get()
+                .then(quizDoc => {
+                    if (quizDoc.exists) {
+                        const quiz = quizDoc.data();
+                        totalPossibleScore += quiz.questionsCount || 0;
+                    }
+                });
+        });
+        
+        const averageScore = totalAttempts > 0 ? (totalScore / totalPossibleScore * 100).toFixed(1) : 0;
+        
+        reportsContent.innerHTML = `
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Estatísticas Gerais</h3>
+                </div>
+                <div class="card-content">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">${totalUsers}</div>
+                            <div class="stat-label">Usuários Cadastrados</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${totalQuizzes}</div>
+                            <div class="stat-label">Quizzes Criados</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${totalQuestions}</div>
+                            <div class="stat-label">Questões no Banco</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${totalAttempts}</div>
+                            <div class="stat-label">Tentativas de Quiz</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${averageScore}%</div>
+                            <div class="stat-label">Pontuação Média</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-content">
-                <p>Relatórios detalhados em desenvolvimento.</p>
-                <p>Esta seção pode incluir:</p>
-                <ul>
-                    <li>Gráficos de desempenho dos alunos</li>
-                    <li>Estatísticas de uso do sistema</li>
-                    <li>Relatórios de quizzes mais populares</li>
-                    <li>Análise de questões mais difíceis/fáceis</li>
-                </ul>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Quizzes Mais Populares</h3>
+                </div>
+                <div class="card-content">
+                    <div id="popular-quizzes" class="popular-list">
+                        Carregando...
+                    </div>
+                </div>
             </div>
-        </div>
-    `;
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Melhores Jogadores</h3>
+                </div>
+                <div class="card-content">
+                    <div id="top-players" class="ranking-list">
+                        Carregando...
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        loadPopularQuizzes();
+        loadTopPlayers();
+        
+    }).catch(error => {
+        reportsContent.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar relatórios.</div></div>';
+        console.error('Erro ao carregar relatórios:', error);
+    });
+}
+
+// Carregar quizzes populares
+function loadPopularQuizzes() {
+    const popularQuizzesElement = document.getElementById('popular-quizzes');
+    
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(userQuizzesSnapshot => {
+            const quizAttempts = {};
+            
+            // Contar tentativas por quiz
+            userQuizzesSnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const quizId = userQuiz.quizId;
+                
+                if (!quizAttempts[quizId]) {
+                    quizAttempts[quizId] = {
+                        attempts: 0,
+                        totalScore: 0,
+                        quizId: quizId
+                    };
+                }
+                
+                quizAttempts[quizId].attempts++;
+                quizAttempts[quizId].totalScore += userQuiz.score || 0;
+            });
+            
+            // Buscar informações dos quizzes
+            const quizIds = Object.keys(quizAttempts);
+            
+            if (quizIds.length === 0) {
+                popularQuizzesElement.innerHTML = '<p>Nenhum quiz foi realizado ainda.</p>';
+                return;
+            }
+            
+            db.collection('quizzes')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
+                .get()
+                .then(quizzesSnapshot => {
+                    const quizzesMap = {};
+                    quizzesSnapshot.forEach(doc => {
+                        quizzesMap[doc.id] = doc.data();
+                    });
+                    
+                    // Criar lista ordenada por tentativas
+                    const popularList = Object.values(quizAttempts)
+                        .sort((a, b) => b.attempts - a.attempts)
+                        .slice(0, 5);
+                    
+                    let html = '';
+                    popularList.forEach((item, index) => {
+                        const quiz = quizzesMap[item.quizId];
+                        if (quiz) {
+                            const avgScore = item.attempts > 0 ? (item.totalScore / item.attempts).toFixed(1) : 0;
+                            html += `
+                                <div class="popular-item">
+                                    <div class="popular-rank">${index + 1}</div>
+                                    <div class="popular-info">
+                                        <div class="popular-name">${quiz.title}</div>
+                                        <div class="popular-details">
+                                            ${item.attempts} tentativas • Média: ${avgScore} pts
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    popularQuizzesElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
+                });
+        })
+        .catch(error => {
+            popularQuizzesElement.innerHTML = '<p>Erro ao carregar dados.</p>';
+            console.error('Erro ao carregar quizzes populares:', error);
+        });
+}
+
+// Carregar melhores jogadores
+function loadTopPlayers() {
+    const topPlayersElement = document.getElementById('top-players');
+    
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(userQuizzesSnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            userQuizzesSnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter para array e ordenar
+            const topPlayers = Object.values(userScores)
+                .sort((a, b) => b.totalScore - a.totalScore)
+                .slice(0, 10);
+            
+            // Buscar informações dos usuários
+            const userIds = topPlayers.map(player => player.userId);
+            
+            if (userIds.length === 0) {
+                topPlayersElement.innerHTML = '<p>Nenhum jogador com pontuação ainda.</p>';
+                return;
+            }
+            
+            db.collection('users')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds)
+                .get()
+                .then(usersSnapshot => {
+                    const usersMap = {};
+                    usersSnapshot.forEach(doc => {
+                        usersMap[doc.id] = doc.data();
+                    });
+                    
+                    let html = '';
+                    topPlayers.forEach((player, index) => {
+                        const user = usersMap[player.userId];
+                        if (user) {
+                            const avgScore = player.totalQuizzes > 0 ? (player.totalScore / player.totalQuizzes).toFixed(1) : 0;
+                            html += `
+                                <div class="ranking-item">
+                                    <div class="ranking-position">${index + 1}</div>
+                                    <div class="ranking-info">
+                                        <div class="ranking-name">${user.name}</div>
+                                        <div class="ranking-details">
+                                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts
+                                        </div>
+                                    </div>
+                                    <div class="ranking-score">${player.totalScore} pts</div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    topPlayersElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
+                });
+        })
+        .catch(error => {
+            topPlayersElement.innerHTML = '<p>Erro ao carregar dados.</p>';
+            console.error('Erro ao carregar melhores jogadores:', error);
+        });
 }
 
 // ===============================
@@ -1358,11 +1947,13 @@ function loadRanking() {
                             rankingItem.style.borderLeft = '4px solid var(--primary-color)';
                         }
                         
+                        const avgScore = item.totalQuizzes > 0 ? (item.totalScore / item.totalQuizzes).toFixed(1) : 0;
+                        
                         rankingItem.innerHTML = `
                             <div class="ranking-position">${index + 1}</div>
                             <div class="ranking-info">
                                 <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
-                                <div class="ranking-details">${item.totalQuizzes} quiz(s) realizado(s)</div>
+                                <div class="ranking-details">${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts</div>
                             </div>
                             <div class="ranking-score">${item.totalScore} pts</div>
                         `;
@@ -1422,27 +2013,70 @@ function loadUserHistory() {
                             const historyCard = document.createElement('div');
                             historyCard.className = 'card';
                             
+                            // Determinar cor do badge baseado na performance
+                            let badgeClass = 'card-badge';
+                            if (userQuiz.percentage >= 80) {
+                                badgeClass += ' success';
+                            } else if (userQuiz.percentage >= 60) {
+                                badgeClass += ' warning';
+                            } else {
+                                badgeClass += ' danger';
+                            }
+                            
+                            const minutes = Math.floor(userQuiz.timeTaken / 60);
+                            const seconds = userQuiz.timeTaken % 60;
+                            const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                            
                             historyCard.innerHTML = `
                                 <div class="card-header">
                                     <h3 class="card-title">${quiz.title}</h3>
-                                    <span class="card-badge">${userQuiz.percentage.toFixed(1)}%</span>
+                                    <span class="${badgeClass}">${userQuiz.percentage.toFixed(1)}%</span>
                                 </div>
                                 <div class="card-content">
                                     <p>${quiz.description || 'Sem descrição'}</p>
-                                    <p><strong>Pontuação:</strong> ${userQuiz.score}/${quiz.questionsCount}</p>
-                                    <p><strong>Concluído em:</strong> ${userQuiz.completedAt.toDate().toLocaleDateString('pt-BR')}</p>
+                                    <div class="history-details">
+                                        <div class="detail">
+                                            <strong>Pontuação:</strong> ${userQuiz.score}/${quiz.questionsCount}
+                                        </div>
+                                        <div class="detail">
+                                            <strong>Tempo:</strong> ${timeText}
+                                        </div>
+                                        <div class="detail">
+                                            <strong>Concluído em:</strong> ${userQuiz.completedAt.toDate().toLocaleDateString('pt-BR')}
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="card-actions">
-                                    <button class="btn btn-primary" data-quiz-id="${quizId}">
+                                    <button class="btn btn-primary view-details" data-quiz-id="${quizId}">
                                         <i class="fas fa-chart-bar"></i>
                                         <span class="btn-text">Ver Detalhes</span>
+                                    </button>
+                                    <button class="btn btn-secondary review-answers" data-quiz-id="${quizId}">
+                                        <i class="fas fa-redo"></i>
+                                        <span class="btn-text">Revisar</span>
                                     </button>
                                 </div>
                             `;
                             
-                            const button = historyCard.querySelector('button');
-                            button.addEventListener('click', () => {
+                            const viewButton = historyCard.querySelector('.view-details');
+                            viewButton.addEventListener('click', () => {
                                 showQuizResult(quizId);
+                            });
+                            
+                            const reviewButton = historyCard.querySelector('.review-answers');
+                            reviewButton.addEventListener('click', () => {
+                                // Buscar questões e respostas para revisão
+                                db.collection('userQuizzes')
+                                    .where('userId', '==', currentUser.uid)
+                                    .where('quizId', '==', quizId)
+                                    .get()
+                                    .then(querySnapshot => {
+                                        if (!querySnapshot.empty) {
+                                            const userQuiz = querySnapshot.docs[0].data();
+                                            userAnswers = userQuiz.answers || [];
+                                            showReviewModal();
+                                        }
+                                    });
                             });
                             
                             historyList.appendChild(historyCard);
