@@ -25,6 +25,7 @@ let totalTime = 0;
 let userQuizId = null;
 let editingQuizId = null;
 let editingQuestionId = null;
+let editingUserId = null;
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -242,6 +243,7 @@ function registerUser(name, email, password, userType) {
                 name: name,
                 email: email,
                 userType: userType,
+                status: 'active',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -400,6 +402,11 @@ function initModals() {
     // Modal de revisão
     document.getElementById('close-review-modal').addEventListener('click', closeReviewModal);
     document.getElementById('close-review').addEventListener('click', closeReviewModal);
+    
+    // Modal do usuário
+    document.getElementById('close-user-modal').addEventListener('click', closeUserModal);
+    document.getElementById('cancel-user').addEventListener('click', closeUserModal);
+    document.getElementById('save-user').addEventListener('click', saveUser);
     
     // Fechar modais ao clicar fora
     document.querySelectorAll('.modal').forEach(modal => {
@@ -1083,6 +1090,27 @@ function closeReviewModal() {
 // FUNÇÕES DO ADMINISTRADOR
 // ===============================
 
+// Carregar categorias das questões
+function loadCategories() {
+    return db.collection('questions').get()
+        .then(querySnapshot => {
+            const categories = new Set(['Geral']); // Categoria padrão
+            
+            querySnapshot.forEach(doc => {
+                const question = doc.data();
+                if (question.category && question.category.trim() !== '') {
+                    categories.add(question.category);
+                }
+            });
+            
+            return Array.from(categories).sort();
+        })
+        .catch(error => {
+            console.error('Erro ao carregar categorias:', error);
+            return ['Geral'];
+        });
+}
+
 // Carregar quizzes para administrador
 function loadAdminQuizzes() {
     const quizzesList = document.getElementById('admin-quizzes-list');
@@ -1166,35 +1194,44 @@ function openQuizModal(quizId = null) {
     editingQuizId = quizId;
     const modal = document.getElementById('quiz-modal');
     const title = document.getElementById('quiz-modal-title');
+    const categorySelect = document.getElementById('quiz-category');
     
-    if (quizId) {
-        // Modo edição
-        title.textContent = 'Editar Quiz';
+    // Carregar categorias
+    loadCategories().then(categories => {
+        categorySelect.innerHTML = '<option value="">Selecione uma categoria</option>';
+        categories.forEach(category => {
+            categorySelect.innerHTML += `<option value="${category}">${category}</option>`;
+        });
         
-        // Carregar dados do quiz
-        db.collection('quizzes').doc(quizId).get()
-            .then(doc => {
-                if (doc.exists) {
-                    const quiz = doc.data();
-                    document.getElementById('quiz-title').value = quiz.title;
-                    document.getElementById('quiz-description').value = quiz.description || '';
-                    document.getElementById('quiz-category').value = quiz.category || '';
-                    document.getElementById('quiz-questions-count').value = quiz.questionsCount;
-                    document.getElementById('quiz-time').value = quiz.time;
-                }
-            });
-    } else {
-        // Modo criação
-        title.textContent = 'Criar Novo Quiz';
-        // Limpar campos
-        document.getElementById('quiz-title').value = '';
-        document.getElementById('quiz-description').value = '';
-        document.getElementById('quiz-category').value = '';
-        document.getElementById('quiz-questions-count').value = '';
-        document.getElementById('quiz-time').value = '';
-    }
-    
-    modal.classList.remove('hidden');
+        if (quizId) {
+            // Modo edição
+            title.textContent = 'Editar Quiz';
+            
+            // Carregar dados do quiz
+            db.collection('quizzes').doc(quizId).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const quiz = doc.data();
+                        document.getElementById('quiz-title').value = quiz.title;
+                        document.getElementById('quiz-description').value = quiz.description || '';
+                        document.getElementById('quiz-category').value = quiz.category || '';
+                        document.getElementById('quiz-questions-count').value = quiz.questionsCount;
+                        document.getElementById('quiz-time').value = quiz.time;
+                    }
+                });
+        } else {
+            // Modo criação
+            title.textContent = 'Criar Novo Quiz';
+            // Limpar campos
+            document.getElementById('quiz-title').value = '';
+            document.getElementById('quiz-description').value = '';
+            document.getElementById('quiz-category').value = '';
+            document.getElementById('quiz-questions-count').value = '';
+            document.getElementById('quiz-time').value = '';
+        }
+        
+        modal.classList.remove('hidden');
+    });
 }
 
 // Fechar modal do quiz
@@ -1314,7 +1351,7 @@ function loadAdminQuestions() {
 // Criar card de questão para administrador
 function createAdminQuestionCard(question) {
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card question-card';
     
     card.innerHTML = `
         <div class="card-header">
@@ -1323,27 +1360,33 @@ function createAdminQuestionCard(question) {
         </div>
         <div class="card-content">
             <p><strong>Enunciado:</strong> ${question.text}</p>
-            <div class="options-grid">
-                <div class="option-item ${question.correctAnswer === 'a' ? 'correct-option' : ''}">
-                    <strong>A:</strong> ${question.options?.a || 'N/A'}
+            <div class="question-options" style="display: none;">
+                <div class="options-grid">
+                    <div class="option-item ${question.correctAnswer === 'a' ? 'correct-option' : ''}">
+                        <strong>A:</strong> ${question.options?.a || 'N/A'}
+                    </div>
+                    <div class="option-item ${question.correctAnswer === 'b' ? 'correct-option' : ''}">
+                        <strong>B:</strong> ${question.options?.b || 'N/A'}
+                    </div>
+                    <div class="option-item ${question.correctAnswer === 'c' ? 'correct-option' : ''}">
+                        <strong>C:</strong> ${question.options?.c || 'N/A'}
+                    </div>
+                    <div class="option-item ${question.correctAnswer === 'd' ? 'correct-option' : ''}">
+                        <strong>D:</strong> ${question.options?.d || 'N/A'}
+                    </div>
                 </div>
-                <div class="option-item ${question.correctAnswer === 'b' ? 'correct-option' : ''}">
-                    <strong>B:</strong> ${question.options?.b || 'N/A'}
-                </div>
-                <div class="option-item ${question.correctAnswer === 'c' ? 'correct-option' : ''}">
-                    <strong>C:</strong> ${question.options?.c || 'N/A'}
-                </div>
-                <div class="option-item ${question.correctAnswer === 'd' ? 'correct-option' : ''}">
-                    <strong>D:</strong> ${question.options?.d || 'N/A'}
-                </div>
+                <p><strong>Resposta correta:</strong> <span class="correct-answer">${question.correctAnswer?.toUpperCase() || 'N/A'}</span></p>
             </div>
-            <p><strong>Resposta correta:</strong> <span class="correct-answer">${question.correctAnswer?.toUpperCase() || 'N/A'}</span></p>
             <p><strong>Criada em:</strong> ${question.createdAt ? question.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
             <button class="btn btn-primary edit-question" data-question-id="${question.id}">
                 <i class="fas fa-edit"></i>
                 <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-info toggle-options">
+                <i class="fas fa-eye"></i>
+                <span class="btn-text">Mostrar Opções</span>
             </button>
             <button class="btn btn-danger delete-question" data-question-id="${question.id}">
                 <i class="fas fa-trash"></i>
@@ -1353,6 +1396,23 @@ function createAdminQuestionCard(question) {
     `;
     
     // Adicionar event listeners aos botões
+    const toggleBtn = card.querySelector('.toggle-options');
+    const optionsDiv = card.querySelector('.question-options');
+    
+    toggleBtn.addEventListener('click', () => {
+        if (optionsDiv.style.display === 'none') {
+            optionsDiv.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-eye-slash"></i><span class="btn-text">Ocultar Opções</span>';
+            toggleBtn.classList.remove('btn-info');
+            toggleBtn.classList.add('btn-secondary');
+        } else {
+            optionsDiv.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-eye"></i><span class="btn-text">Mostrar Opções</span>';
+            toggleBtn.classList.remove('btn-secondary');
+            toggleBtn.classList.add('btn-info');
+        }
+    });
+    
     card.querySelector('.edit-question').addEventListener('click', () => {
         openQuestionModal(question.id);
     });
@@ -1580,17 +1640,30 @@ function createAdminUserCard(user) {
     const card = document.createElement('div');
     card.className = 'card';
     
+    const statusBadge = user.status === 'active' ? 
+        '<span class="card-badge">Ativo</span>' : 
+        '<span class="card-badge card-badge-secondary">Inativo</span>';
+    
     card.innerHTML = `
         <div class="card-header">
             <h3 class="card-title">${user.name}</h3>
-            <span class="card-badge ${user.userType === 'admin' ? '' : 'card-badge-secondary'}">${user.userType === 'admin' ? 'Administrador' : 'Aluno'}</span>
+            ${statusBadge}
         </div>
         <div class="card-content">
             <p><strong>E-mail:</strong> ${user.email}</p>
             <p><strong>Tipo:</strong> ${user.userType}</p>
+            <p><strong>Status:</strong> ${user.status === 'active' ? 'Ativo' : 'Inativo'}</p>
             <p><strong>Cadastrado em:</strong> ${user.createdAt ? user.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
+            <button class="btn btn-primary edit-user" data-user-id="${user.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-secondary toggle-user" data-user-id="${user.id}" data-status="${user.status}">
+                <i class="fas fa-power-off"></i>
+                <span class="btn-text">${user.status === 'active' ? 'Desativar' : 'Ativar'}</span>
+            </button>
             <button class="btn btn-danger delete-user" data-user-id="${user.id}">
                 <i class="fas fa-trash"></i>
                 <span class="btn-text">Excluir</span>
@@ -1598,12 +1671,101 @@ function createAdminUserCard(user) {
         </div>
     `;
     
-    // Adicionar event listener ao botão de excluir
+    // Adicionar event listeners aos botões
+    card.querySelector('.edit-user').addEventListener('click', () => {
+        openUserModal(user.id);
+    });
+    
+    card.querySelector('.toggle-user').addEventListener('click', () => {
+        toggleUserStatus(user.id, user.status === 'active' ? 'inactive' : 'active');
+    });
+    
     card.querySelector('.delete-user').addEventListener('click', () => {
         deleteUser(user.id);
     });
     
     return card;
+}
+
+// Abrir modal do usuário
+function openUserModal(userId = null) {
+    editingUserId = userId;
+    const modal = document.getElementById('user-modal');
+    const title = document.getElementById('user-modal-title');
+    
+    if (userId) {
+        // Modo edição
+        title.textContent = 'Editar Usuário';
+        
+        // Carregar dados do usuário
+        db.collection('users').doc(userId).get()
+            .then(doc => {
+                if (doc.exists) {
+                    const user = doc.data();
+                    document.getElementById('user-name').value = user.name;
+                    document.getElementById('user-email').value = user.email;
+                    document.getElementById('user-type').value = user.userType;
+                    document.getElementById('user-status').value = user.status || 'active';
+                }
+            });
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+// Fechar modal do usuário
+function closeUserModal() {
+    document.getElementById('user-modal').classList.add('hidden');
+    editingUserId = null;
+}
+
+// Salvar usuário
+function saveUser() {
+    const name = document.getElementById('user-name').value;
+    const email = document.getElementById('user-email').value;
+    const userType = document.getElementById('user-type').value;
+    const status = document.getElementById('user-status').value;
+    
+    if (!name || !email) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    const userData = {
+        name: name,
+        email: email,
+        userType: userType,
+        status: status,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (editingUserId) {
+        // Atualizar usuário existente
+        db.collection('users').doc(editingUserId).update(userData)
+            .then(() => {
+                alert('Usuário atualizado com sucesso!');
+                closeUserModal();
+                loadAdminUsers();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar usuário: ' + error.message);
+            });
+    }
+}
+
+// Alternar status do usuário
+function toggleUserStatus(userId, newStatus) {
+    db.collection('users').doc(userId).update({
+        status: newStatus,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        alert('Status do usuário atualizado com sucesso!');
+        loadAdminUsers();
+    })
+    .catch(error => {
+        alert('Erro ao atualizar status do usuário: ' + error.message);
+    });
 }
 
 // Excluir usuário
@@ -1693,18 +1855,25 @@ function loadAdminReports() {
             
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Quizzes Mais Populares</h3>
+                    <h3 class="card-title">Distribuição de Desempenho</h3>
                 </div>
                 <div class="card-content">
-                    <div id="popular-quizzes" class="popular-list">
-                        Carregando...
-                    </div>
+                    <canvas id="performanceChart" width="400" height="200"></canvas>
                 </div>
             </div>
             
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Melhores Jogadores</h3>
+                    <h3 class="card-title">Quizzes Mais Populares</h3>
+                </div>
+                <div class="card-content">
+                    <canvas id="popularityChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Top 10 Melhores Jogadores</h3>
                 </div>
                 <div class="card-content">
                     <div id="top-players" class="ranking-list">
@@ -1712,10 +1881,23 @@ function loadAdminReports() {
                     </div>
                 </div>
             </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Todos os Alunos com Desempenho</h3>
+                </div>
+                <div class="card-content">
+                    <div id="all-students" class="ranking-list">
+                        Carregando...
+                    </div>
+                </div>
+            </div>
         `;
         
-        loadPopularQuizzes();
+        loadPerformanceChart();
+        loadPopularityChart();
         loadTopPlayers();
+        loadAllStudents();
         
     }).catch(error => {
         reportsContent.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar relatórios.</div></div>';
@@ -1723,10 +1905,66 @@ function loadAdminReports() {
     });
 }
 
-// Carregar quizzes populares
-function loadPopularQuizzes() {
-    const popularQuizzesElement = document.getElementById('popular-quizzes');
-    
+// Carregar gráfico de desempenho
+function loadPerformanceChart() {
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const performanceRanges = {
+                '0-20%': 0,
+                '21-40%': 0,
+                '41-60%': 0,
+                '61-80%': 0,
+                '81-100%': 0
+            };
+            
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const percentage = userQuiz.percentage || 0;
+                
+                if (percentage <= 20) performanceRanges['0-20%']++;
+                else if (percentage <= 40) performanceRanges['21-40%']++;
+                else if (percentage <= 60) performanceRanges['41-60%']++;
+                else if (percentage <= 80) performanceRanges['61-80%']++;
+                else performanceRanges['81-100%']++;
+            });
+            
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(performanceRanges),
+                    datasets: [{
+                        label: 'Número de Tentativas',
+                        data: Object.values(performanceRanges),
+                        backgroundColor: [
+                            '#dc3545',
+                            '#ffc107',
+                            '#17a2b8',
+                            '#28a745',
+                            '#007bff'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Erro ao carregar gráfico de desempenho:', error);
+        });
+}
+
+// Carregar gráfico de popularidade
+function loadPopularityChart() {
     db.collection('userQuizzes')
         .where('status', '==', 'completed')
         .get()
@@ -1741,20 +1979,17 @@ function loadPopularQuizzes() {
                 if (!quizAttempts[quizId]) {
                     quizAttempts[quizId] = {
                         attempts: 0,
-                        totalScore: 0,
                         quizId: quizId
                     };
                 }
                 
                 quizAttempts[quizId].attempts++;
-                quizAttempts[quizId].totalScore += userQuiz.score || 0;
             });
             
             // Buscar informações dos quizzes
             const quizIds = Object.keys(quizAttempts);
             
             if (quizIds.length === 0) {
-                popularQuizzesElement.innerHTML = '<p>Nenhum quiz foi realizado ainda.</p>';
                 return;
             }
             
@@ -1762,41 +1997,45 @@ function loadPopularQuizzes() {
                 .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
                 .get()
                 .then(quizzesSnapshot => {
-                    const quizzesMap = {};
+                    const quizData = [];
                     quizzesSnapshot.forEach(doc => {
-                        quizzesMap[doc.id] = doc.data();
+                        const quiz = doc.data();
+                        const attempts = quizAttempts[doc.id].attempts;
+                        quizData.push({
+                            title: quiz.title,
+                            attempts: attempts
+                        });
                     });
                     
-                    // Criar lista ordenada por tentativas
-                    const popularList = Object.values(quizAttempts)
-                        .sort((a, b) => b.attempts - a.attempts)
-                        .slice(0, 5);
+                    // Ordenar por tentativas e pegar os top 5
+                    quizData.sort((a, b) => b.attempts - a.attempts).splice(5);
                     
-                    let html = '';
-                    popularList.forEach((item, index) => {
-                        const quiz = quizzesMap[item.quizId];
-                        if (quiz) {
-                            const avgScore = item.attempts > 0 ? (item.totalScore / item.attempts).toFixed(1) : 0;
-                            html += `
-                                <div class="popular-item">
-                                    <div class="popular-rank">${index + 1}</div>
-                                    <div class="popular-info">
-                                        <div class="popular-name">${quiz.title}</div>
-                                        <div class="popular-details">
-                                            ${item.attempts} tentativas • Média: ${avgScore} pts
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
+                    const ctx = document.getElementById('popularityChart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: quizData.map(q => q.title),
+                            datasets: [{
+                                label: 'Tentativas',
+                                data: quizData.map(q => q.attempts),
+                                backgroundColor: [
+                                    '#007bff',
+                                    '#28a745',
+                                    '#ffc107',
+                                    '#dc3545',
+                                    '#6f42c1'
+                                ],
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            responsive: true
                         }
                     });
-                    
-                    popularQuizzesElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
                 });
         })
         .catch(error => {
-            popularQuizzesElement.innerHTML = '<p>Erro ao carregar dados.</p>';
-            console.error('Erro ao carregar quizzes populares:', error);
+            console.error('Erro ao carregar gráfico de popularidade:', error);
         });
 }
 
@@ -1875,6 +2114,92 @@ function loadTopPlayers() {
         .catch(error => {
             topPlayersElement.innerHTML = '<p>Erro ao carregar dados.</p>';
             console.error('Erro ao carregar melhores jogadores:', error);
+        });
+}
+
+// Carregar todos os alunos com desempenho
+function loadAllStudents() {
+    const allStudentsElement = document.getElementById('all-students');
+    
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(userQuizzesSnapshot => {
+            const userStats = {};
+            
+            // Calcular estatísticas por usuário
+            userQuizzesSnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.quizId;
+                
+                if (!userStats[userId]) {
+                    userStats[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        bestScore: 0,
+                        userId: userId
+                    };
+                }
+                
+                userStats[userId].totalScore += userQuiz.score || 0;
+                userStats[userId].totalQuizzes += 1;
+                userStats[userId].bestScore = Math.max(userStats[userId].bestScore, userQuiz.percentage || 0);
+            });
+            
+            // Buscar informações dos usuários (apenas alunos)
+            const userIds = Object.keys(userStats);
+            
+            if (userIds.length === 0) {
+                allStudentsElement.innerHTML = '<p>Nenhum aluno com desempenho registrado.</p>';
+                return;
+            }
+            
+            db.collection('users')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds)
+                .where('userType', '==', 'aluno')
+                .get()
+                .then(usersSnapshot => {
+                    const students = [];
+                    usersSnapshot.forEach(doc => {
+                        const user = doc.data();
+                        const stats = userStats[doc.id];
+                        if (stats) {
+                            const avgScore = stats.totalQuizzes > 0 ? (stats.totalScore / stats.totalQuizzes).toFixed(1) : 0;
+                            students.push({
+                                name: user.name,
+                                email: user.email,
+                                totalQuizzes: stats.totalQuizzes,
+                                averageScore: avgScore,
+                                bestScore: stats.bestScore.toFixed(1)
+                            });
+                        }
+                    });
+                    
+                    // Ordenar por melhor pontuação
+                    students.sort((a, b) => b.bestScore - a.bestScore);
+                    
+                    let html = '';
+                    students.forEach((student, index) => {
+                        html += `
+                            <div class="ranking-item">
+                                <div class="ranking-position">${index + 1}</div>
+                                <div class="ranking-info">
+                                    <div class="ranking-name">${student.name}</div>
+                                    <div class="ranking-details">
+                                        ${student.totalQuizzes} quiz(s) • Melhor: ${student.bestScore}%
+                                    </div>
+                                </div>
+                                <div class="ranking-score">${student.averageScore} pts</div>
+                            </div>
+                        `;
+                    });
+                    
+                    allStudentsElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
+                });
+        })
+        .catch(error => {
+            allStudentsElement.innerHTML = '<p>Erro ao carregar dados dos alunos.</p>';
+            console.error('Erro ao carregar todos os alunos:', error);
         });
 }
 
@@ -2042,7 +2367,7 @@ function loadUserHistory() {
                                             <strong>Tempo:</strong> ${timeText}
                                         </div>
                                         <div class="detail">
-                                            <strong>Concluído em:</strong> ${userQuiz.completedAt.toDate().toLocaleDateString('pt-BR')}
+                                            <strong>Concluído em:</strong> ${userQuiz.completedAt ? userQuiz.completedAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}
                                         </div>
                                     </div>
                                 </div>
@@ -2074,7 +2399,9 @@ function loadUserHistory() {
                                         if (!querySnapshot.empty) {
                                             const userQuiz = querySnapshot.docs[0].data();
                                             userAnswers = userQuiz.answers || [];
-                                            showReviewModal();
+                                            
+                                            // Buscar questões do quiz para revisão
+                                            loadQuizQuestionsForReview(quizId, userQuiz);
                                         }
                                     });
                             });
@@ -2082,10 +2409,54 @@ function loadUserHistory() {
                             historyList.appendChild(historyCard);
                         }
                     });
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar quizzes:', error);
+                    historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
                 });
         })
         .catch(error => {
-            historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
             console.error('Erro ao carregar histórico:', error);
+            historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
+        });
+}
+
+// Carregar questões para revisão
+function loadQuizQuestionsForReview(quizId, userQuiz) {
+    db.collection('quizzes').doc(quizId).get()
+        .then(quizDoc => {
+            if (quizDoc.exists) {
+                const quiz = quizDoc.data();
+                
+                // Buscar questões da mesma categoria
+                let questionsQuery = db.collection('questions');
+                if (quiz.category && quiz.category.trim() !== '') {
+                    questionsQuery = questionsQuery.where('category', '==', quiz.category);
+                }
+                
+                questionsQuery.get()
+                    .then(querySnapshot => {
+                        const allQuestions = [];
+                        querySnapshot.forEach(doc => {
+                            allQuestions.push({ id: doc.id, ...doc.data() });
+                        });
+                        
+                        // Selecionar questões aleatórias (simulando o quiz original)
+                        const shuffledQuestions = [...allQuestions];
+                        for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+                        }
+                        
+                        currentQuestions = shuffledQuestions.slice(0, quiz.questionsCount);
+                        userAnswers = userQuiz.answers || [];
+                        
+                        showReviewModal();
+                    });
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar questões para revisão:', error);
+            alert('Erro ao carregar questões para revisão.');
         });
 }
