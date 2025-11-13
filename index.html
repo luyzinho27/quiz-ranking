@@ -45,9 +45,10 @@
                         <i class="fas fa-envelope"></i>
                         <input type="email" id="login-email" placeholder="E-mail" required>
                     </div>
-                    <div class="input-group">
+                    <div class="input-group password-group">
                         <i class="fas fa-lock"></i>
                         <input type="password" id="login-password" placeholder="Senha" required>
+                        <i class="fas fa-eye toggle-password" id="toggle-login-password"></i>
                     </div>
                     <button id="login-btn" class="btn btn-primary">
                         <i class="fas fa-sign-in-alt"></i>
@@ -70,9 +71,10 @@
                         <i class="fas fa-envelope"></i>
                         <input type="email" id="register-email" placeholder="E-mail" required>
                     </div>
-                    <div class="input-group">
+                    <div class="input-group password-group">
                         <i class="fas fa-lock"></i>
                         <input type="password" id="register-password" placeholder="Senha" required>
+                        <i class="fas fa-eye toggle-password" id="toggle-register-password"></i>
                     </div>
                     <div class="input-group">
                         <i class="fas fa-users"></i>
@@ -166,22 +168,22 @@
             <div class="header-left">
                 <div class="logo">
                     <i class="fas fa-brain"></i>
-                    <h1>QuizMaster - Admin</h1>
+                    <h1>QuizMaster</h1>
                 </div>
                 <nav class="tabs">
-                    <button id="manage-quizzes-tab" class="tab active">
+                    <button id="admin-quizzes-tab" class="tab active">
                         <i class="fas fa-list-alt"></i>
-                        <span class="tab-text">Quizzes</span>
+                        <span class="tab-text">Gerenciar Quizzes</span>
                     </button>
-                    <button id="manage-questions-tab" class="tab">
+                    <button id="admin-questions-tab" class="tab">
                         <i class="fas fa-question-circle"></i>
                         <span class="tab-text">Questões</span>
                     </button>
-                    <button id="manage-users-tab" class="tab">
+                    <button id="admin-users-tab" class="tab">
                         <i class="fas fa-users"></i>
                         <span class="tab-text">Usuários</span>
                     </button>
-                    <button id="reports-tab" class="tab">
+                    <button id="admin-reports-tab" class="tab">
                         <i class="fas fa-chart-bar"></i>
                         <span class="tab-text">Relatórios</span>
                     </button>
@@ -201,30 +203,31 @@
         
         <main class="dashboard-content">
             <!-- Gerenciar Quizzes -->
-            <div id="manage-quizzes-section" class="section active">
+            <div id="admin-quizzes-section" class="section active">
                 <div class="section-header">
                     <h2>Gerenciar Quizzes</h2>
-                    <p>Crie e gerencie os quizzes disponíveis</p>
-                    <button id="create-quiz-btn" class="btn btn-primary">
-                        <i class="fas fa-plus"></i>
-                        <span class="btn-text">Criar Novo Quiz</span>
-                    </button>
+                    <p>Crie e edite quizzes disponíveis para os alunos</p>
+                    <div class="action-buttons">
+                        <button id="create-quiz-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            <span class="btn-text">Criar Novo Quiz</span>
+                        </button>
+                    </div>
                 </div>
-                <div id="quizzes-admin-list" class="cards-container"></div>
+                <div id="admin-quizzes-list" class="cards-container"></div>
             </div>
             
             <!-- Gerenciar Questões -->
-            <div id="manage-questions-section" class="section">
+            <div id="admin-questions-section" class="section">
                 <div class="section-header">
                     <h2>Gerenciar Questões</h2>
-                    <p>Adicione e edite o banco de questões</p>
+                    <p>Adicione e edite questões para os quizzes</p>
                     <div class="action-buttons">
-                        <button id="add-question-btn" class="btn btn-primary">
+                        <button id="create-question-btn" class="btn btn-primary">
                             <i class="fas fa-plus"></i>
                             <span class="btn-text">Adicionar Questão</span>
                         </button>
-                        <input type="file" id="json-file" accept=".json" style="display: none;">
-                        <button id="import-json-btn" class="btn btn-secondary">
+                        <button id="import-questions-btn" class="btn btn-secondary">
                             <i class="fas fa-file-import"></i>
                             <span class="btn-text">Importar JSON</span>
                         </button>
@@ -245,23 +248,23 @@
                         </select>
                     </div>
                 </div>
-                <div id="questions-list" class="cards-container"></div>
+                <div id="admin-questions-list" class="cards-container"></div>
             </div>
-            
+
             <!-- Gerenciar Usuários -->
-            <div id="manage-users-section" class="section">
+            <div id="admin-users-section" class="section">
                 <div class="section-header">
                     <h2>Gerenciar Usuários</h2>
-                    <p>Gerencie os usuários do sistema</p>
+                    <p>Visualize e gerencie usuários do sistema</p>
                 </div>
-                <div id="users-list" class="cards-container"></div>
+                <div id="admin-users-list" class="cards-container"></div>
             </div>
 
             <!-- Relatórios -->
-            <div id="reports-section" class="section">
+            <div id="admin-reports-section" class="section">
                 <div class="section-header">
-                    <h2>Relatórios e Estatísticas</h2>
-                    <p>Visualize o desempenho do sistema</p>
+                    <h2>Relatórios</h2>
+                    <p>Visualize estatísticas e desempenho dos alunos</p>
                 </div>
                 <div class="stats-grid">
                     <div class="stat-card">
