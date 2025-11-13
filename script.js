@@ -25,6 +25,7 @@ let totalTime = 0;
 let userQuizId = null;
 let editingQuizId = null;
 let editingQuestionId = null;
+let editingUserId = null;
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -242,6 +243,7 @@ function registerUser(name, email, password, userType) {
                 name: name,
                 email: email,
                 userType: userType,
+                status: 'active',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -400,6 +402,11 @@ function initModals() {
     // Modal de revisão
     document.getElementById('close-review-modal').addEventListener('click', closeReviewModal);
     document.getElementById('close-review').addEventListener('click', closeReviewModal);
+    
+    // Modal do usuário
+    document.getElementById('close-user-modal').addEventListener('click', closeUserModal);
+    document.getElementById('cancel-user').addEventListener('click', closeUserModal);
+    document.getElementById('save-user').addEventListener('click', saveUser);
     
     // Fechar modais ao clicar fora
     document.querySelectorAll('.modal').forEach(modal => {
@@ -1083,6 +1090,22 @@ function closeReviewModal() {
 // FUNÇÕES DO ADMINISTRADOR
 // ===============================
 
+// Carregar categorias das questões
+function loadCategories() {
+    return db.collection('questions')
+        .get()
+        .then(querySnapshot => {
+            const categories = new Set(['Geral']);
+            querySnapshot.forEach(doc => {
+                const question = doc.data();
+                if (question.category && question.category.trim() !== '') {
+                    categories.add(question.category);
+                }
+            });
+            return Array.from(categories).sort();
+        });
+}
+
 // Carregar quizzes para administrador
 function loadAdminQuizzes() {
     const quizzesList = document.getElementById('admin-quizzes-list');
@@ -1166,35 +1189,44 @@ function openQuizModal(quizId = null) {
     editingQuizId = quizId;
     const modal = document.getElementById('quiz-modal');
     const title = document.getElementById('quiz-modal-title');
+    const categorySelect = document.getElementById('quiz-category');
     
-    if (quizId) {
-        // Modo edição
-        title.textContent = 'Editar Quiz';
+    // Carregar categorias
+    loadCategories().then(categories => {
+        categorySelect.innerHTML = '<option value="">Selecione uma categoria</option>';
+        categories.forEach(category => {
+            categorySelect.innerHTML += `<option value="${category}">${category}</option>`;
+        });
         
-        // Carregar dados do quiz
-        db.collection('quizzes').doc(quizId).get()
-            .then(doc => {
-                if (doc.exists) {
-                    const quiz = doc.data();
-                    document.getElementById('quiz-title').value = quiz.title;
-                    document.getElementById('quiz-description').value = quiz.description || '';
-                    document.getElementById('quiz-category').value = quiz.category || '';
-                    document.getElementById('quiz-questions-count').value = quiz.questionsCount;
-                    document.getElementById('quiz-time').value = quiz.time;
-                }
-            });
-    } else {
-        // Modo criação
-        title.textContent = 'Criar Novo Quiz';
-        // Limpar campos
-        document.getElementById('quiz-title').value = '';
-        document.getElementById('quiz-description').value = '';
-        document.getElementById('quiz-category').value = '';
-        document.getElementById('quiz-questions-count').value = '';
-        document.getElementById('quiz-time').value = '';
-    }
-    
-    modal.classList.remove('hidden');
+        if (quizId) {
+            // Modo edição
+            title.textContent = 'Editar Quiz';
+            
+            // Carregar dados do quiz
+            db.collection('quizzes').doc(quizId).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const quiz = doc.data();
+                        document.getElementById('quiz-title').value = quiz.title;
+                        document.getElementById('quiz-description').value = quiz.description || '';
+                        document.getElementById('quiz-category').value = quiz.category || '';
+                        document.getElementById('quiz-questions-count').value = quiz.questionsCount;
+                        document.getElementById('quiz-time').value = quiz.time;
+                    }
+                });
+        } else {
+            // Modo criação
+            title.textContent = 'Criar Novo Quiz';
+            // Limpar campos
+            document.getElementById('quiz-title').value = '';
+            document.getElementById('quiz-description').value = '';
+            document.getElementById('quiz-category').value = '';
+            document.getElementById('quiz-questions-count').value = '';
+            document.getElementById('quiz-time').value = '';
+        }
+        
+        modal.classList.remove('hidden');
+    });
 }
 
 // Fechar modal do quiz
@@ -1314,7 +1346,8 @@ function loadAdminQuestions() {
 // Criar card de questão para administrador
 function createAdminQuestionCard(question) {
     const card = document.createElement('div');
-    card.className = 'card';
+    card.className = 'card question-card';
+    card.dataset.questionId = question.id;
     
     card.innerHTML = `
         <div class="card-header">
@@ -1323,27 +1356,33 @@ function createAdminQuestionCard(question) {
         </div>
         <div class="card-content">
             <p><strong>Enunciado:</strong> ${question.text}</p>
-            <div class="options-grid">
-                <div class="option-item ${question.correctAnswer === 'a' ? 'correct-option' : ''}">
-                    <strong>A:</strong> ${question.options?.a || 'N/A'}
+            <div class="question-options hidden" id="options-${question.id}">
+                <div class="options-grid">
+                    <div class="option-item ${question.correctAnswer === 'a' ? 'correct-option' : ''}">
+                        <strong>A:</strong> ${question.options?.a || 'N/A'}
+                    </div>
+                    <div class="option-item ${question.correctAnswer === 'b' ? 'correct-option' : ''}">
+                        <strong>B:</strong> ${question.options?.b || 'N/A'}
+                    </div>
+                    <div class="option-item ${question.correctAnswer === 'c' ? 'correct-option' : ''}">
+                        <strong>C:</strong> ${question.options?.c || 'N/A'}
+                    </div>
+                    <div class="option-item ${question.correctAnswer === 'd' ? 'correct-option' : ''}">
+                        <strong>D:</strong> ${question.options?.d || 'N/A'}
+                    </div>
                 </div>
-                <div class="option-item ${question.correctAnswer === 'b' ? 'correct-option' : ''}">
-                    <strong>B:</strong> ${question.options?.b || 'N/A'}
-                </div>
-                <div class="option-item ${question.correctAnswer === 'c' ? 'correct-option' : ''}">
-                    <strong>C:</strong> ${question.options?.c || 'N/A'}
-                </div>
-                <div class="option-item ${question.correctAnswer === 'd' ? 'correct-option' : ''}">
-                    <strong>D:</strong> ${question.options?.d || 'N/A'}
-                </div>
+                <p><strong>Resposta correta:</strong> <span class="correct-answer">${question.correctAnswer?.toUpperCase() || 'N/A'}</span></p>
             </div>
-            <p><strong>Resposta correta:</strong> <span class="correct-answer">${question.correctAnswer?.toUpperCase() || 'N/A'}</span></p>
             <p><strong>Criada em:</strong> ${question.createdAt ? question.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
             <button class="btn btn-primary edit-question" data-question-id="${question.id}">
                 <i class="fas fa-edit"></i>
                 <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-info toggle-options" data-question-id="${question.id}">
+                <i class="fas fa-eye"></i>
+                <span class="btn-text">Mostrar Opções</span>
             </button>
             <button class="btn btn-danger delete-question" data-question-id="${question.id}">
                 <i class="fas fa-trash"></i>
@@ -1355,6 +1394,19 @@ function createAdminQuestionCard(question) {
     // Adicionar event listeners aos botões
     card.querySelector('.edit-question').addEventListener('click', () => {
         openQuestionModal(question.id);
+    });
+    
+    card.querySelector('.toggle-options').addEventListener('click', function() {
+        const optionsDiv = document.getElementById(`options-${question.id}`);
+        const isHidden = optionsDiv.classList.contains('hidden');
+        
+        if (isHidden) {
+            optionsDiv.classList.remove('hidden');
+            this.innerHTML = '<i class="fas fa-eye-slash"></i><span class="btn-text">Ocultar Opções</span>';
+        } else {
+            optionsDiv.classList.add('hidden');
+            this.innerHTML = '<i class="fas fa-eye"></i><span class="btn-text">Mostrar Opções</span>';
+        }
     });
     
     card.querySelector('.delete-question').addEventListener('click', () => {
@@ -1580,17 +1632,30 @@ function createAdminUserCard(user) {
     const card = document.createElement('div');
     card.className = 'card';
     
+    const statusBadge = user.status === 'active' ? 
+        `<span class="card-badge">Ativo</span>` : 
+        `<span class="card-badge card-badge-secondary">Inativo</span>`;
+    
     card.innerHTML = `
         <div class="card-header">
             <h3 class="card-title">${user.name}</h3>
-            <span class="card-badge ${user.userType === 'admin' ? '' : 'card-badge-secondary'}">${user.userType === 'admin' ? 'Administrador' : 'Aluno'}</span>
+            ${statusBadge}
         </div>
         <div class="card-content">
             <p><strong>E-mail:</strong> ${user.email}</p>
             <p><strong>Tipo:</strong> ${user.userType}</p>
+            <p><strong>Status:</strong> ${user.status === 'active' ? 'Ativo' : 'Inativo'}</p>
             <p><strong>Cadastrado em:</strong> ${user.createdAt ? user.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
+            <button class="btn btn-primary edit-user" data-user-id="${user.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-secondary toggle-user" data-user-id="${user.id}" data-status="${user.status}">
+                <i class="fas fa-power-off"></i>
+                <span class="btn-text">${user.status === 'active' ? 'Desativar' : 'Ativar'}</span>
+            </button>
             <button class="btn btn-danger delete-user" data-user-id="${user.id}">
                 <i class="fas fa-trash"></i>
                 <span class="btn-text">Excluir</span>
@@ -1598,12 +1663,101 @@ function createAdminUserCard(user) {
         </div>
     `;
     
-    // Adicionar event listener ao botão de excluir
+    // Adicionar event listeners aos botões
+    card.querySelector('.edit-user').addEventListener('click', () => {
+        openUserModal(user.id);
+    });
+    
+    card.querySelector('.toggle-user').addEventListener('click', () => {
+        toggleUserStatus(user.id, user.status === 'active' ? 'inactive' : 'active');
+    });
+    
     card.querySelector('.delete-user').addEventListener('click', () => {
         deleteUser(user.id);
     });
     
     return card;
+}
+
+// Abrir modal do usuário
+function openUserModal(userId = null) {
+    editingUserId = userId;
+    const modal = document.getElementById('user-modal');
+    const title = document.getElementById('user-modal-title');
+    
+    if (userId) {
+        // Modo edição
+        title.textContent = 'Editar Usuário';
+        
+        // Carregar dados do usuário
+        db.collection('users').doc(userId).get()
+            .then(doc => {
+                if (doc.exists) {
+                    const user = doc.data();
+                    document.getElementById('user-name').value = user.name;
+                    document.getElementById('user-email').value = user.email;
+                    document.getElementById('user-type').value = user.userType;
+                    document.getElementById('user-status').value = user.status || 'active';
+                }
+            });
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+// Fechar modal do usuário
+function closeUserModal() {
+    document.getElementById('user-modal').classList.add('hidden');
+    editingUserId = null;
+}
+
+// Salvar usuário
+function saveUser() {
+    const name = document.getElementById('user-name').value;
+    const email = document.getElementById('user-email').value;
+    const userType = document.getElementById('user-type').value;
+    const status = document.getElementById('user-status').value;
+    
+    if (!name || !email) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    const userData = {
+        name: name,
+        email: email,
+        userType: userType,
+        status: status,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (editingUserId) {
+        // Atualizar usuário existente
+        db.collection('users').doc(editingUserId).update(userData)
+            .then(() => {
+                alert('Usuário atualizado com sucesso!');
+                closeUserModal();
+                loadAdminUsers();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar usuário: ' + error.message);
+            });
+    }
+}
+
+// Alternar status do usuário
+function toggleUserStatus(userId, newStatus) {
+    db.collection('users').doc(userId).update({
+        status: newStatus,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        alert('Status do usuário atualizado com sucesso!');
+        loadAdminUsers();
+    })
+    .catch(error => {
+        alert('Erro ao atualizar status do usuário: ' + error.message);
+    });
 }
 
 // Excluir usuário
@@ -1691,20 +1845,29 @@ function loadAdminReports() {
                 </div>
             </div>
             
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Quizzes Mais Populares</h3>
+            <div class="charts-container">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Distribuição de Usuários</h3>
+                    </div>
+                    <div class="card-content">
+                        <canvas id="usersChart" width="400" height="200"></canvas>
+                    </div>
                 </div>
-                <div class="card-content">
-                    <div id="popular-quizzes" class="popular-list">
-                        Carregando...
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Desempenho por Quiz</h3>
+                    </div>
+                    <div class="card-content">
+                        <canvas id="quizzesChart" width="400" height="200"></canvas>
                     </div>
                 </div>
             </div>
             
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Melhores Jogadores</h3>
+                    <h3 class="card-title">Top 5 Melhores Jogadores</h3>
                 </div>
                 <div class="card-content">
                     <div id="top-players" class="ranking-list">
@@ -1712,10 +1875,22 @@ function loadAdminReports() {
                     </div>
                 </div>
             </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Ranking Geral Completo</h3>
+                </div>
+                <div class="card-content">
+                    <div id="full-ranking" class="ranking-list">
+                        Carregando...
+                    </div>
+                </div>
+            </div>
         `;
         
-        loadPopularQuizzes();
+        loadCharts(usersSnapshot, userQuizzesSnapshot);
         loadTopPlayers();
+        loadFullRanking();
         
     }).catch(error => {
         reportsContent.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar relatórios.</div></div>';
@@ -1723,81 +1898,107 @@ function loadAdminReports() {
     });
 }
 
-// Carregar quizzes populares
-function loadPopularQuizzes() {
-    const popularQuizzesElement = document.getElementById('popular-quizzes');
+// Carregar gráficos
+function loadCharts(usersSnapshot, userQuizzesSnapshot) {
+    // Gráfico de distribuição de usuários
+    const usersCtx = document.getElementById('usersChart').getContext('2d');
     
-    db.collection('userQuizzes')
-        .where('status', '==', 'completed')
-        .get()
-        .then(userQuizzesSnapshot => {
-            const quizAttempts = {};
-            
-            // Contar tentativas por quiz
-            userQuizzesSnapshot.forEach(doc => {
-                const userQuiz = doc.data();
-                const quizId = userQuiz.quizId;
-                
-                if (!quizAttempts[quizId]) {
-                    quizAttempts[quizId] = {
-                        attempts: 0,
-                        totalScore: 0,
-                        quizId: quizId
-                    };
+    let alunosCount = 0;
+    let adminsCount = 0;
+    let activeUsers = 0;
+    let inactiveUsers = 0;
+    
+    usersSnapshot.forEach(doc => {
+        const user = doc.data();
+        if (user.userType === 'aluno') {
+            alunosCount++;
+        } else if (user.userType === 'admin') {
+            adminsCount++;
+        }
+        
+        if (user.status === 'active') {
+            activeUsers++;
+        } else {
+            inactiveUsers++;
+        }
+    });
+    
+    new Chart(usersCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Alunos', 'Administradores'],
+            datasets: [{
+                data: [alunosCount, adminsCount],
+                backgroundColor: ['#4a6cf7', '#6c757d']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
                 }
-                
-                quizAttempts[quizId].attempts++;
-                quizAttempts[quizId].totalScore += userQuiz.score || 0;
-            });
-            
-            // Buscar informações dos quizzes
-            const quizIds = Object.keys(quizAttempts);
-            
-            if (quizIds.length === 0) {
-                popularQuizzesElement.innerHTML = '<p>Nenhum quiz foi realizado ainda.</p>';
-                return;
             }
+        }
+    });
+    
+    // Gráfico de desempenho por quiz
+    const quizzesCtx = document.getElementById('quizzesChart').getContext('2d');
+    
+    // Buscar dados de desempenho por quiz
+    db.collection('quizzes').get().then(quizzesSnapshot => {
+        const quizLabels = [];
+        const quizScores = [];
+        
+        const quizPromises = [];
+        
+        quizzesSnapshot.forEach(doc => {
+            const quiz = doc.data();
+            quizLabels.push(quiz.title);
             
-            db.collection('quizzes')
-                .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
+            const promise = db.collection('userQuizzes')
+                .where('quizId', '==', doc.id)
+                .where('status', '==', 'completed')
                 .get()
-                .then(quizzesSnapshot => {
-                    const quizzesMap = {};
-                    quizzesSnapshot.forEach(doc => {
-                        quizzesMap[doc.id] = doc.data();
+                .then(querySnapshot => {
+                    let totalScore = 0;
+                    let totalQuizzes = querySnapshot.size;
+                    
+                    querySnapshot.forEach(userQuizDoc => {
+                        const userQuiz = userQuizDoc.data();
+                        totalScore += userQuiz.percentage || 0;
                     });
                     
-                    // Criar lista ordenada por tentativas
-                    const popularList = Object.values(quizAttempts)
-                        .sort((a, b) => b.attempts - a.attempts)
-                        .slice(0, 5);
-                    
-                    let html = '';
-                    popularList.forEach((item, index) => {
-                        const quiz = quizzesMap[item.quizId];
-                        if (quiz) {
-                            const avgScore = item.attempts > 0 ? (item.totalScore / item.attempts).toFixed(1) : 0;
-                            html += `
-                                <div class="popular-item">
-                                    <div class="popular-rank">${index + 1}</div>
-                                    <div class="popular-info">
-                                        <div class="popular-name">${quiz.title}</div>
-                                        <div class="popular-details">
-                                            ${item.attempts} tentativas • Média: ${avgScore} pts
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        }
-                    });
-                    
-                    popularQuizzesElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
+                    const avgScore = totalQuizzes > 0 ? (totalScore / totalQuizzes) : 0;
+                    quizScores.push(avgScore);
                 });
-        })
-        .catch(error => {
-            popularQuizzesElement.innerHTML = '<p>Erro ao carregar dados.</p>';
-            console.error('Erro ao carregar quizzes populares:', error);
+                
+            quizPromises.push(promise);
         });
+        
+        Promise.all(quizPromises).then(() => {
+            new Chart(quizzesCtx, {
+                type: 'bar',
+                data: {
+                    labels: quizLabels,
+                    datasets: [{
+                        label: 'Pontuação Média (%)',
+                        data: quizScores,
+                        backgroundColor: '#4a6cf7'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        });
+    });
 }
 
 // Carregar melhores jogadores
@@ -1830,7 +2031,7 @@ function loadTopPlayers() {
             // Converter para array e ordenar
             const topPlayers = Object.values(userScores)
                 .sort((a, b) => b.totalScore - a.totalScore)
-                .slice(0, 10);
+                .slice(0, 5);
             
             // Buscar informações dos usuários
             const userIds = topPlayers.map(player => player.userId);
@@ -1875,6 +2076,83 @@ function loadTopPlayers() {
         .catch(error => {
             topPlayersElement.innerHTML = '<p>Erro ao carregar dados.</p>';
             console.error('Erro ao carregar melhores jogadores:', error);
+        });
+}
+
+// Carregar ranking completo
+function loadFullRanking() {
+    const fullRankingElement = document.getElementById('full-ranking');
+    
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(userQuizzesSnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            userQuizzesSnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter para array e ordenar
+            const fullRanking = Object.values(userScores)
+                .sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Buscar informações dos usuários
+            const userIds = fullRanking.map(player => player.userId);
+            
+            if (userIds.length === 0) {
+                fullRankingElement.innerHTML = '<p>Nenhum jogador com pontuação ainda.</p>';
+                return;
+            }
+            
+            db.collection('users')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds)
+                .get()
+                .then(usersSnapshot => {
+                    const usersMap = {};
+                    usersSnapshot.forEach(doc => {
+                        usersMap[doc.id] = doc.data();
+                    });
+                    
+                    let html = '';
+                    fullRanking.forEach((player, index) => {
+                        const user = usersMap[player.userId];
+                        if (user) {
+                            const avgScore = player.totalQuizzes > 0 ? (player.totalScore / player.totalQuizzes).toFixed(1) : 0;
+                            html += `
+                                <div class="ranking-item">
+                                    <div class="ranking-position">${index + 1}</div>
+                                    <div class="ranking-info">
+                                        <div class="ranking-name">${user.name}</div>
+                                        <div class="ranking-details">
+                                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts
+                                        </div>
+                                    </div>
+                                    <div class="ranking-score">${player.totalScore} pts</div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    fullRankingElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
+                });
+        })
+        .catch(error => {
+            fullRankingElement.innerHTML = '<p>Erro ao carregar dados.</p>';
+            console.error('Erro ao carregar ranking completo:', error);
         });
 }
 
@@ -1968,7 +2246,7 @@ function loadRanking() {
         });
 }
 
-// Carregar histórico do usuário
+// Carregar histórico do usuário - CORRIGIDO
 function loadUserHistory() {
     const historyList = document.getElementById('history-list');
     historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
@@ -1986,30 +2264,36 @@ function loadUserHistory() {
                 return;
             }
             
-            // Buscar informações dos quizzes
+            const userQuizzes = [];
             const quizIds = [];
-            const userQuizzesMap = {};
             
             querySnapshot.forEach(doc => {
                 const userQuiz = { id: doc.id, ...doc.data() };
-                quizIds.push(userQuiz.quizId);
-                userQuizzesMap[userQuiz.quizId] = userQuiz;
+                userQuizzes.push(userQuiz);
+                if (userQuiz.quizId && !quizIds.includes(userQuiz.quizId)) {
+                    quizIds.push(userQuiz.quizId);
+                }
             });
             
+            if (quizIds.length === 0) {
+                historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz válido encontrado.</div></div>';
+                return;
+            }
+            
+            // Buscar informações dos quizzes
             db.collection('quizzes')
                 .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
                 .get()
                 .then(quizzesSnapshot => {
                     const quizzesMap = {};
                     quizzesSnapshot.forEach(doc => {
-                        quizzesMap[doc.id] = doc.data();
+                        quizzesMap[doc.id] = { id: doc.id, ...doc.data() };
                     });
                     
-                    quizIds.forEach(quizId => {
-                        const quiz = quizzesMap[quizId];
-                        const userQuiz = userQuizzesMap[quizId];
+                    userQuizzes.forEach(userQuiz => {
+                        const quiz = quizzesMap[userQuiz.quizId];
                         
-                        if (quiz && userQuiz) {
+                        if (quiz) {
                             const historyCard = document.createElement('div');
                             historyCard.className = 'card';
                             
@@ -2030,28 +2314,28 @@ function loadUserHistory() {
                             historyCard.innerHTML = `
                                 <div class="card-header">
                                     <h3 class="card-title">${quiz.title}</h3>
-                                    <span class="${badgeClass}">${userQuiz.percentage.toFixed(1)}%</span>
+                                    <span class="${badgeClass}">${userQuiz.percentage ? userQuiz.percentage.toFixed(1) : '0'}%</span>
                                 </div>
                                 <div class="card-content">
                                     <p>${quiz.description || 'Sem descrição'}</p>
                                     <div class="history-details">
                                         <div class="detail">
-                                            <strong>Pontuação:</strong> ${userQuiz.score}/${quiz.questionsCount}
+                                            <strong>Pontuação:</strong> ${userQuiz.score || 0}/${quiz.questionsCount || 0}
                                         </div>
                                         <div class="detail">
                                             <strong>Tempo:</strong> ${timeText}
                                         </div>
                                         <div class="detail">
-                                            <strong>Concluído em:</strong> ${userQuiz.completedAt.toDate().toLocaleDateString('pt-BR')}
+                                            <strong>Concluído em:</strong> ${userQuiz.completedAt ? userQuiz.completedAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}
                                         </div>
                                     </div>
                                 </div>
                                 <div class="card-actions">
-                                    <button class="btn btn-primary view-details" data-quiz-id="${quizId}">
+                                    <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}">
                                         <i class="fas fa-chart-bar"></i>
                                         <span class="btn-text">Ver Detalhes</span>
                                     </button>
-                                    <button class="btn btn-secondary review-answers" data-quiz-id="${quizId}">
+                                    <button class="btn btn-secondary review-answers" data-user-quiz-id="${userQuiz.id}">
                                         <i class="fas fa-redo"></i>
                                         <span class="btn-text">Revisar</span>
                                     </button>
@@ -2060,32 +2344,80 @@ function loadUserHistory() {
                             
                             const viewButton = historyCard.querySelector('.view-details');
                             viewButton.addEventListener('click', () => {
-                                showQuizResult(quizId);
+                                showQuizResult(quiz.id);
                             });
                             
                             const reviewButton = historyCard.querySelector('.review-answers');
                             reviewButton.addEventListener('click', () => {
                                 // Buscar questões e respostas para revisão
-                                db.collection('userQuizzes')
-                                    .where('userId', '==', currentUser.uid)
-                                    .where('quizId', '==', quizId)
-                                    .get()
-                                    .then(querySnapshot => {
-                                        if (!querySnapshot.empty) {
-                                            const userQuiz = querySnapshot.docs[0].data();
-                                            userAnswers = userQuiz.answers || [];
-                                            showReviewModal();
-                                        }
-                                    });
+                                loadUserQuizForReview(userQuiz.id);
                             });
                             
                             historyList.appendChild(historyCard);
                         }
                     });
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar quizzes:', error);
+                    historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
                 });
         })
         .catch(error => {
-            historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
             console.error('Erro ao carregar histórico:', error);
+            historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
+        });
+}
+
+// Carregar quiz do usuário para revisão
+function loadUserQuizForReview(userQuizId) {
+    showLoading();
+    
+    db.collection('userQuizzes').doc(userQuizId).get()
+        .then(doc => {
+            if (doc.exists) {
+                const userQuiz = doc.data();
+                
+                // Buscar o quiz para obter as questões
+                db.collection('quizzes').doc(userQuiz.quizId).get()
+                    .then(quizDoc => {
+                        if (quizDoc.exists) {
+                            const quiz = quizDoc.data();
+                            
+                            // Buscar questões da categoria do quiz
+                            let questionsQuery = db.collection('questions');
+                            if (quiz.category && quiz.category.trim() !== '') {
+                                questionsQuery = questionsQuery.where('category', '==', quiz.category);
+                            }
+                            
+                            questionsQuery.get()
+                                .then(questionsSnapshot => {
+                                    hideLoading();
+                                    
+                                    const allQuestions = [];
+                                    questionsSnapshot.forEach(questionDoc => {
+                                        allQuestions.push({ id: questionDoc.id, ...questionDoc.data() });
+                                    });
+                                    
+                                    // Selecionar questões aleatórias (mesma lógica do quiz original)
+                                    const questionCount = Math.min(quiz.questionsCount, allQuestions.length);
+                                    const shuffledQuestions = [...allQuestions];
+                                    for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+                                        const j = Math.floor(Math.random() * (i + 1));
+                                        [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+                                    }
+                                    
+                                    currentQuestions = shuffledQuestions.slice(0, questionCount);
+                                    userAnswers = userQuiz.answers || [];
+                                    
+                                    showReviewModal();
+                                });
+                        }
+                    });
+            }
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Erro ao carregar quiz para revisão:', error);
+            alert('Erro ao carregar revisão: ' + error.message);
         });
 }
