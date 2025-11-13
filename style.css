@@ -1354,11 +1354,9 @@ body {
         padding: 0.75rem;
     }
 }
-/* ... (mantenha todo o CSS anterior e adicione estas regras no final) */
+/* Adicione estes estilos ao arquivo CSS existente */
 
-/* Estilos para os novos elementos */
-
-/* Botão de informações */
+/* Botão Info */
 .btn-info {
     background: var(--info-color);
     color: white;
@@ -1370,37 +1368,50 @@ body {
     box-shadow: var(--shadow);
 }
 
-/* Cards de questões com opções recolhíveis */
-.question-card .question-options {
-    margin: 1rem 0;
+/* Cartão de questão */
+.question-card {
+    transition: all 0.3s ease;
+}
+
+.question-options {
+    margin-top: 1rem;
     padding: 1rem;
     background: var(--light-color);
     border-radius: var(--border-radius);
-}
-
-/* Container de relatórios */
-.reports-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-}
-
-.reports-charts {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-}
-
-@media (min-width: 1024px) {
-    .reports-charts {
-        grid-template-columns: 1fr 1fr;
-    }
+    border-left: 4px solid var(--primary-color);
 }
 
 /* Gráficos */
-canvas {
-    max-width: 100%;
-    height: auto;
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Status de usuário */
+.user-status-active {
+    color: var(--success-color);
+    font-weight: 600;
+}
+
+.user-status-inactive {
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+/* Detalhes do histórico */
+.history-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.detail {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    background: var(--light-color);
+    border-radius: var(--border-radius);
 }
 
 /* Badges de status */
@@ -1417,35 +1428,29 @@ canvas {
     background: var(--danger-color);
 }
 
-/* Opções corretas destacadas */
+/* Opções corretas */
 .correct-option {
-    border-left: 4px solid var(--success-color) !important;
+    border: 2px solid var(--success-color) !important;
     background: rgba(40, 167, 69, 0.1) !important;
 }
 
-/* Layout responsivo para cards de questões */
+/* Responsividade para gráficos */
 @media (max-width: 768px) {
-    .question-card .card-actions {
-        flex-direction: column;
+    .chart-container {
+        height: 250px;
     }
     
-    .question-card .card-actions .btn {
-        width: 100%;
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
     }
 }
 
-/* Melhorias visuais para o modal de usuário */
-.modal-content {
-    max-width: 500px;
-}
-
-/* Estilos para o sistema de saída única do quiz */
-.quiz-warning {
-    background: var(--warning-color);
-    color: var(--dark-color);
-    padding: 0.75rem;
-    border-radius: var(--border-radius);
-    margin-bottom: 1rem;
-    text-align: center;
-    font-weight: 600;
+@media (max-width: 480px) {
+    .chart-container {
+        height: 200px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+    }
 }
