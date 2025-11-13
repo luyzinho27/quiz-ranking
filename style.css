@@ -208,6 +208,20 @@ body {
     color: var(--dark-color);
 }
 
+.password-group {
+    position: relative;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: var(--secondary-color);
+    z-index: 2;
+}
+
 .auth-links {
     text-align: center;
     margin-top: 1rem;
