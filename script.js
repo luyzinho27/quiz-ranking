@@ -23,7 +23,6 @@ let quizTimer = null;
 let timeRemaining = 0;
 let totalTime = 0;
 let userQuizId = null;
-let availableCategories = new Set();
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -179,8 +178,8 @@ function togglePasswordVisibility(passwordFieldId, toggleIcon) {
     passwordField.setAttribute('type', type);
     
     // Alterar ícone
-    toggleIcon.classList.toggle('fa-eye');
-    toggleIcon.classList.toggle('fa-eye-slash');
+    //toggleIcon.classList.toggle('fa-eye');
+    //toggleIcon.classList.toggle('fa-eye-slash');
 }
 
 // Verificar se já existe administrador
@@ -308,14 +307,6 @@ function initEventListeners() {
     document.getElementById('create-quiz-btn').addEventListener('click', createQuiz);
     document.getElementById('create-question-btn').addEventListener('click', createQuestion);
     document.getElementById('import-questions-btn').addEventListener('click', importQuestions);
-    document.getElementById('export-questions-btn').addEventListener('click', exportQuestions);
-    
-    // Busca e filtros
-    document.getElementById('question-search').addEventListener('input', filterQuestions);
-    document.getElementById('category-filter').addEventListener('change', filterQuestions);
-    
-    // Modais
-    initModals();
 }
 
 // Inicializar navegação por abas
@@ -359,69 +350,6 @@ function initTabNavigation() {
     
     // Botão de sair do quiz
     document.getElementById('exit-quiz-btn').addEventListener('click', confirmExitQuiz);
-}
-
-// Inicializar modais
-function initModals() {
-    // Modal de quiz
-    const quizModal = document.getElementById('quiz-modal');
-    const quizCloseBtn = document.querySelector('#quiz-modal .close');
-    const quizForm = document.getElementById('quiz-form');
-    const cancelQuizBtn = document.getElementById('cancel-quiz');
-    
-    quizCloseBtn.addEventListener('click', () => closeModal('quiz-modal'));
-    cancelQuizBtn.addEventListener('click', () => closeModal('quiz-modal'));
-    quizForm.addEventListener('submit', handleQuizSubmit);
-    
-    // Modal de questão
-    const questionModal = document.getElementById('question-modal');
-    const questionCloseBtn = document.querySelector('#question-modal .close');
-    const questionForm = document.getElementById('question-form');
-    const cancelQuestionBtn = document.getElementById('cancel-question');
-    
-    questionCloseBtn.addEventListener('click', () => closeModal('question-modal'));
-    cancelQuestionBtn.addEventListener('click', () => closeModal('question-modal'));
-    questionForm.addEventListener('submit', handleQuestionSubmit);
-    
-    // Modal de usuário
-    const userModal = document.getElementById('user-modal');
-    const userCloseBtn = document.querySelector('#user-modal .close');
-    const userForm = document.getElementById('user-form');
-    const cancelUserBtn = document.getElementById('cancel-user');
-    
-    userCloseBtn.addEventListener('click', () => closeModal('user-modal'));
-    cancelUserBtn.addEventListener('click', () => closeModal('user-modal'));
-    userForm.addEventListener('submit', handleUserSubmit);
-    
-    // Modal de recuperação de senha
-    const forgotPasswordModal = document.getElementById('forgot-password-modal');
-    const forgotPasswordCloseBtn = document.querySelector('#forgot-password-modal .close');
-    const forgotPasswordForm = document.getElementById('forgot-password-form');
-    const cancelResetBtn = document.getElementById('cancel-reset');
-    
-    forgotPasswordCloseBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
-    cancelResetBtn.addEventListener('click', () => closeModal('forgot-password-modal'));
-    forgotPasswordForm.addEventListener('submit', handlePasswordReset);
-    
-    // Modal de saída do quiz
-    const exitQuizModal = document.getElementById('exit-quiz-modal');
-    const exitQuizCloseBtn = document.querySelector('#exit-quiz-modal .close');
-    const cancelExitBtn = document.getElementById('cancel-exit');
-    const confirmExitBtn = document.getElementById('confirm-exit');
-    
-    exitQuizCloseBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
-    cancelExitBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
-    confirmExitBtn.addEventListener('click', confirmExitQuiz);
-    
-    // Botão de sair do quiz
-    document.getElementById('exit-quiz-btn').addEventListener('click', openExitQuizModal);
-    
-    // Fechar modal ao clicar fora
-    window.addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal')) {
-            e.target.classList.add('hidden');
-        }
-    });
 }
 
 // Inicializar controles do quiz
@@ -545,82 +473,6 @@ function getAuthErrorMessage(errorCode) {
     };
     
     return messages[errorCode] || 'Ocorreu um erro. Tente novamente.';
-}
-
-// Abrir modal
-function openModal(modalId) {
-    document.getElementById(modalId).classList.remove('hidden');
-}
-
-// Fechar modal
-function closeModal(modalId) {
-    document.getElementById(modalId).classList.add('hidden');
-}
-
-// ===============================
-// GERENCIAMENTO DE CATEGORIAS
-// ===============================
-
-// Carregar categorias disponíveis
-function loadCategories() {
-    return db.collection('questions').get()
-        .then(querySnapshot => {
-            availableCategories.clear();
-            
-            querySnapshot.forEach(doc => {
-                const question = doc.data();
-                if (question.category && question.category.trim() !== '') {
-                    availableCategories.add(question.category);
-                }
-            });
-            
-            updateCategorySelects();
-            return Array.from(availableCategories);
-        })
-        .catch(error => {
-            console.error('Erro ao carregar categorias:', error);
-            return [];
-        });
-}
-
-// Atualizar selects de categoria
-function updateCategorySelects() {
-    const quizCategorySelect = document.getElementById('quiz-category');
-    const categoryFilter = document.getElementById('category-filter');
-    const categoriesList = document.getElementById('categories-list');
-    
-    // Limpar opções existentes
-    while (quizCategorySelect.children.length > 1) {
-        quizCategorySelect.removeChild(quizCategorySelect.lastChild);
-    }
-    
-    while (categoryFilter.children.length > 1) {
-        categoryFilter.removeChild(categoryFilter.lastChild);
-    }
-    
-    while (categoriesList.children.length > 0) {
-        categoriesList.removeChild(categoriesList.lastChild);
-    }
-    
-    // Adicionar categorias
-    availableCategories.forEach(category => {
-        // Select do quiz
-        const quizOption = document.createElement('option');
-        quizOption.value = category;
-        quizOption.textContent = category;
-        quizCategorySelect.appendChild(quizOption);
-        
-        // Select do filtro
-        const filterOption = document.createElement('option');
-        filterOption.value = category;
-        filterOption.textContent = category;
-        categoryFilter.appendChild(filterOption);
-        
-        // Datalist para input
-        const datalistOption = document.createElement('option');
-        datalistOption.value = category;
-        categoriesList.appendChild(datalistOption);
-    });
 }
 
 // ===============================
@@ -993,29 +845,10 @@ function updateUserQuizProgress() {
     });
 }
 
-// Abrir modal de saída do quiz
-function openExitQuizModal() {
-    // Buscar informações atualizadas do quiz
-    db.collection('userQuizzes').doc(userQuizId).get()
-        .then(doc => {
-            if (doc.exists) {
-                const userQuiz = doc.data();
-                const remainingAttempts = 3 - userQuiz.attempts;
-                document.getElementById('remaining-attempts').textContent = remainingAttempts;
-                openModal('exit-quiz-modal');
-            }
-        })
-        .catch(error => {
-            console.error('Erro ao buscar informações do quiz:', error);
-            openModal('exit-quiz-modal');
-        });
-}
-
 // Confirmar saída do quiz
 function confirmExitQuiz() {
     if (confirm('Tem certeza que deseja sair do quiz? Seu progresso será salvo.')) {
         clearInterval(quizTimer);
-        closeModal('exit-quiz-modal');
         showDashboard();
     }
 }
@@ -1192,104 +1025,9 @@ function createQuiz() {
     });
 }
 
-// Abrir modal de quiz
-function openQuizModal(quiz = null) {
-    const modal = document.getElementById('quiz-modal');
-    const title = document.getElementById('quiz-modal-title');
-    const form = document.getElementById('quiz-form');
-    
-    // Carregar categorias antes de abrir o modal
-    loadCategories().then(() => {
-        if (quiz) {
-            // Modo edição
-            title.textContent = 'Editar Quiz';
-            document.getElementById('quiz-title').value = quiz.title;
-            document.getElementById('quiz-description').value = quiz.description || '';
-            document.getElementById('quiz-time').value = quiz.time;
-            document.getElementById('quiz-questions-count').value = quiz.questionsCount;
-            document.getElementById('quiz-category').value = quiz.category || '';
-            document.getElementById('quiz-status').value = quiz.status;
-            form.setAttribute('data-quiz-id', quiz.id);
-        } else {
-            // Modo criação
-            title.textContent = 'Criar Quiz';
-            form.reset();
-            form.removeAttribute('data-quiz-id');
-        }
-        
-        modal.classList.remove('hidden');
-    });
-}
-
-// Manipular envio do formulário de quiz
-function handleQuizSubmit(e) {
-    e.preventDefault();
-    saveQuiz();
-}
-
-// Salvar quiz
-function saveQuiz() {
-    const form = document.getElementById('quiz-form');
-    const quizId = form.getAttribute('data-quiz-id');
-    const quizData = {
-        title: document.getElementById('quiz-title').value,
-        description: document.getElementById('quiz-description').value,
-        time: parseInt(document.getElementById('quiz-time').value),
-        questionsCount: parseInt(document.getElementById('quiz-questions-count').value),
-        category: document.getElementById('quiz-category').value,
-        status: document.getElementById('quiz-status').value,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    showLoading();
-    
-    if (quizId) {
-        // Atualizar quiz existente
-        db.collection('quizzes').doc(quizId).update(quizData)
-            .then(() => {
-                hideLoading();
-                closeModal('quiz-modal');
-                alert('Quiz atualizado com sucesso!');
-                loadAdminQuizzes();
-            })
-            .catch(error => {
-                hideLoading();
-                alert('Erro ao atualizar quiz: ' + error.message);
-            });
-    } else {
-        // Criar novo quiz
-        quizData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-        quizData.createdBy = currentUser.uid;
-        
-        db.collection('quizzes').add(quizData)
-            .then(() => {
-                hideLoading();
-                closeModal('quiz-modal');
-                alert('Quiz criado com sucesso!');
-                loadAdminQuizzes();
-            })
-            .catch(error => {
-                hideLoading();
-                alert('Erro ao criar quiz: ' + error.message);
-            });
-    }
-}
-
 // Editar quiz
 function editQuiz(quizId) {
-    showLoading();
-    db.collection('quizzes').doc(quizId).get()
-        .then(doc => {
-            hideLoading();
-            if (doc.exists) {
-                const quiz = { id: doc.id, ...doc.data() };
-                openQuizModal(quiz);
-            }
-        })
-        .catch(error => {
-            hideLoading();
-            alert('Erro ao carregar quiz: ' + error.message);
-        });
+    alert('Funcionalidade de edição em desenvolvimento. Quiz ID: ' + quizId);
 }
 
 // Alternar status do quiz
@@ -1337,47 +1075,16 @@ function loadAdminQuestions() {
                 return;
             }
             
-            const categories = new Set();
-            
             querySnapshot.forEach(doc => {
                 const question = { id: doc.id, ...doc.data() };
                 const questionCard = createAdminQuestionCard(question);
                 questionsList.appendChild(questionCard);
-                
-                if (question.category) {
-                    categories.add(question.category);
-                }
             });
-            
-            // Atualizar categorias disponíveis
-            categories.forEach(category => availableCategories.add(category));
-            updateCategorySelects();
         })
         .catch(error => {
             questionsList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar questões.</div></div>';
             console.error('Erro ao carregar questões:', error);
         });
-}
-
-// Filtrar questões
-function filterQuestions() {
-    const searchTerm = document.getElementById('question-search').value.toLowerCase();
-    const selectedCategory = document.getElementById('category-filter').value;
-    const questions = document.querySelectorAll('#admin-questions-list .card');
-    
-    questions.forEach(question => {
-        const text = question.textContent.toLowerCase();
-        const category = question.querySelector('.card-content p:first-child').textContent;
-        
-        const matchesSearch = text.includes(searchTerm);
-        const matchesCategory = !selectedCategory || category.includes(selectedCategory);
-        
-        if (matchesSearch && matchesCategory) {
-            question.style.display = '';
-        } else {
-            question.style.display = 'none';
-        }
-    });
 }
 
 // Criar card de questão para administrador
@@ -1397,8 +1104,6 @@ function createAdminQuestionCard(question) {
             <p><strong>C:</strong> ${question.options?.c || 'N/A'}</p>
             <p><strong>D:</strong> ${question.options?.d || 'N/A'}</p>
             <p><strong>Resposta correta:</strong> ${question.correctAnswer?.toUpperCase() || 'N/A'}</p>
-            ${question.explanation ? `<p><strong>Explicação:</strong> ${question.explanation}</p>` : ''}
-            ${question.difficulty ? `<p><strong>Dificuldade:</strong> ${question.difficulty}</p>` : ''}
         </div>
         <div class="card-actions">
             <button class="btn btn-primary edit-question" data-question-id="${question.id}">
@@ -1463,112 +1168,9 @@ function createQuestion() {
     });
 }
 
-// Abrir modal de questão
-function openQuestionModal(question = null) {
-    const modal = document.getElementById('question-modal');
-    const title = document.getElementById('question-modal-title');
-    const form = document.getElementById('question-form');
-    
-    // Carregar categorias antes de abrir o modal
-    loadCategories().then(() => {
-        if (question) {
-            // Modo edição
-            title.textContent = 'Editar Questão';
-            document.getElementById('question-text').value = question.text;
-            document.getElementById('option-a').value = question.options.a;
-            document.getElementById('option-b').value = question.options.b;
-            document.getElementById('option-c').value = question.options.c;
-            document.getElementById('option-d').value = question.options.d;
-            document.getElementById('correct-answer').value = question.correctAnswer;
-            document.getElementById('question-category').value = question.category || '';
-            document.getElementById('question-explanation').value = question.explanation || '';
-            document.getElementById('question-difficulty').value = question.difficulty || 'fácil';
-            form.setAttribute('data-question-id', question.id);
-        } else {
-            // Modo criação
-            title.textContent = 'Adicionar Questão';
-            form.reset();
-            form.removeAttribute('data-question-id');
-        }
-        
-        modal.classList.remove('hidden');
-    });
-}
-
-// Manipular envio do formulário de questão
-function handleQuestionSubmit(e) {
-    e.preventDefault();
-    saveQuestion();
-}
-
-// Salvar questão
-function saveQuestion() {
-    const form = document.getElementById('question-form');
-    const questionId = form.getAttribute('data-question-id');
-    const questionData = {
-        text: document.getElementById('question-text').value,
-        options: {
-            a: document.getElementById('option-a').value,
-            b: document.getElementById('option-b').value,
-            c: document.getElementById('option-c').value,
-            d: document.getElementById('option-d').value
-        },
-        correctAnswer: document.getElementById('correct-answer').value,
-        category: document.getElementById('question-category').value,
-        explanation: document.getElementById('question-explanation').value,
-        difficulty: document.getElementById('question-difficulty').value,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    showLoading();
-    
-    if (questionId) {
-        // Atualizar questão existente
-        db.collection('questions').doc(questionId).update(questionData)
-            .then(() => {
-                hideLoading();
-                closeModal('question-modal');
-                alert('Questão atualizada com sucesso!');
-                loadAdminQuestions();
-            })
-            .catch(error => {
-                hideLoading();
-                alert('Erro ao atualizar questão: ' + error.message);
-            });
-    } else {
-        // Criar nova questão
-        questionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-        questionData.createdBy = currentUser.uid;
-        
-        db.collection('questions').add(questionData)
-            .then(() => {
-                hideLoading();
-                closeModal('question-modal');
-                alert('Questão criada com sucesso!');
-                loadAdminQuestions();
-            })
-            .catch(error => {
-                hideLoading();
-                alert('Erro ao criar questão: ' + error.message);
-            });
-    }
-}
-
 // Editar questão
 function editQuestion(questionId) {
-    showLoading();
-    db.collection('questions').doc(questionId).get()
-        .then(doc => {
-            hideLoading();
-            if (doc.exists) {
-                const question = { id: doc.id, ...doc.data() };
-                openQuestionModal(question);
-            }
-        })
-        .catch(error => {
-            hideLoading();
-            alert('Erro ao carregar questão: ' + error.message);
-        });
+    alert('Funcionalidade de edição em desenvolvimento. Questão ID: ' + questionId);
 }
 
 // Excluir questão
@@ -1587,184 +1189,7 @@ function deleteQuestion(questionId) {
 
 // Importar questões de JSON
 function importQuestions() {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = '.json';
-    
-    fileInput.addEventListener('change', function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const data = JSON.parse(e.target.result);
-                let questions = [];
-
-                // Verificar diferentes estruturas possíveis do JSON
-                if (Array.isArray(data)) {
-                    // Estrutura 1: Array direto de questões
-                    questions = data;
-                    console.log('Estrutura detectada: Array direto');
-                } else if (data.questions && Array.isArray(data.questions)) {
-                    // Estrutura 2: Objeto com propriedade "questions"
-                    questions = data.questions;
-                    console.log('Estrutura detectada: Objeto com propriedade "questions"');
-                } else if (data.quizAppQuestions && data.quizAppQuestions.questions && Array.isArray(data.quizAppQuestions.questions)) {
-                    // Estrutura 3: Objeto com propriedade "quizAppQuestions.questions"
-                    questions = data.quizAppQuestions.questions;
-                    console.log('Estrutura detectada: Objeto com propriedade "quizAppQuestions.questions"');
-                } else {
-                    alert('O arquivo JSON deve conter um array de questões na estrutura correta.\n\nEstruturas aceitas:\n1. Array direto de questões\n2. { "questions": [...] }\n3. { "quizAppQuestions": { "questions": [...] } }');
-                    return;
-                }
-
-                if (questions.length === 0) {
-                    alert('O arquivo JSON não contém questões válidas.');
-                    return;
-                }
-
-                console.log(`Encontradas ${questions.length} questões para importar`);
-                
-                // Validar estrutura das questões
-                const invalidQuestions = [];
-                questions.forEach((question, index) => {
-                    if (!question.text || !question.options || !question.correctAnswer) {
-                        invalidQuestions.push(index + 1);
-                    }
-                });
-
-                if (invalidQuestions.length > 0) {
-                    alert(`Algumas questões estão com estrutura inválida (números: ${invalidQuestions.join(', ')}).\n\nCada questão deve ter: text, options e correctAnswer.`);
-                    return;
-                }
-
-                // Confirmar importação
-                if (confirm(`Deseja importar ${questions.length} questões?`)) {
-                    importQuestionsToFirestore(questions);
-                }
-
-            } catch (error) {
-                alert('Erro ao processar arquivo JSON: ' + error.message);
-                console.error('Erro no JSON:', error);
-            }
-        };
-        reader.onerror = function() {
-            alert('Erro ao ler o arquivo. Tente novamente.');
-        };
-        reader.readAsText(file);
-    });
-    
-    fileInput.click();
-}
-
-// Importar questões para o Firestore
-function importQuestionsToFirestore(questions) {
-    let importedCount = 0;
-    let errorCount = 0;
-    
-    showLoading();
-    
-    const importNext = (index) => {
-        if (index >= questions.length) {
-            hideLoading();
-            const message = `Importação concluída! ${importedCount} questões importadas com sucesso${errorCount > 0 ? `, ${errorCount} erros.` : '.'}`;
-            alert(message);
-            loadAdminQuestions();
-            return;
-        }
-        
-        const question = questions[index];
-        
-        // Validar estrutura da questão
-        if (!question.text || !question.options || !question.correctAnswer) {
-            console.error(`Questão ${index} inválida: estrutura incorreta`);
-            errorCount++;
-            importNext(index + 1);
-            return;
-        }
-
-        // Validar se as opções estão completas
-        if (!question.options.a || !question.options.b || !question.options.c || !question.options.d) {
-            console.error(`Questão ${index} inválida: opções incompletas`);
-            errorCount++;
-            importNext(index + 1);
-            return;
-        }
-
-        // Validar resposta correta
-        if (!['a', 'b', 'c', 'd'].includes(question.correctAnswer.toLowerCase())) {
-            console.error(`Questão ${index} inválida: resposta correta deve ser a, b, c ou d`);
-            errorCount++;
-            importNext(index + 1);
-            return;
-        }
-        
-        const questionData = {
-            text: question.text,
-            options: question.options,
-            correctAnswer: question.correctAnswer.toLowerCase(),
-            category: question.category || '',
-            explanation: question.explanation || '',
-            difficulty: question.difficulty || 'fácil',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdBy: currentUser.uid
-        };
-        
-        db.collection('questions').add(questionData)
-            .then(() => {
-                importedCount++;
-                // Atualizar categorias disponíveis
-                if (questionData.category && questionData.category.trim() !== '') {
-                    availableCategories.add(questionData.category);
-                }
-                console.log(`Questão ${index + 1} importada com sucesso`);
-                importNext(index + 1);
-            })
-            .catch(error => {
-                errorCount++;
-                console.error(`Erro ao importar questão ${index + 1}:`, error);
-                importNext(index + 1);
-            });
-    };
-    
-    importNext(0);
-}
-
-// Exportar questões para JSON
-function exportQuestions() {
-    showLoading();
-    db.collection('questions').get()
-        .then(querySnapshot => {
-            hideLoading();
-            const questions = [];
-            
-            querySnapshot.forEach(doc => {
-                const question = doc.data();
-                questions.push({
-                    text: question.text,
-                    options: question.options,
-                    correctAnswer: question.correctAnswer,
-                    category: question.category,
-                    explanation: question.explanation,
-                    difficulty: question.difficulty
-                });
-            });
-            
-            const dataStr = JSON.stringify({ questions: questions }, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-            
-            const exportFileDefaultName = `questoes_${new Date().toISOString().split('T')[0]}.json`;
-            
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            linkElement.click();
-        })
-        .catch(error => {
-            hideLoading();
-            alert('Erro ao exportar questões: ' + error.message);
-        });
+    alert('Funcionalidade de importação em desenvolvimento');
 }
 
 // Carregar usuários para administrador
@@ -1811,10 +1236,6 @@ function createAdminUserCard(user) {
             <p><strong>Cadastrado em:</strong> ${user.createdAt ? user.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
-            <button class="btn btn-primary edit-user" data-user-id="${user.id}">
-                <i class="fas fa-edit"></i>
-                <span class="btn-text">Editar</span>
-            </button>
             <button class="btn btn-danger delete-user" data-user-id="${user.id}">
                 <i class="fas fa-trash"></i>
                 <span class="btn-text">Excluir</span>
@@ -1822,99 +1243,12 @@ function createAdminUserCard(user) {
         </div>
     `;
     
-    // Adicionar event listeners aos botões
-    card.querySelector('.edit-user').addEventListener('click', () => {
-        editUser(user.id);
-    });
-    
+    // Adicionar event listener ao botão de excluir
     card.querySelector('.delete-user').addEventListener('click', () => {
         deleteUser(user.id);
     });
     
     return card;
-}
-
-// Abrir modal de usuário
-function openUserModal(user = null) {
-    const modal = document.getElementById('user-modal');
-    const title = document.getElementById('user-modal-title');
-    const form = document.getElementById('user-form');
-    
-    if (user) {
-        // Modo edição
-        title.textContent = 'Editar Usuário';
-        document.getElementById('user-name').value = user.name;
-        document.getElementById('user-email').value = user.email;
-        document.getElementById('user-type').value = user.userType;
-        form.setAttribute('data-user-id', user.id);
-    } else {
-        // Modo criação
-        title.textContent = 'Adicionar Usuário';
-        form.reset();
-        form.removeAttribute('data-user-id');
-    }
-    
-    modal.classList.remove('hidden');
-}
-
-// Manipular envio do formulário de usuário
-function handleUserSubmit(e) {
-    e.preventDefault();
-    saveUser();
-}
-
-// Salvar usuário
-function saveUser() {
-    const form = document.getElementById('user-form');
-    const userId = form.getAttribute('data-user-id');
-    const name = document.getElementById('user-name').value;
-    const email = document.getElementById('user-email').value;
-    const password = document.getElementById('user-password').value;
-    const userType = document.getElementById('user-type').value;
-    
-    if (!name || !email) {
-        alert('Por favor, preencha todos os campos obrigatórios.');
-        return;
-    }
-    
-    showLoading();
-    
-    const userData = {
-        name: name,
-        email: email,
-        userType: userType,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    };
-    
-    // Atualizar no Firestore
-    db.collection('users').doc(userId).update(userData)
-        .then(() => {
-            hideLoading();
-            closeModal('user-modal');
-            alert('Usuário atualizado com sucesso!');
-            loadAdminUsers();
-        })
-        .catch(error => {
-            hideLoading();
-            alert('Erro ao atualizar usuário: ' + error.message);
-        });
-}
-
-// Editar usuário
-function editUser(userId) {
-    showLoading();
-    db.collection('users').doc(userId).get()
-        .then(doc => {
-            hideLoading();
-            if (doc.exists) {
-                const user = { id: doc.id, ...doc.data() };
-                openUserModal(user);
-            }
-        })
-        .catch(error => {
-            hideLoading();
-            alert('Erro ao carregar usuário: ' + error.message);
-        });
 }
 
 // Excluir usuário
@@ -1932,107 +1266,27 @@ function deleteUser(userId) {
     }
 }
 
-// Manipular recuperação de senha
-function handlePasswordReset(e) {
-    e.preventDefault();
-    const email = document.getElementById('reset-email').value;
-    
-    if (!email) {
-        alert('Por favor, digite seu e-mail.');
-        return;
-    }
-    
-    showLoading();
-    
-    auth.sendPasswordResetEmail(email)
-        .then(() => {
-            hideLoading();
-            closeModal('forgot-password-modal');
-            alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
-        })
-        .catch((error) => {
-            hideLoading();
-            alert('Erro ao enviar e-mail de recuperação: ' + getAuthErrorMessage(error.code));
-        });
-}
-
 // Carregar relatórios para administrador
 function loadAdminReports() {
-    // Estatísticas básicas
-    loadBasicStats();
-    
-    // Gráficos (implementação básica)
-    loadCharts();
-}
-
-// Carregar estatísticas básicas
-function loadBasicStats() {
-    // Total de usuários
-    db.collection('users').get().then(snapshot => {
-        document.getElementById('total-users').textContent = snapshot.size;
-    });
-    
-    // Quizzes ativos
-    db.collection('quizzes').where('status', '==', 'active').get().then(snapshot => {
-        document.getElementById('total-quizzes').textContent = snapshot.size;
-    });
-    
-    // Total de questões
-    db.collection('questions').get().then(snapshot => {
-        document.getElementById('total-questions').textContent = snapshot.size;
-    });
-    
-    // Total de tentativas
-    db.collection('userQuizzes').where('status', '==', 'completed').get().then(snapshot => {
-        document.getElementById('total-attempts').textContent = snapshot.size;
-    });
-}
-
-// Carregar gráficos
-function loadCharts() {
-    // Implementação básica de gráficos
-    const ctx = document.getElementById('category-chart');
-    if (!ctx) return;
-    
-    const ctx2d = ctx.getContext('2d');
-    
-    // Dados de exemplo - em uma implementação real, você buscaria esses dados do Firestore
-    const exampleData = {
-        labels: Array.from(availableCategories).slice(0, 5),
-        datasets: [{
-            label: 'Desempenho por Categoria',
-            data: [85, 72, 68, 90, 78],
-            backgroundColor: [
-                'rgba(74, 108, 247, 0.8)',
-                'rgba(40, 167, 69, 0.8)',
-                'rgba(220, 53, 69, 0.8)',
-                'rgba(255, 193, 7, 0.8)',
-                'rgba(23, 162, 184, 0.8)'
-            ],
-            borderColor: [
-                'rgba(74, 108, 247, 1)',
-                'rgba(40, 167, 69, 1)',
-                'rgba(220, 53, 69, 1)',
-                'rgba(255, 193, 7, 1)',
-                'rgba(23, 162, 184, 1)'
-            ],
-            borderWidth: 1
-        }]
-    };
-    
-    new Chart(ctx2d, {
-        type: 'bar',
-        data: exampleData,
-        options: {
-            responsive: true,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 100
-                }
-            }
-        }
-    });
+    // Implementação básica - pode ser expandida com gráficos e estatísticas
+    const reportsContent = document.getElementById('admin-reports-content');
+    reportsContent.innerHTML = `
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Estatísticas Gerais</h3>
+            </div>
+            <div class="card-content">
+                <p>Relatórios detalhados em desenvolvimento.</p>
+                <p>Esta seção pode incluir:</p>
+                <ul>
+                    <li>Gráficos de desempenho dos alunos</li>
+                    <li>Estatísticas de uso do sistema</li>
+                    <li>Relatórios de quizzes mais populares</li>
+                    <li>Análise de questões mais difíceis/fáceis</li>
+                </ul>
+            </div>
+        </div>
+    `;
 }
 
 // ===============================
