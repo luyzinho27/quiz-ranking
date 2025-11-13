@@ -412,6 +412,141 @@
         <p>Carregando...</p>
     </div>
 
+    <!-- Modal para criar/editar quiz -->
+    <div id="quiz-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="quiz-modal-title">Criar Novo Quiz</h3>
+                <button id="close-quiz-modal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="quiz-title">Título do Quiz</label>
+                    <input type="text" id="quiz-title" placeholder="Digite o título do quiz">
+                </div>
+                <div class="input-group">
+                    <label for="quiz-description">Descrição</label>
+                    <textarea id="quiz-description" placeholder="Digite a descrição do quiz" rows="3"></textarea>
+                </div>
+                <div class="input-group">
+                    <label for="quiz-category">Categoria</label>
+                    <input type="text" id="quiz-category" placeholder="Ex: Informática, Matemática, História">
+                </div>
+                <div class="input-group">
+                    <label for="quiz-questions-count">Número de Questões</label>
+                    <input type="number" id="quiz-questions-count" placeholder="Número de questões" min="1" max="50">
+                </div>
+                <div class="input-group">
+                    <label for="quiz-time">Tempo (minutos)</label>
+                    <input type="number" id="quiz-time" placeholder="Tempo em minutos" min="1" max="180">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-quiz" class="btn btn-secondary">Cancelar</button>
+                <button id="save-quiz" class="btn btn-primary">Salvar Quiz</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para criar/editar questão -->
+    <div id="question-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="question-modal-title">Adicionar Nova Questão</h3>
+                <button id="close-question-modal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="question-text">Enunciado da Questão</label>
+                    <textarea id="question-text" placeholder="Digite o enunciado da questão" rows="3"></textarea>
+                </div>
+                <div class="input-group">
+                    <label for="question-category">Categoria</label>
+                    <input type="text" id="question-category" placeholder="Ex: Informática, Matemática, História">
+                </div>
+                <div class="options-group">
+                    <label>Opções de Resposta</label>
+                    <div class="input-group">
+                        <span class="option-label">A)</span>
+                        <input type="text" id="option-a" placeholder="Opção A">
+                    </div>
+                    <div class="input-group">
+                        <span class="option-label">B)</span>
+                        <input type="text" id="option-b" placeholder="Opção B">
+                    </div>
+                    <div class="input-group">
+                        <span class="option-label">C)</span>
+                        <input type="text" id="option-c" placeholder="Opção C">
+                    </div>
+                    <div class="input-group">
+                        <span class="option-label">D)</span>
+                        <input type="text" id="option-d" placeholder="Opção D">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="correct-answer">Resposta Correta</label>
+                    <select id="correct-answer">
+                        <option value="a">Opção A</option>
+                        <option value="b">Opção B</option>
+                        <option value="c">Opção C</option>
+                        <option value="d">Opção D</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-question" class="btn btn-secondary">Cancelar</button>
+                <button id="save-question" class="btn btn-primary">Salvar Questão</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para importar questões -->
+    <div id="import-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Importar Questões em JSON</h3>
+                <button id="close-import-modal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="json-data">Cole o JSON com as questões</label>
+                    <textarea id="json-data" placeholder='[{"text": "Pergunta?", "options": {"a": "Opção A", "b": "Opção B", "c": "Opção C", "d": "Opção D"}, "correctAnswer": "a", "category": "Geral"}]' rows="10"></textarea>
+                </div>
+                <div class="info-text">
+                    <p><strong>Formato esperado:</strong> Array de objetos com as propriedades: text, options (objeto com a, b, c, d), correctAnswer (a, b, c ou d) e category.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-import" class="btn btn-secondary">Cancelar</button>
+                <button id="import-questions" class="btn btn-primary">Importar Questões</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para revisão de respostas -->
+    <div id="review-modal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Revisão de Respostas</h3>
+                <button id="close-review-modal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="review-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-review" class="btn btn-primary">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
