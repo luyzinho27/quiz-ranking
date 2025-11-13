@@ -147,7 +147,28 @@ function initAuth() {
     // Recuperação de senha
     forgotPasswordLink.addEventListener('click', (e) => {
         e.preventDefault();
-        openForgotPasswordModal();
+        const email = document.getElementById('login-email').value;
+        if (!email) {
+            alert('Por favor, insira seu e-mail para recuperar a senha.');
+            return;
+        }
+        
+        auth.sendPasswordResetEmail(email)
+            .then(() => {
+                alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+            })
+            .catch(error => {
+                alert('Erro ao enviar e-mail de recuperação: ' + getAuthErrorMessage(error.code));
+            });
+    });
+    
+    // Toggle password visibility
+    document.getElementById('toggle-login-password').addEventListener('click', function() {
+        togglePasswordVisibility('login-password', this);
+    });
+    
+    document.getElementById('toggle-register-password').addEventListener('click', function() {
+        togglePasswordVisibility('register-password', this);
     });
 }
 
@@ -285,8 +306,8 @@ function initEventListeners() {
     
     // Botões do admin
     document.getElementById('create-quiz-btn').addEventListener('click', createQuiz);
-    document.getElementById('add-question-btn').addEventListener('click', createQuestion);
-    document.getElementById('import-json-btn').addEventListener('click', importQuestions);
+    document.getElementById('create-question-btn').addEventListener('click', createQuestion);
+    document.getElementById('import-questions-btn').addEventListener('click', importQuestions);
     document.getElementById('export-questions-btn').addEventListener('click', exportQuestions);
     
     // Busca e filtros
@@ -316,55 +337,28 @@ function initTabNavigation() {
     });
     
     // Abas do admin
-    document.getElementById('manage-quizzes-tab').addEventListener('click', () => {
-        switchAdminTab('manage-quizzes-tab', 'manage-quizzes-section');
+    document.getElementById('admin-quizzes-tab').addEventListener('click', () => {
+        switchAdminTab('admin-quizzes-tab', 'admin-quizzes-section');
         loadAdminQuizzes();
     });
     
-    document.getElementById('manage-questions-tab').addEventListener('click', () => {
-        switchAdminTab('manage-questions-tab', 'manage-questions-section');
+    document.getElementById('admin-questions-tab').addEventListener('click', () => {
+        switchAdminTab('admin-questions-tab', 'admin-questions-section');
         loadAdminQuestions();
     });
     
-    document.getElementById('manage-users-tab').addEventListener('click', () => {
-        switchAdminTab('manage-users-tab', 'manage-users-section');
+    document.getElementById('admin-users-tab').addEventListener('click', () => {
+        switchAdminTab('admin-users-tab', 'admin-users-section');
         loadAdminUsers();
     });
     
-    document.getElementById('reports-tab').addEventListener('click', () => {
-        switchAdminTab('reports-tab', 'reports-section');
+    document.getElementById('admin-reports-tab').addEventListener('click', () => {
+        switchAdminTab('admin-reports-tab', 'admin-reports-section');
         loadAdminReports();
     });
     
     // Botão de sair do quiz
     document.getElementById('exit-quiz-btn').addEventListener('click', confirmExitQuiz);
-}
-
-// Inicializar controles do quiz
-function initQuizControls() {
-    document.getElementById('prev-question').addEventListener('click', () => {
-        if (currentQuestionIndex > 0) {
-            currentQuestionIndex--;
-            displayQuestion();
-        }
-    });
-    
-    document.getElementById('next-question').addEventListener('click', () => {
-        if (currentQuestionIndex < currentQuestions.length - 1) {
-            currentQuestionIndex++;
-            displayQuestion();
-        }
-    });
-    
-    document.getElementById('finish-quiz').addEventListener('click', finishQuiz);
-    
-    // Seleção de opções
-    document.querySelectorAll('.option').forEach(option => {
-        option.addEventListener('click', function() {
-            const selectedValue = this.getAttribute('data-value');
-            selectOption(selectedValue);
-        });
-    });
 }
 
 // Inicializar modais
@@ -419,11 +413,41 @@ function initModals() {
     cancelExitBtn.addEventListener('click', () => closeModal('exit-quiz-modal'));
     confirmExitBtn.addEventListener('click', confirmExitQuiz);
     
+    // Botão de sair do quiz
+    document.getElementById('exit-quiz-btn').addEventListener('click', openExitQuizModal);
+    
     // Fechar modal ao clicar fora
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
             e.target.classList.add('hidden');
         }
+    });
+}
+
+// Inicializar controles do quiz
+function initQuizControls() {
+    document.getElementById('prev-question').addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            displayQuestion();
+        }
+    });
+    
+    document.getElementById('next-question').addEventListener('click', () => {
+        if (currentQuestionIndex < currentQuestions.length - 1) {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+    });
+    
+    document.getElementById('finish-quiz').addEventListener('click', finishQuiz);
+    
+    // Seleção de opções
+    document.querySelectorAll('.option').forEach(option => {
+        option.addEventListener('click', function() {
+            const selectedValue = this.getAttribute('data-value');
+            selectOption(selectedValue);
+        });
     });
 }
 
@@ -969,10 +993,29 @@ function updateUserQuizProgress() {
     });
 }
 
+// Abrir modal de saída do quiz
+function openExitQuizModal() {
+    // Buscar informações atualizadas do quiz
+    db.collection('userQuizzes').doc(userQuizId).get()
+        .then(doc => {
+            if (doc.exists) {
+                const userQuiz = doc.data();
+                const remainingAttempts = 3 - userQuiz.attempts;
+                document.getElementById('remaining-attempts').textContent = remainingAttempts;
+                openModal('exit-quiz-modal');
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao buscar informações do quiz:', error);
+            openModal('exit-quiz-modal');
+        });
+}
+
 // Confirmar saída do quiz
 function confirmExitQuiz() {
     if (confirm('Tem certeza que deseja sair do quiz? Seu progresso será salvo.')) {
         clearInterval(quizTimer);
+        closeModal('exit-quiz-modal');
         showDashboard();
     }
 }
@@ -1029,40 +1072,9 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
         const circleProgress = document.getElementById('circle-progress');
         const degrees = (percentage / 100) * 360;
         circleProgress.style.transform = `rotate(${degrees}deg)`;
-                quizContainer.classList.add('hidden');
+        
+        quizContainer.classList.add('hidden');
         quizResult.classList.remove('hidden');
-    } else {
-        // Buscar resultado do Firestore
-        db.collection('userQuizzes')
-            .where('userId', '==', currentUser.uid)
-            .where('quizId', '==', quizId)
-            .where('status', '==', 'completed')
-            .get()
-            .then(querySnapshot => {
-                if (!querySnapshot.empty) {
-                    const userQuiz = querySnapshot.docs[0].data();
-                    
-                    document.getElementById('score-percentage').textContent = `${userQuiz.percentage.toFixed(1)}%`;
-                    document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions.length}`;
-                    document.getElementById('correct-answers').textContent = userQuiz.score;
-                    document.getElementById('wrong-answers').textContent = currentQuestions.length - userQuiz.score;
-                    
-                    const minutes = Math.floor(userQuiz.timeTaken / 60);
-                    const seconds = userQuiz.timeTaken % 60;
-                    document.getElementById('time-taken').textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                    
-                    // Animar o círculo de progresso
-                    const circleProgress = document.getElementById('circle-progress');
-                    const degrees = (userQuiz.percentage / 100) * 360;
-                    circleProgress.style.transform = `rotate(${degrees}deg)`;
-                    
-                    studentDashboard.classList.add('hidden');
-                    quizResult.classList.remove('hidden');
-                }
-            })
-            .catch(error => {
-                alert('Erro ao carregar resultado: ' + error.message);
-            });
     }
 }
 
@@ -1072,7 +1084,7 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
 
 // Carregar quizzes para administrador
 function loadAdminQuizzes() {
-    const quizzesList = document.getElementById('quizzes-admin-list');
+    const quizzesList = document.getElementById('admin-quizzes-list');
     quizzesList.innerHTML = '<div class="card"><div class="card-content">Carregando quizzes...</div></div>';
     
     // Buscar todos os quizzes
@@ -1311,7 +1323,7 @@ function deleteQuiz(quizId) {
 
 // Carregar questões para administrador
 function loadAdminQuestions() {
-    const questionsList = document.getElementById('questions-list');
+    const questionsList = document.getElementById('admin-questions-list');
     questionsList.innerHTML = '<div class="card"><div class="card-content">Carregando questões...</div></div>';
     
     // Buscar todas as questões
@@ -1351,11 +1363,11 @@ function loadAdminQuestions() {
 function filterQuestions() {
     const searchTerm = document.getElementById('question-search').value.toLowerCase();
     const selectedCategory = document.getElementById('category-filter').value;
-    const questions = document.querySelectorAll('#questions-list .card');
+    const questions = document.querySelectorAll('#admin-questions-list .card');
     
     questions.forEach(question => {
         const text = question.textContent.toLowerCase();
-        const category = question.querySelector('.card-content p:first-child')?.textContent || '';
+        const category = question.querySelector('.card-content p:first-child').textContent;
         
         const matchesSearch = text.includes(searchTerm);
         const matchesCategory = !selectedCategory || category.includes(selectedCategory);
@@ -1575,75 +1587,75 @@ function deleteQuestion(questionId) {
 
 // Importar questões de JSON
 function importQuestions() {
-    document.getElementById('json-file').click();
-}
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    
+    fileInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-// Manipular importação de JSON
-function handleJsonImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                let questions = [];
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = JSON.parse(e.target.result);
-            let questions = [];
-
-            // Verificar diferentes estruturas possíveis do JSON
-            if (Array.isArray(data)) {
-                // Estrutura 1: Array direto de questões
-                questions = data;
-                console.log('Estrutura detectada: Array direto');
-            } else if (data.questions && Array.isArray(data.questions)) {
-                // Estrutura 2: Objeto com propriedade "questions"
-                questions = data.questions;
-                console.log('Estrutura detectada: Objeto com propriedade "questions"');
-            } else if (data.quizAppQuestions && data.quizAppQuestions.questions && Array.isArray(data.quizAppQuestions.questions)) {
-                // Estrutura 3: Objeto com propriedade "quizAppQuestions.questions"
-                questions = data.quizAppQuestions.questions;
-                console.log('Estrutura detectada: Objeto com propriedade "quizAppQuestions.questions"');
-            } else {
-                alert('O arquivo JSON deve conter um array de questões na estrutura correta.\n\nEstruturas aceitas:\n1. Array direto de questões\n2. { "questions": [...] }\n3. { "quizAppQuestions": { "questions": [...] } }');
-                return;
-            }
-
-            if (questions.length === 0) {
-                alert('O arquivo JSON não contém questões válidas.');
-                return;
-            }
-
-            console.log(`Encontradas ${questions.length} questões para importar`);
-            
-            // Validar estrutura das questões
-            const invalidQuestions = [];
-            questions.forEach((question, index) => {
-                if (!question.text || !question.options || !question.correctAnswer) {
-                    invalidQuestions.push(index + 1);
+                // Verificar diferentes estruturas possíveis do JSON
+                if (Array.isArray(data)) {
+                    // Estrutura 1: Array direto de questões
+                    questions = data;
+                    console.log('Estrutura detectada: Array direto');
+                } else if (data.questions && Array.isArray(data.questions)) {
+                    // Estrutura 2: Objeto com propriedade "questions"
+                    questions = data.questions;
+                    console.log('Estrutura detectada: Objeto com propriedade "questions"');
+                } else if (data.quizAppQuestions && data.quizAppQuestions.questions && Array.isArray(data.quizAppQuestions.questions)) {
+                    // Estrutura 3: Objeto com propriedade "quizAppQuestions.questions"
+                    questions = data.quizAppQuestions.questions;
+                    console.log('Estrutura detectada: Objeto com propriedade "quizAppQuestions.questions"');
+                } else {
+                    alert('O arquivo JSON deve conter um array de questões na estrutura correta.\n\nEstruturas aceitas:\n1. Array direto de questões\n2. { "questions": [...] }\n3. { "quizAppQuestions": { "questions": [...] } }');
+                    return;
                 }
-            });
 
-            if (invalidQuestions.length > 0) {
-                alert(`Algumas questões estão com estrutura inválida (números: ${invalidQuestions.join(', ')}).\n\nCada questão deve ter: text, options e correctAnswer.`);
-                return;
+                if (questions.length === 0) {
+                    alert('O arquivo JSON não contém questões válidas.');
+                    return;
+                }
+
+                console.log(`Encontradas ${questions.length} questões para importar`);
+                
+                // Validar estrutura das questões
+                const invalidQuestions = [];
+                questions.forEach((question, index) => {
+                    if (!question.text || !question.options || !question.correctAnswer) {
+                        invalidQuestions.push(index + 1);
+                    }
+                });
+
+                if (invalidQuestions.length > 0) {
+                    alert(`Algumas questões estão com estrutura inválida (números: ${invalidQuestions.join(', ')}).\n\nCada questão deve ter: text, options e correctAnswer.`);
+                    return;
+                }
+
+                // Confirmar importação
+                if (confirm(`Deseja importar ${questions.length} questões?`)) {
+                    importQuestionsToFirestore(questions);
+                }
+
+            } catch (error) {
+                alert('Erro ao processar arquivo JSON: ' + error.message);
+                console.error('Erro no JSON:', error);
             }
-
-            // Confirmar importação
-            if (confirm(`Deseja importar ${questions.length} questões?`)) {
-                importQuestionsToFirestore(questions);
-            }
-
-        } catch (error) {
-            alert('Erro ao processar arquivo JSON: ' + error.message);
-            console.error('Erro no JSON:', error);
-        }
-    };
-    reader.onerror = function() {
-        alert('Erro ao ler o arquivo. Tente novamente.');
-    };
-    reader.readAsText(file);
-
-    // Limpar o input para permitir importar o mesmo arquivo novamente
-    event.target.value = '';
+        };
+        reader.onerror = function() {
+            alert('Erro ao ler o arquivo. Tente novamente.');
+        };
+        reader.readAsText(file);
+    });
+    
+    fileInput.click();
 }
 
 // Importar questões para o Firestore
@@ -1757,7 +1769,7 @@ function exportQuestions() {
 
 // Carregar usuários para administrador
 function loadAdminUsers() {
-    const usersList = document.getElementById('users-list');
+    const usersList = document.getElementById('admin-users-list');
     usersList.innerHTML = '<div class="card"><div class="card-content">Carregando usuários...</div></div>';
     
     // Buscar todos os usuários
@@ -1803,27 +1815,21 @@ function createAdminUserCard(user) {
                 <i class="fas fa-edit"></i>
                 <span class="btn-text">Editar</span>
             </button>
-            ${user.userType !== 'admin' ? `
-                <button class="btn btn-danger delete-user" data-user-id="${user.id}">
-                    <i class="fas fa-trash"></i>
-                    <span class="btn-text">Excluir</span>
-                </button>
-            ` : ''}
+            <button class="btn btn-danger delete-user" data-user-id="${user.id}">
+                <i class="fas fa-trash"></i>
+                <span class="btn-text">Excluir</span>
+            </button>
         </div>
     `;
     
     // Adicionar event listeners aos botões
-    if (card.querySelector('.edit-user')) {
-        card.querySelector('.edit-user').addEventListener('click', () => {
-            editUser(user.id);
-        });
-    }
+    card.querySelector('.edit-user').addEventListener('click', () => {
+        editUser(user.id);
+    });
     
-    if (card.querySelector('.delete-user')) {
-        card.querySelector('.delete-user').addEventListener('click', () => {
-            deleteUser(user.id);
-        });
-    }
+    card.querySelector('.delete-user').addEventListener('click', () => {
+        deleteUser(user.id);
+    });
     
     return card;
 }
@@ -1926,6 +1932,30 @@ function deleteUser(userId) {
     }
 }
 
+// Manipular recuperação de senha
+function handlePasswordReset(e) {
+    e.preventDefault();
+    const email = document.getElementById('reset-email').value;
+    
+    if (!email) {
+        alert('Por favor, digite seu e-mail.');
+        return;
+    }
+    
+    showLoading();
+    
+    auth.sendPasswordResetEmail(email)
+        .then(() => {
+            hideLoading();
+            closeModal('forgot-password-modal');
+            alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+        })
+        .catch((error) => {
+            hideLoading();
+            alert('Erro ao enviar e-mail de recuperação: ' + getAuthErrorMessage(error.code));
+        });
+}
+
 // Carregar relatórios para administrador
 function loadAdminReports() {
     // Estatísticas básicas
@@ -1964,7 +1994,7 @@ function loadCharts() {
     const ctx = document.getElementById('category-chart');
     if (!ctx) return;
     
-    const chartCtx = ctx.getContext('2d');
+    const ctx2d = ctx.getContext('2d');
     
     // Dados de exemplo - em uma implementação real, você buscaria esses dados do Firestore
     const exampleData = {
@@ -1990,7 +2020,7 @@ function loadCharts() {
         }]
     };
     
-    new Chart(chartCtx, {
+    new Chart(ctx2d, {
         type: 'bar',
         data: exampleData,
         options: {
@@ -2003,39 +2033,6 @@ function loadCharts() {
             }
         }
     });
-}
-
-// ===============================
-// RECUPERAÇÃO DE SENHA
-// ===============================
-
-// Abrir modal de recuperação de senha
-function openForgotPasswordModal() {
-    document.getElementById('forgot-password-modal').classList.remove('hidden');
-}
-
-// Manipular recuperação de senha
-function handlePasswordReset(e) {
-    e.preventDefault();
-    const email = document.getElementById('reset-email').value;
-    
-    if (!email) {
-        alert('Por favor, digite seu e-mail.');
-        return;
-    }
-    
-    showLoading();
-    
-    auth.sendPasswordResetEmail(email)
-        .then(() => {
-            hideLoading();
-            closeModal('forgot-password-modal');
-            alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
-        })
-        .catch((error) => {
-            hideLoading();
-            alert('Erro ao enviar e-mail de recuperação: ' + getAuthErrorMessage(error.code));
-        });
 }
 
 // ===============================
