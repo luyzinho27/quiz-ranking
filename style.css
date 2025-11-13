@@ -1354,32 +1354,9 @@ body {
         padding: 0.75rem;
     }
 }
-/* ... (mantenha todo o CSS anterior e adicione estas novas regras) */
+/* ... (mantenha todo o CSS anterior e adicione estas regras no final) */
 
-/* Container de relatórios */
-.reports-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    width: 100%;
-}
-
-/* Container de gráficos */
-.charts-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 1.5rem;
-    margin: 1.5rem 0;
-}
-
-/* Cartões de questões com opções recolhíveis */
-.question-card .question-options {
-    transition: all 0.3s ease;
-}
-
-.question-card .question-options.hidden {
-    display: none;
-}
+/* Estilos para os novos elementos */
 
 /* Botão de informações */
 .btn-info {
@@ -1391,6 +1368,39 @@ body {
     background: #138496;
     transform: translateY(-2px);
     box-shadow: var(--shadow);
+}
+
+/* Cards de questões com opções recolhíveis */
+.question-card .question-options {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--light-color);
+    border-radius: var(--border-radius);
+}
+
+/* Container de relatórios */
+.reports-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.reports-charts {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+    .reports-charts {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+/* Gráficos */
+canvas {
+    max-width: 100%;
+    height: auto;
 }
 
 /* Badges de status */
@@ -1407,60 +1417,35 @@ body {
     background: var(--danger-color);
 }
 
-/* Responsividade para gráficos */
-@media (max-width: 768px) {
-    .charts-container {
-        grid-template-columns: 1fr;
-    }
-    
-    .charts-container .card {
-        min-width: 100%;
-    }
+/* Opções corretas destacadas */
+.correct-option {
+    border-left: 4px solid var(--success-color) !important;
+    background: rgba(40, 167, 69, 0.1) !important;
 }
 
-/* Melhorias para modais em mobile */
-@media (max-width: 480px) {
-    .modal-content {
-        margin: 1rem;
-        width: calc(100% - 2rem);
-    }
-    
-    .modal-footer {
+/* Layout responsivo para cards de questões */
+@media (max-width: 768px) {
+    .question-card .card-actions {
         flex-direction: column;
     }
     
-    .modal-footer .btn {
+    .question-card .card-actions .btn {
         width: 100%;
     }
 }
 
-/* Animações suaves para toggle de opções */
-.question-options {
-    animation: fadeIn 0.3s ease;
+/* Melhorias visuais para o modal de usuário */
+.modal-content {
+    max-width: 500px;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Melhorias visuais para os gráficos */
-canvas {
-    max-width: 100%;
-    height: auto;
-}
-
-/* Estilos para ranking completo */
-.ranking-list {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.ranking-item {
-    animation: slideIn 0.3s ease;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: translateX(-20px); }
-    to { opacity: 1; transform: translateX(0); }
+/* Estilos para o sistema de saída única do quiz */
+.quiz-warning {
+    background: var(--warning-color);
+    color: var(--dark-color);
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    margin-bottom: 1rem;
+    text-align: center;
+    font-weight: 600;
 }
