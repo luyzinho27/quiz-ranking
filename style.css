@@ -1354,64 +1354,38 @@ body {
         padding: 0.75rem;
     }
 }
-/* Adicione estes estilos ao arquivo CSS existente */
+/* Adicione estas regras ao arquivo style.css existente */
 
-/* Botão Info */
-.btn-info {
-    background: var(--info-color);
-    color: white;
-}
-
-.btn-info:hover {
-    background: #138496;
-    transform: translateY(-2px);
-    box-shadow: var(--shadow);
-}
-
-/* Cartão de questão */
-.question-card {
+/* Estilos para cards de questões recolhíveis */
+.question-card .question-options {
     transition: all 0.3s ease;
+    overflow: hidden;
 }
 
-.question-options {
+.question-card .question-options.hidden {
+    max-height: 0;
+    opacity: 0;
+}
+
+.question-card .question-options:not(.hidden) {
+    max-height: 500px;
+    opacity: 1;
     margin-top: 1rem;
-    padding: 1rem;
-    background: var(--light-color);
-    border-radius: var(--border-radius);
-    border-left: 4px solid var(--primary-color);
 }
 
-/* Gráficos */
-.chart-container {
-    position: relative;
-    height: 300px;
-    width: 100%;
-}
-
-/* Status de usuário */
-.user-status-active {
-    color: var(--success-color);
-    font-weight: 600;
-}
-
-.user-status-inactive {
+.toggle-options {
+    background: none;
+    border: none;
     color: var(--secondary-color);
-    font-weight: 600;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: var(--transition);
 }
 
-/* Detalhes do histórico */
-.history-details {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-    margin-top: 1rem;
-}
-
-.detail {
-    font-size: 0.9rem;
-    padding: 0.5rem;
+.toggle-options:hover {
     background: var(--light-color);
-    border-radius: var(--border-radius);
+    color: var(--primary-color);
 }
 
 /* Badges de status */
@@ -1428,29 +1402,84 @@ body {
     background: var(--danger-color);
 }
 
-/* Opções corretas */
-.correct-option {
-    border: 2px solid var(--success-color) !important;
-    background: rgba(40, 167, 69, 0.1) !important;
+/* Gráficos */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* Histórico corrigido */
+.history-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.history-details .detail {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    background: var(--light-color);
+    border-radius: 4px;
+}
+
+/* Modal de usuário */
+.modal-content .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--dark-color);
 }
 
 /* Responsividade para gráficos */
 @media (max-width: 768px) {
-    .chart-container {
-        height: 250px;
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
+    .chart-container {
+        height: 250px;
     }
 }
 
 @media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
     .chart-container {
         height: 200px;
     }
-    
-    .stats-grid {
-        grid-template-columns: 1fr !important;
-    }
+}
+
+/* Animações suaves para transições */
+.card {
+    transition: all 0.3s ease;
+}
+
+.btn {
+    transition: all 0.2s ease;
+}
+
+/* Estados de loading melhorados */
+.loading p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+    color: var(--primary-color);
+}
+
+/* Melhorias na acessibilidade */
+.btn:focus,
+.input-group input:focus,
+.input-group select:focus,
+.input-group textarea:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Estados hover para itens de ranking */
+.ranking-item:hover {
+    transform: translateX(5px);
+    transition: transform 0.2s ease;
 }
