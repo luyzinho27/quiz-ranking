@@ -331,11 +331,6 @@ function initEventListeners() {
     document.getElementById('create-quiz-btn').addEventListener('click', () => openQuizModal());
     document.getElementById('create-question-btn').addEventListener('click', () => openQuestionModal());
     document.getElementById('import-questions-btn').addEventListener('click', openImportModal);
-    
-    // Inicializar página sobre se existir
-    if (document.getElementById('about-section')) {
-        initAboutPage();
-    }
 }
 
 // Inicializar navegação por abas
@@ -354,10 +349,6 @@ function initTabNavigation() {
     document.getElementById('history-tab').addEventListener('click', () => {
         switchTab('history-tab', 'history-section');
         loadUserHistory();
-    });
-    
-    document.getElementById('about-tab').addEventListener('click', () => {
-        switchTab('about-tab', 'about-section');
     });
     
     // Abas do admin
@@ -379,10 +370,6 @@ function initTabNavigation() {
     document.getElementById('admin-reports-tab').addEventListener('click', () => {
         switchAdminTab('admin-reports-tab', 'admin-reports-section');
         loadAdminReports();
-    });
-    
-    document.getElementById('admin-about-tab').addEventListener('click', () => {
-        switchAdminTab('admin-about-tab', 'admin-about-section');
     });
     
     // Botão de sair do quiz
@@ -450,27 +437,6 @@ function initModals() {
             }
         });
     });
-}
-
-// Inicializar página sobre
-function initAboutPage() {
-    // Adicionar event listener para o botão de reportar bug
-    const reportBugBtn = document.getElementById('report-bug');
-    if (reportBugBtn) {
-        reportBugBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            openBugReportModal();
-        });
-    }
-}
-
-// Função para abrir modal de reportar bug
-function openBugReportModal() {
-    const email = 'luizynho27@email.com';
-    const subject = 'Reportar Bug - QuizMaster';
-    const body = `Olá,\n\nEncontrei um bug no QuizMaster:\n\n• Descrição do problema:\n• Passos para reproduzir:\n• Comportamento esperado:\n• Comportamento atual:\n\nInformações do sistema:\n- Navegador: ${navigator.userAgent}\n- Resolução: ${screen.width}x${screen.height}\n\nObrigado!`;
-    
-    window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
 }
 
 // Alternar entre abas do aluno
@@ -949,20 +915,12 @@ function updateUserQuizProgress() {
     });
 }
 
-// Confirmar saída do quiz - MODIFICADO
+// Confirmar saída do quiz
 function confirmExitQuiz() {
     if (exitCount >= 1) {
-        // Segunda saída - finalizar quiz automaticamente e voltar para aba de Quizzes
+        // Segunda saída - finalizar quiz automaticamente
         if (confirm('Esta é sua segunda saída do quiz. O quiz será finalizado automaticamente com as questões respondidas até agora. Deseja continuar?')) {
             finishQuiz(true); // Forçar finalização
-            // Após finalizar, voltar para a aba de Quizzes
-            setTimeout(() => {
-                showDashboard();
-                if (currentUser.userType === 'aluno') {
-                    switchTab('quizzes-tab', 'quizzes-section');
-                    loadQuizzes();
-                }
-            }, 100);
         }
     } else {
         // Primeira saída
