@@ -560,8 +560,7 @@ function showSuccess(elementId, message) {
 function getAuthErrorMessage(errorCode) {
     const messages = {
         'auth/invalid-email': 'E-mail inválido.',
-
-'auth/user-disabled': 'Esta conta foi desativada.',
+        'auth/user-disabled': 'Esta conta foi desativada.',
         'auth/user-not-found': 'Nenhuma conta encontrada com este e-mail.',
         'auth/wrong-password': 'Senha incorreta.',
         'auth/email-already-in-use': 'Este e-mail já está em uso.',
@@ -1211,6 +1210,533 @@ function showReviewModal() {
 // Fechar modal de revisão
 function closeReviewModal() {
     document.getElementById('review-modal').classList.add('hidden');
+}
+
+// ===============================
+// HISTÓRICO - CORRIGIDO E SIMPLIFICADO
+// ===============================
+
+// Carregar histórico do usuário - VERSÃO SIMPLIFICADA
+function loadUserHistory() {
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
+    
+    console.log('🔍 Iniciando carregamento do histórico...');
+    console.log('📝 User ID:', currentUser.uid);
+    
+    // Tentativa 1: Buscar por completedAt (campo principal)
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('status', '==', 'completed')
+        .orderBy('completedAt', 'desc')
+        .get()
+        .then(querySnapshot => {
+            console.log('✅ Consulta completedAt bem-sucedida. Documentos encontrados:', querySnapshot.size);
+            
+            if (querySnapshot.empty) {
+                // Tentativa 2: Se não encontrar com completedAt, tentar sem ordenação
+                console.log('⚠️  Nenhum documento com completedAt. Tentando busca alternativa...');
+                return db.collection('userQuizzes')
+                    .where('userId', '==', currentUser.uid)
+                    .where('status', '==', 'completed')
+                    .get();
+            }
+            return querySnapshot;
+        })
+        .then(querySnapshot => {
+            console.log('📊 Total de documentos encontrados:', querySnapshot.size);
+            
+            historyList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                console.log('ℹ️  Nenhum quiz concluído encontrado');
+                historyList.innerHTML = `
+                    <div class="card">
+                        <div class="card-content">
+                            <div style="text-align: center; padding: 2rem;">
+                                <i class="fas fa-inbox" style="font-size: 3rem; color: #6c757d; margin-bottom: 1rem;"></i>
+                                <h3>Nenhum quiz concluído ainda</h3>
+                                <p>Complete alguns quizzes para ver seu histórico aqui!</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const userQuizzes = [];
+            querySnapshot.forEach(doc => {
+                const data = doc.data();
+                console.log('📄 Documento:', doc.id, data);
+                
+                userQuizzes.push({
+                    id: doc.id,
+                    quizId: data.quizId,
+                    score: data.score || 0,
+                    percentage: data.percentage || 0,
+                    timeTaken: data.timeTaken || 0,
+                    answers: data.answers || [],
+                    completedAt: data.completedAt || data.updatedAt || data.startTime,
+                    attempts: data.attempts || 1
+                });
+            });
+            
+            // Ordenar por data (se completedAt não existir, usar o que estiver disponível)
+            userQuizzes.sort((a, b) => {
+                const dateA = a.completedAt ? a.completedAt.toDate() : new Date(0);
+                const dateB = b.completedAt ? b.completedAt.toDate() : new Date(0);
+                return dateB - dateA;
+            });
+            
+            console.log('🔄 Buscando informações dos quizzes...');
+            
+            // Buscar todos os quizzes de uma vez
+            db.collection('quizzes').get()
+                .then(quizzesSnapshot => {
+                    const quizzesMap = {};
+                    quizzesSnapshot.forEach(doc => {
+                        quizzesMap[doc.id] = {
+                            id: doc.id,
+                            title: doc.data().title || 'Quiz sem título',
+                            description: doc.data().description || 'Sem descrição',
+                            questionsCount: doc.data().questionsCount || 0,
+                            category: doc.data().category || 'Geral',
+                            time: doc.data().time || 0
+                        };
+                    });
+                    
+                    console.log('🎯 Quizzes disponíveis no sistema:', Object.keys(quizzesMap));
+                    
+                    // Criar cards de histórico
+                    let cardsCriados = 0;
+                    userQuizzes.forEach(userQuiz => {
+                        const quiz = quizzesMap[userQuiz.quizId];
+                        
+                        if (quiz) {
+                            cardsCriados++;
+                            createHistoryCard(historyList, userQuiz, quiz);
+                        } else {
+                            console.log('❌ Quiz não encontrado:', userQuiz.quizId);
+                        }
+                    });
+                    
+                    // Se nenhum card foi criado, mostrar mensagem
+                    if (cardsCriados === 0) {
+                        historyList.innerHTML = `
+                            <div class="card">
+                                <div class="card-content">
+                                    <div style="text-align: center; padding: 2rem;">
+                                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ffc107; margin-bottom: 1rem;"></i>
+                                        <h3>Histórico não disponível</h3>
+                                        <p>Os quizzes que você completou não foram encontrados no sistema.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Adicionar gráfico de desempenho
+                    if (cardsCriados > 0) {
+                        createPerformanceChart(historyList, userQuizzes, quizzesMap);
+                    }
+                    
+                })
+                .catch(error => {
+                    console.error('❌ Erro ao buscar quizzes:', error);
+                    historyList.innerHTML = `
+                        <div class="card">
+                            <div class="card-content">
+                                <div class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    Erro ao carregar informações dos quizzes.
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+        })
+        .catch(error => {
+            console.error('❌ Erro geral ao carregar histórico:', error);
+            historyList.innerHTML = `
+                <div class="card">
+                    <div class="card-content">
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Erro ao carregar histórico: ${error.message}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+}
+
+// Criar card de histórico individual
+function createHistoryCard(container, userQuiz, quiz) {
+    const historyCard = document.createElement('div');
+    historyCard.className = 'card';
+    
+    // Determinar cor do badge baseado na performance
+    let badgeClass = 'card-badge';
+    let badgeText = `${userQuiz.percentage.toFixed(1)}%`;
+    let performanceText = '';
+    
+    if (userQuiz.percentage >= 80) {
+        badgeClass += ' success';
+        performanceText = 'Excelente!';
+    } else if (userQuiz.percentage >= 60) {
+        badgeClass += ' warning';
+        performanceText = 'Bom!';
+    } else {
+        badgeClass += ' danger';
+        performanceText = 'Precisa melhorar';
+    }
+    
+    // Calcular tempo
+    const minutes = Math.floor(userQuiz.timeTaken / 60);
+    const seconds = userQuiz.timeTaken % 60;
+    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Formatar data
+    let dateText = 'Data não disponível';
+    if (userQuiz.completedAt) {
+        try {
+            dateText = userQuiz.completedAt.toDate().toLocaleDateString('pt-BR');
+        } catch (e) {
+            console.log('Erro ao formatar data:', e);
+        }
+    }
+    
+    historyCard.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${quiz.title}</h3>
+            <div>
+                <span class="${badgeClass}">${badgeText}</span>
+                <span class="card-badge card-badge-secondary">${performanceText}</span>
+            </div>
+        </div>
+        <div class="card-content">
+            <p>${quiz.description}</p>
+            <div class="history-details">
+                <div class="detail">
+                    <strong><i class="fas fa-check-circle" style="color: #28a745;"></i> Pontuação:</strong> 
+                    ${userQuiz.score}/${quiz.questionsCount}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Tempo:</strong> ${timeText}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-calendar" style="color: #17a2b8;"></i> Concluído em:</strong> ${dateText}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-layer-group" style="color: #6f42c1;"></i> Categoria:</strong> ${quiz.category}
+                </div>
+            </div>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}">
+                <i class="fas fa-chart-bar"></i>
+                <span class="btn-text">Ver Detalhes</span>
+            </button>
+            <button class="btn btn-secondary review-answers" data-user-quiz-id="${userQuiz.id}" data-quiz-id="${quiz.id}">
+                <i class="fas fa-redo"></i>
+                <span class="btn-text">Revisar</span>
+            </button>
+        </div>
+    `;
+    
+    // Event listeners
+    historyCard.querySelector('.view-details').addEventListener('click', function() {
+        const quizId = this.getAttribute('data-quiz-id');
+        showQuizResult(quizId);
+    });
+    
+    historyCard.querySelector('.review-answers').addEventListener('click', function() {
+        const userQuizId = this.getAttribute('data-user-quiz-id');
+        const quizId = this.getAttribute('data-quiz-id');
+        loadReviewData(userQuizId, quizId);
+    });
+    
+    container.appendChild(historyCard);
+}
+
+// Criar gráfico de desempenho
+function createPerformanceChart(container, userQuizzes, quizzesMap) {
+    const chartCard = document.createElement('div');
+    chartCard.className = 'card';
+    chartCard.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-chart-line"></i> Meu Desempenho</h3>
+        </div>
+        <div class="card-content">
+            <div class="chart-container">
+                <canvas id="historyPerformanceChart" width="400" height="200"></canvas>
+            </div>
+            <div class="stats-grid" style="margin-top: 1.5rem;">
+                <div class="stat-item">
+                    <div class="stat-value">${userQuizzes.length}</div>
+                    <div class="stat-label">Quizzes Concluídos</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${calculateAverage(userQuizzes, 'percentage').toFixed(1)}%</div>
+                    <div class="stat-label">Pontuação Média</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${findBestPerformance(userQuizzes).toFixed(1)}%</div>
+                    <div class="stat-label">Melhor Pontuação</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${calculateTotalTime(userQuizzes)}</div>
+                    <div class="stat-label">Tempo Total</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertBefore(chartCard, container.firstChild);
+    
+    // Inicializar gráfico após o DOM ser atualizado
+    setTimeout(() => {
+        initializeHistoryChart(userQuizzes, quizzesMap);
+    }, 100);
+}
+
+// Inicializar gráfico do histórico
+function initializeHistoryChart(userQuizzes, quizzesMap) {
+    const ctx = document.getElementById('historyPerformanceChart');
+    if (!ctx) return;
+    
+    // Preparar dados para o gráfico
+    const labels = userQuizzes.map((quiz, index) => {
+        const quizInfo = quizzesMap[quiz.quizId];
+        return quizInfo ? `Quiz ${index + 1}` : `Quiz ${index + 1}`;
+    });
+    
+    const percentages = userQuizzes.map(quiz => quiz.percentage);
+    const scores = userQuizzes.map(quiz => quiz.score);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Porcentagem (%)',
+                    data: percentages,
+                    borderColor: '#4a6cf7',
+                    backgroundColor: 'rgba(74, 108, 247, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Pontuação',
+                    data: scores,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Evolução do Desempenho',
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Porcentagem / Pontuação'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Tentativas'
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Funções auxiliares
+function calculateAverage(array, field) {
+    if (array.length === 0) return 0;
+    const sum = array.reduce((acc, item) => acc + (item[field] || 0), 0);
+    return sum / array.length;
+}
+
+function findBestPerformance(userQuizzes) {
+    if (userQuizzes.length === 0) return 0;
+    return Math.max(...userQuizzes.map(quiz => quiz.percentage));
+}
+
+function calculateTotalTime(userQuizzes) {
+    const totalSeconds = userQuizzes.reduce((acc, quiz) => acc + (quiz.timeTaken || 0), 0);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+}
+
+// Carregar dados para revisão - VERSÃO SIMPLIFICADA
+function loadReviewData(userQuizId, quizId) {
+    console.log('🔄 Carregando dados para revisão...');
+    showLoading();
+    
+    Promise.all([
+        db.collection('userQuizzes').doc(userQuizId).get(),
+        db.collection('quizzes').doc(quizId).get()
+    ]).then(([userQuizDoc, quizDoc]) => {
+        if (!userQuizDoc.exists || !quizDoc.exists) {
+            hideLoading();
+            alert('Dados não encontrados para revisão.');
+            return;
+        }
+        
+        const userQuiz = userQuizDoc.data();
+        const quiz = quizDoc.data();
+        
+        // Buscar questões
+        db.collection('questions').get().then(questionsSnapshot => {
+            hideLoading();
+            
+            const allQuestions = [];
+            questionsSnapshot.forEach(doc => {
+                allQuestions.push({ id: doc.id, ...doc.data() });
+            });
+            
+            // Selecionar questões aleatórias (simulando o quiz original)
+            const shuffledQuestions = [...allQuestions];
+            for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+            }
+            
+            currentQuestions = shuffledQuestions.slice(0, quiz.questionsCount || 10);
+            userAnswers = userQuiz.answers || [];
+            
+            showReviewModal();
+            
+        }).catch(error => {
+            hideLoading();
+            console.error('Erro ao buscar questões:', error);
+            alert('Erro ao carregar questões para revisão.');
+        });
+        
+    }).catch(error => {
+        hideLoading();
+        console.error('Erro ao carregar dados para revisão:', error);
+        alert('Erro ao carregar dados para revisão.');
+    });
+}
+
+// ===============================
+// RANKING E RELATÓRIOS
+// ===============================
+
+// Carregar ranking
+function loadRanking() {
+    const rankingList = document.getElementById('ranking-list');
+    rankingList.innerHTML = '<div class="card"><div class="card-content">Carregando ranking...</div></div>';
+    
+    // Buscar todos os quizzes completados
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter objeto em array e ordenar por pontuação
+            const ranking = Object.values(userScores).sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Buscar informações dos usuários
+            const userIds = ranking.map(item => item.userId);
+            
+            if (userIds.length === 0) {
+                rankingList.innerHTML = '<div class="card"><div class="card-content">Nenhum resultado disponível no ranking.</div></div>';
+                return;
+            }
+            
+            db.collection('users')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds.slice(0, 20)) // Limitar a 20 usuários
+                .get()
+                .then(usersSnapshot => {
+                    const usersMap = {};
+                    usersSnapshot.forEach(doc => {
+                        usersMap[doc.id] = doc.data();
+                    });
+                    
+                    // Exibir ranking
+                    rankingList.innerHTML = '';
+                    
+                    ranking.slice(0, 20).forEach((item, index) => {
+                        const user = usersMap[item.userId];
+                        if (!user) return;
+                        
+                        const rankingItem = document.createElement('div');
+                        rankingItem.className = 'ranking-item';
+                        
+                        // Destacar usuário atual
+                        if (item.userId === currentUser.uid) {
+                            rankingItem.style.background = 'rgba(74, 108, 247, 0.1)';
+                            rankingItem.style.borderLeft = '4px solid var(--primary-color)';
+                        }
+                        
+                        const avgScore = item.totalQuizzes > 0 ? (item.totalScore / item.totalQuizzes).toFixed(1) : 0;
+                        
+                        rankingItem.innerHTML = `
+                            <div class="ranking-position">${index + 1}</div>
+                            <div class="ranking-info">
+                                <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
+                                <div class="ranking-details">${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts</div>
+                            </div>
+                            <div class="ranking-score">${item.totalScore} pts</div>
+                        `;
+                        
+                        rankingList.appendChild(rankingItem);
+                    });
+                });
+        })
+        .catch(error => {
+            rankingList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar ranking.</div></div>';
+            console.error('Erro ao carregar ranking:', error);
+        });
 }
 
 // ===============================
@@ -2327,348 +2853,4 @@ function loadFullRanking() {
             fullRankingElement.innerHTML = '<p>Erro ao carregar dados.</p>';
             console.error('Erro ao carregar ranking completo:', error);
         });
-}
-
-// ===============================
-// RANKING E RELATÓRIOS
-// ===============================
-
-// Carregar ranking
-function loadRanking() {
-    const rankingList = document.getElementById('ranking-list');
-    rankingList.innerHTML = '<div class="card"><div class="card-content">Carregando ranking...</div></div>';
-    
-    // Buscar todos os quizzes completados
-    db.collection('userQuizzes')
-        .where('status', '==', 'completed')
-        .get()
-        .then(querySnapshot => {
-            const userScores = {};
-            
-            // Calcular pontuação total por usuário
-            querySnapshot.forEach(doc => {
-                const userQuiz = doc.data();
-                const userId = userQuiz.userId;
-                
-                if (!userScores[userId]) {
-                    userScores[userId] = {
-                        totalScore: 0,
-                        totalQuizzes: 0,
-                        userId: userId
-                    };
-                }
-                
-                userScores[userId].totalScore += userQuiz.score || 0;
-                userScores[userId].totalQuizzes += 1;
-            });
-            
-            // Converter objeto em array e ordenar por pontuação
-            const ranking = Object.values(userScores).sort((a, b) => b.totalScore - a.totalScore);
-            
-            // Buscar informações dos usuários
-            const userIds = ranking.map(item => item.userId);
-            
-            if (userIds.length === 0) {
-                rankingList.innerHTML = '<div class="card"><div class="card-content">Nenhum resultado disponível no ranking.</div></div>';
-                return;
-            }
-            
-            db.collection('users')
-                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds.slice(0, 20)) // Limitar a 20 usuários
-                .get()
-                .then(usersSnapshot => {
-                    const usersMap = {};
-                    usersSnapshot.forEach(doc => {
-                        usersMap[doc.id] = doc.data();
-                    });
-                    
-                    // Exibir ranking
-                    rankingList.innerHTML = '';
-                    
-                    ranking.slice(0, 20).forEach((item, index) => {
-                        const user = usersMap[item.userId];
-                        if (!user) return;
-                        
-                        const rankingItem = document.createElement('div');
-                        rankingItem.className = 'ranking-item';
-                        
-                        // Destacar usuário atual
-                        if (item.userId === currentUser.uid) {
-                            rankingItem.style.background = 'rgba(74, 108, 247, 0.1)';
-                            rankingItem.style.borderLeft = '4px solid var(--primary-color)';
-                        }
-                        
-                        const avgScore = item.totalQuizzes > 0 ? (item.totalScore / item.totalQuizzes).toFixed(1) : 0;
-                        
-                        rankingItem.innerHTML = `
-                            <div class="ranking-position">${index + 1}</div>
-                            <div class="ranking-info">
-                                <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
-                                <div class="ranking-details">${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts</div>
-                            </div>
-                            <div class="ranking-score">${item.totalScore} pts</div>
-                        `;
-                        
-                        rankingList.appendChild(rankingItem);
-                    });
-                });
-        })
-        .catch(error => {
-            rankingList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar ranking.</div></div>';
-            console.error('Erro ao carregar ranking:', error);
-        });
-}
-
-// ===============================
-// HISTÓRICO - CORRIGIDO
-// ===============================
-
-// Carregar histórico do usuário - CORRIGIDO
-function loadUserHistory() {
-    const historyList = document.getElementById('history-list');
-    historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
-    
-    console.log('Carregando histórico para usuário:', currentUser.uid);
-    
-    db.collection('userQuizzes')
-        .where('userId', '==', currentUser.uid)
-        .where('status', '==', 'completed')
-        .orderBy('completedAt', 'desc')
-        .get()
-        .then(querySnapshot => {
-            console.log('UserQuizzes encontrados:', querySnapshot.size);
-            
-            historyList.innerHTML = '';
-            
-            if (querySnapshot.empty) {
-                historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz concluído ainda.</div></div>';
-                return;
-            }
-            
-            const userQuizzes = [];
-            querySnapshot.forEach(doc => {
-                const userQuizData = doc.data();
-                userQuizzes.push({ 
-                    id: doc.id, 
-                    ...userQuizData,
-                    // Garantir que os campos existam
-                    score: userQuizData.score || 0,
-                    percentage: userQuizData.percentage || 0,
-                    timeTaken: userQuizData.timeTaken || 0,
-                    answers: userQuizData.answers || []
-                });
-            });
-            
-            console.log('UserQuizzes processados:', userQuizzes);
-            
-            // Buscar informações dos quizzes
-            const quizIds = userQuizzes.map(userQuiz => userQuiz.quizId).filter(id => id);
-            
-            if (quizIds.length === 0) {
-                historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz concluído ainda.</div></div>';
-                return;
-            }
-            
-            console.log('Buscando quizzes com IDs:', quizIds);
-            
-            db.collection('quizzes')
-                .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
-                .get()
-                .then(quizzesSnapshot => {
-                    const quizzesMap = {};
-                    quizzesSnapshot.forEach(doc => {
-                        quizzesMap[doc.id] = { 
-                            id: doc.id, 
-                            ...doc.data(),
-                            // Garantir campos padrão
-                            title: doc.data().title || 'Quiz sem título',
-                            description: doc.data().description || 'Sem descrição',
-                            questionsCount: doc.data().questionsCount || 0
-                        };
-                    });
-                    
-                    console.log('Quizzes encontrados:', quizzesMap);
-                    
-                    // Criar cards de histórico
-                    userQuizzes.forEach(userQuiz => {
-                        const quiz = quizzesMap[userQuiz.quizId];
-                        
-                        if (quiz) {
-                            const historyCard = document.createElement('div');
-                            historyCard.className = 'card';
-                            
-                            // Determinar cor do badge baseado na performance
-                            let badgeClass = 'card-badge';
-                            let badgeText = `${userQuiz.percentage.toFixed(1)}%`;
-                            
-                            if (userQuiz.percentage >= 80) {
-                                badgeClass += ' success';
-                            } else if (userQuiz.percentage >= 60) {
-                                badgeClass += ' warning';
-                            } else {
-                                badgeClass += ' danger';
-                            }
-                            
-                            const minutes = Math.floor(userQuiz.timeTaken / 60);
-                            const seconds = userQuiz.timeTaken % 60;
-                            const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                            
-                            const completionDate = userQuiz.completedAt ? 
-                                userQuiz.completedAt.toDate().toLocaleDateString('pt-BR') : 
-                                'Data não disponível';
-                            
-                            historyCard.innerHTML = `
-                                <div class="card-header">
-                                    <h3 class="card-title">${quiz.title}</h3>
-                                    <span class="${badgeClass}">${badgeText}</span>
-                                </div>
-                                <div class="card-content">
-                                    <p>${quiz.description}</p>
-                                    <div class="history-details">
-                                        <div class="detail">
-                                            <strong>Pontuação:</strong> ${userQuiz.score}/${quiz.questionsCount}
-                                        </div>
-                                        <div class="detail">
-                                            <strong>Tempo:</strong> ${timeText}
-                                        </div>
-                                        <div class="detail">
-                                            <strong>Concluído em:</strong> ${completionDate}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card-actions">
-                                    <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}">
-                                        <i class="fas fa-chart-bar"></i>
-                                        <span class="btn-text">Ver Detalhes</span>
-                                    </button>
-                                    <button class="btn btn-secondary review-answers" data-user-quiz-id="${userQuiz.id}" data-quiz-id="${quiz.id}">
-                                        <i class="fas fa-redo"></i>
-                                        <span class="btn-text">Revisar</span>
-                                    </button>
-                                </div>
-                            `;
-                            
-                            const viewButton = historyCard.querySelector('.view-details');
-                            viewButton.addEventListener('click', function() {
-                                const quizId = this.getAttribute('data-quiz-id');
-                                console.log('Ver detalhes do quiz:', quizId);
-                                showQuizResult(quizId);
-                            });
-                            
-                            const reviewButton = historyCard.querySelector('.review-answers');
-                            reviewButton.addEventListener('click', function() {
-                                const userQuizId = this.getAttribute('data-user-quiz-id');
-                                const quizId = this.getAttribute('data-quiz-id');
-                                console.log('Revisar quiz:', { userQuizId, quizId });
-                                loadReviewData(userQuizId, quizId);
-                            });
-                            
-                            historyList.appendChild(historyCard);
-                        } else {
-                            console.log('Quiz não encontrado para userQuiz:', userQuiz.quizId);
-                        }
-                    });
-                    
-                    // Se nenhum card foi adicionado
-                    if (historyList.children.length === 0) {
-                        historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz concluído ainda.</div></div>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro ao buscar quizzes:', error);
-                    historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico dos quizzes.</div></div>';
-                });
-        })
-        .catch(error => {
-            console.error('Erro ao carregar histórico:', error);
-            historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
-        });
-}
-
-// Carregar dados para revisão - CORRIGIDO
-function loadReviewData(userQuizId, quizId) {
-    console.log('Carregando dados para revisão:', { userQuizId, quizId });
-    showLoading();
-    
-    Promise.all([
-        db.collection('userQuizzes').doc(userQuizId).get(),
-        db.collection('quizzes').doc(quizId).get()
-    ]).then(([userQuizDoc, quizDoc]) => {
-        if (!userQuizDoc.exists) {
-            hideLoading();
-            alert('Dados do quiz do usuário não encontrados.');
-            return;
-        }
-        
-        if (!quizDoc.exists) {
-            hideLoading();
-            alert('Dados do quiz não encontrados.');
-            return;
-        }
-        
-        const userQuiz = userQuizDoc.data();
-        const quiz = quizDoc.data();
-        
-        console.log('Dados carregados:', { userQuiz, quiz });
-        
-        // Buscar questões da categoria do quiz
-        let questionsQuery = db.collection('questions');
-        if (quiz.category && quiz.category.trim() !== '') {
-            questionsQuery = questionsQuery.where('category', '==', quiz.category);
-        }
-        
-        questionsQuery.get().then(questionsSnapshot => {
-            hideLoading();
-            
-            if (questionsSnapshot.empty) {
-                alert('Nenhuma questão encontrada para este quiz.');
-                return;
-            }
-            
-            const allQuestions = [];
-            questionsSnapshot.forEach(doc => {
-                const questionData = doc.data();
-                // Garantir que a questão tem estrutura correta
-                if (questionData.text && questionData.options) {
-                    allQuestions.push({ 
-                        id: doc.id, 
-                        ...questionData,
-                        correctAnswer: questionData.correctAnswer || 'a'
-                    });
-                }
-            });
-            
-            console.log('Questões encontradas:', allQuestions.length);
-            
-            if (allQuestions.length === 0) {
-                alert('Nenhuma questão válida encontrada para este quiz.');
-                return;
-            }
-            
-            // Embaralhar e selecionar questões (igual ao processo original)
-            const shuffledQuestions = [...allQuestions];
-            for (let i = shuffledQuestions.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
-            }
-            
-            // Usar o número correto de questões do quiz
-            const questionCount = Math.min(quiz.questionsCount || 10, shuffledQuestions.length);
-            currentQuestions = shuffledQuestions.slice(0, questionCount);
-            userAnswers = userQuiz.answers || [];
-            
-            console.log('Questões selecionadas para revisão:', currentQuestions.length);
-            console.log('Respostas do usuário:', userAnswers);
-            
-            showReviewModal();
-        }).catch(error => {
-            hideLoading();
-            console.error('Erro ao buscar questões:', error);
-            alert('Erro ao carregar questões para revisão: ' + error.message);
-        });
-    }).catch(error => {
-        hideLoading();
-        console.error('Erro ao carregar dados para revisão:', error);
-        alert('Erro ao carregar dados para revisão: ' + error.message);
-    });
 }
