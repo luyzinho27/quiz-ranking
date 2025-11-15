@@ -949,7 +949,7 @@ function updateUserQuizProgress() {
     });
 }
 
-// Confirmar saída do quiz - MODIFICADO
+// Confirmar saída do quiz
 function confirmExitQuiz() {
     if (exitCount >= 1) {
         // Segunda saída - finalizar quiz automaticamente e voltar para aba de Quizzes
@@ -983,7 +983,7 @@ function confirmExitQuiz() {
     }
 }
 
-// Finalizar quiz - FUNÇÃO COMPLETAMENTE REESCRITA
+// Finalizar quiz - FUNÇÃO CORRIGIDA
 function finishQuiz(forced = false) {
     clearInterval(quizTimer);
     
@@ -1002,8 +1002,8 @@ function finishQuiz(forced = false) {
     
     const timeTaken = totalTime - timeRemaining;
     const percentage = forced ? 
-        (score / answeredQuestions) * 100 : 
-        (score / currentQuestions.length) * 100;
+        Math.round((score / answeredQuestions) * 100) : 
+        Math.round((score / currentQuestions.length) * 100);
     
     // Atualizar status do quiz do usuário
     db.collection('userQuizzes').doc(userQuizId).update({
@@ -1015,83 +1015,83 @@ function finishQuiz(forced = false) {
         forcedCompletion: forced || false
     })
     .then(() => {
-        // Mostrar resultado
-        showQuizResult(currentQuiz.id, score, percentage, timeTaken, forced);
+        // Mostrar resultado imediatamente
+        showQuizResultImmediately(score, percentage, timeTaken, forced);
     })
     .catch(error => {
         console.error('Erro ao finalizar quiz:', error);
         // Mostrar resultado mesmo com erro
-        showQuizResult(currentQuiz.id, score, percentage, timeTaken, forced);
+        showQuizResultImmediately(score, percentage, timeTaken, forced);
     });
 }
 
-// Mostrar resultado do quiz
-function showQuizResult(quizId, score = null, percentage = null, timeTaken = null, forced = false) {
-    if (score !== null && percentage !== null) {
-        // Exibir resultado recém-calculado
-        const minutes = Math.floor(timeTaken / 60);
-        const seconds = timeTaken % 60;
-        const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        
-        document.getElementById('score-percentage').textContent = `${percentage.toFixed(1)}%`;
-        
-        if (forced) {
-            document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length} (${answeredQuestions} respondidas)`;
-            document.getElementById('result-subtitle').textContent = 'Quiz finalizado - Algumas questões não foram respondidas';
-        } else {
-            document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length}`;
-            document.getElementById('result-subtitle').textContent = 'Veja como você foi';
-        }
-        
-        document.getElementById('correct-answers').textContent = score;
-        document.getElementById('wrong-answers').textContent = forced ? 
-            (answeredQuestions - score) : 
-            (currentQuestions.length - score);
-        document.getElementById('time-taken').textContent = timeText;
-        
-        // Animar o círculo de progresso
-        const circleProgress = document.getElementById('circle-progress');
-        const degrees = (percentage / 100) * 360;
-        circleProgress.style.transform = `rotate(${degrees}deg)`;
-        
-        // Calcular posição no ranking
-        calculateRankingPosition(quizId, percentage);
-        
-        quizContainer.classList.add('hidden');
-        quizResult.classList.remove('hidden');
+// Mostrar resultado do quiz imediatamente - NOVA FUNÇÃO
+function showQuizResultImmediately(score, percentage, timeTaken, forced = false) {
+    const minutes = Math.floor(timeTaken / 60);
+    const seconds = timeTaken % 60;
+    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    document.getElementById('score-percentage').textContent = `${percentage}%`;
+    
+    if (forced) {
+        document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length} (${answeredQuestions} respondidas)`;
+        document.getElementById('result-subtitle').textContent = 'Quiz finalizado - Algumas questões não foram respondidas';
     } else {
-        // Buscar resultado salvo
-        db.collection('userQuizzes')
-            .where('userId', '==', currentUser.uid)
-            .where('quizId', '==', quizId)
-            .where('status', '==', 'completed')
-            .get()
-            .then(querySnapshot => {
-                if (!querySnapshot.empty) {
-                    const userQuiz = querySnapshot.docs[0].data();
-                    const minutes = Math.floor(userQuiz.timeTaken / 60);
-                    const seconds = userQuiz.timeTaken % 60;
-                    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                    
-                    document.getElementById('score-percentage').textContent = `${userQuiz.percentage.toFixed(1)}%`;
-                    document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions.length}`;
-                    document.getElementById('correct-answers').textContent = userQuiz.score;
-                    document.getElementById('wrong-answers').textContent = currentQuestions.length - userQuiz.score;
-                    document.getElementById('time-taken').textContent = timeText;
-                    
-                    // Animar o círculo de progresso
-                    const circleProgress = document.getElementById('circle-progress');
-                    const degrees = (userQuiz.percentage / 100) * 360;
-                    circleProgress.style.transform = `rotate(${degrees}deg)`;
-                    
-                    // Calcular posição no ranking
-                    calculateRankingPosition(quizId, userQuiz.percentage);
-                    
-                    quizContainer.classList.add('hidden');
-                    quizResult.classList.remove('hidden');
-                }
-            });
+        document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length}`;
+        document.getElementById('result-subtitle').textContent = 'Veja como você foi';
     }
+    
+    document.getElementById('correct-answers').textContent = score;
+    document.getElementById('wrong-answers').textContent = forced ? 
+        (answeredQuestions - score) : 
+        (currentQuestions.length - score);
+    document.getElementById('time-taken').textContent = timeText;
+    
+    // Animar o círculo de progresso
+    const circleProgress = document.getElementById('circle-progress');
+    const degrees = (percentage / 100) * 360;
+    circleProgress.style.transform = `rotate(${degrees}deg)`;
+    
+    // Calcular posição no ranking
+    calculateRankingPosition(currentQuiz.id, percentage);
+    
+    quizContainer.classList.add('hidden');
+    quizResult.classList.remove('hidden');
+}
+
+// Mostrar resultado do quiz (para histórico)
+function showQuizResult(quizId) {
+    // Buscar resultado salvo
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quizId)
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+                const userQuiz = querySnapshot.docs[0].data();
+                const minutes = Math.floor(userQuiz.timeTaken / 60);
+                const seconds = userQuiz.timeTaken % 60;
+                const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                document.getElementById('score-percentage').textContent = `${userQuiz.percentage}%`;
+                document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions?.length || userQuiz.score}`;
+                document.getElementById('correct-answers').textContent = userQuiz.score;
+                document.getElementById('wrong-answers').textContent = (currentQuestions?.length || userQuiz.score) - userQuiz.score;
+                document.getElementById('time-taken').textContent = timeText;
+                
+                // Animar o círculo de progresso
+                const circleProgress = document.getElementById('circle-progress');
+                const degrees = (userQuiz.percentage / 100) * 360;
+                circleProgress.style.transform = `rotate(${degrees}deg)`;
+                
+                // Calcular posição no ranking
+                calculateRankingPosition(quizId, userQuiz.percentage);
+                
+                quizContainer.classList.add('hidden');
+                quizResult.classList.remove('hidden');
+            }
+        });
 }
 
 // Calcular posição no ranking
@@ -2381,10 +2381,10 @@ function loadRanking() {
 }
 
 // ===============================
-// HISTÓRICO - CORRIGIDO
+// HISTÓRICO
 // ===============================
 
-// Carregar histórico do usuário - CORRIGIDO
+// Carregar histórico do usuário
 function loadUserHistory() {
     const historyList = document.getElementById('history-list');
     historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
@@ -2444,7 +2444,7 @@ function loadUserHistory() {
                             historyCard.innerHTML = `
                                 <div class="card-header">
                                     <h3 class="card-title">${quiz.title}</h3>
-                                    <span class="${badgeClass}">${userQuiz.percentage.toFixed(1)}%</span>
+                                    <span class="${badgeClass}">${userQuiz.percentage}%</span>
                                 </div>
                                 <div class="card-content">
                                     <p>${quiz.description || 'Sem descrição'}</p>
