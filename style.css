@@ -1782,8 +1782,8 @@ body {
 }
 
 .developer-avatar {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
     border-radius: 50%;
     background: var(--primary-color);
     display: flex;
@@ -1794,4 +1794,5 @@ body {
     flex-shrink: 0;
     overflow: hidden; /* Importante para a imagem ficar redonda */
 }
+
 
