@@ -1091,13 +1091,13 @@ body {
 .stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--primary-color);
+    color: var(#07080d);
     margin-bottom: 0.5rem;
 }
 
 .stat-label {
     font-size: 0.9rem;
-    color: var(--secondary-color);
+    color: var(#181919);
 }
 
 .popular-list, .ranking-list {
@@ -1920,3 +1920,4 @@ body {
         transform: translateY(0);
     }
 }
+
