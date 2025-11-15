@@ -560,7 +560,8 @@ function showSuccess(elementId, message) {
 function getAuthErrorMessage(errorCode) {
     const messages = {
         'auth/invalid-email': 'E-mail inválido.',
-        'auth/user-disabled': 'Esta conta foi desativada.',
+
+'auth/user-disabled': 'Esta conta foi desativada.',
         'auth/user-not-found': 'Nenhuma conta encontrada com este e-mail.',
         'auth/wrong-password': 'Senha incorreta.',
         'auth/email-already-in-use': 'Este e-mail já está em uso.',
@@ -2427,12 +2428,16 @@ function loadUserHistory() {
     const historyList = document.getElementById('history-list');
     historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
     
+    console.log('Carregando histórico para usuário:', currentUser.uid);
+    
     db.collection('userQuizzes')
         .where('userId', '==', currentUser.uid)
         .where('status', '==', 'completed')
-        .orderBy('updatedAt', 'desc')
+        .orderBy('completedAt', 'desc')
         .get()
         .then(querySnapshot => {
+            console.log('UserQuizzes encontrados:', querySnapshot.size);
+            
             historyList.innerHTML = '';
             
             if (querySnapshot.empty) {
@@ -2442,16 +2447,29 @@ function loadUserHistory() {
             
             const userQuizzes = [];
             querySnapshot.forEach(doc => {
-                userQuizzes.push({ id: doc.id, ...doc.data() });
+                const userQuizData = doc.data();
+                userQuizzes.push({ 
+                    id: doc.id, 
+                    ...userQuizData,
+                    // Garantir que os campos existam
+                    score: userQuizData.score || 0,
+                    percentage: userQuizData.percentage || 0,
+                    timeTaken: userQuizData.timeTaken || 0,
+                    answers: userQuizData.answers || []
+                });
             });
             
+            console.log('UserQuizzes processados:', userQuizzes);
+            
             // Buscar informações dos quizzes
-            const quizIds = userQuizzes.map(userQuiz => userQuiz.quizId);
+            const quizIds = userQuizzes.map(userQuiz => userQuiz.quizId).filter(id => id);
             
             if (quizIds.length === 0) {
                 historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz concluído ainda.</div></div>';
                 return;
             }
+            
+            console.log('Buscando quizzes com IDs:', quizIds);
             
             db.collection('quizzes')
                 .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
@@ -2459,8 +2477,17 @@ function loadUserHistory() {
                 .then(quizzesSnapshot => {
                     const quizzesMap = {};
                     quizzesSnapshot.forEach(doc => {
-                        quizzesMap[doc.id] = { id: doc.id, ...doc.data() };
+                        quizzesMap[doc.id] = { 
+                            id: doc.id, 
+                            ...doc.data(),
+                            // Garantir campos padrão
+                            title: doc.data().title || 'Quiz sem título',
+                            description: doc.data().description || 'Sem descrição',
+                            questionsCount: doc.data().questionsCount || 0
+                        };
                     });
+                    
+                    console.log('Quizzes encontrados:', quizzesMap);
                     
                     // Criar cards de histórico
                     userQuizzes.forEach(userQuiz => {
@@ -2472,6 +2499,8 @@ function loadUserHistory() {
                             
                             // Determinar cor do badge baseado na performance
                             let badgeClass = 'card-badge';
+                            let badgeText = `${userQuiz.percentage.toFixed(1)}%`;
+                            
                             if (userQuiz.percentage >= 80) {
                                 badgeClass += ' success';
                             } else if (userQuiz.percentage >= 60) {
@@ -2484,33 +2513,31 @@ function loadUserHistory() {
                             const seconds = userQuiz.timeTaken % 60;
                             const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                             
-                            // Usar completedAt se existir, caso contrário usar updatedAt
-                            const completionDate = userQuiz.completedAt || userQuiz.updatedAt;
-                            const dateText = completionDate ? 
-                                completionDate.toDate().toLocaleDateString('pt-BR') : 
+                            const completionDate = userQuiz.completedAt ? 
+                                userQuiz.completedAt.toDate().toLocaleDateString('pt-BR') : 
                                 'Data não disponível';
                             
                             historyCard.innerHTML = `
                                 <div class="card-header">
                                     <h3 class="card-title">${quiz.title}</h3>
-                                    <span class="${badgeClass}">${userQuiz.percentage ? userQuiz.percentage.toFixed(1) : '0'}%</span>
+                                    <span class="${badgeClass}">${badgeText}</span>
                                 </div>
                                 <div class="card-content">
-                                    <p>${quiz.description || 'Sem descrição'}</p>
+                                    <p>${quiz.description}</p>
                                     <div class="history-details">
                                         <div class="detail">
-                                            <strong>Pontuação:</strong> ${userQuiz.score || 0}/${quiz.questionsCount || 'N/A'}
+                                            <strong>Pontuação:</strong> ${userQuiz.score}/${quiz.questionsCount}
                                         </div>
                                         <div class="detail">
                                             <strong>Tempo:</strong> ${timeText}
                                         </div>
                                         <div class="detail">
-                                            <strong>Concluído em:</strong> ${dateText}
+                                            <strong>Concluído em:</strong> ${completionDate}
                                         </div>
                                     </div>
                                 </div>
                                 <div class="card-actions">
-                                    <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}" data-user-quiz-id="${userQuiz.id}">
+                                    <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}">
                                         <i class="fas fa-chart-bar"></i>
                                         <span class="btn-text">Ver Detalhes</span>
                                     </button>
@@ -2524,6 +2551,7 @@ function loadUserHistory() {
                             const viewButton = historyCard.querySelector('.view-details');
                             viewButton.addEventListener('click', function() {
                                 const quizId = this.getAttribute('data-quiz-id');
+                                console.log('Ver detalhes do quiz:', quizId);
                                 showQuizResult(quizId);
                             });
                             
@@ -2531,16 +2559,24 @@ function loadUserHistory() {
                             reviewButton.addEventListener('click', function() {
                                 const userQuizId = this.getAttribute('data-user-quiz-id');
                                 const quizId = this.getAttribute('data-quiz-id');
+                                console.log('Revisar quiz:', { userQuizId, quizId });
                                 loadReviewData(userQuizId, quizId);
                             });
                             
                             historyList.appendChild(historyCard);
+                        } else {
+                            console.log('Quiz não encontrado para userQuiz:', userQuiz.quizId);
                         }
                     });
+                    
+                    // Se nenhum card foi adicionado
+                    if (historyList.children.length === 0) {
+                        historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz concluído ainda.</div></div>';
+                    }
                 })
                 .catch(error => {
                     console.error('Erro ao buscar quizzes:', error);
-                    historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico.</div></div>';
+                    historyList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar histórico dos quizzes.</div></div>';
                 });
         })
         .catch(error => {
@@ -2551,13 +2587,20 @@ function loadUserHistory() {
 
 // Carregar dados para revisão - CORRIGIDO
 function loadReviewData(userQuizId, quizId) {
+    console.log('Carregando dados para revisão:', { userQuizId, quizId });
     showLoading();
     
     Promise.all([
         db.collection('userQuizzes').doc(userQuizId).get(),
         db.collection('quizzes').doc(quizId).get()
     ]).then(([userQuizDoc, quizDoc]) => {
-        if (!userQuizDoc.exists || !quizDoc.exists) {
+        if (!userQuizDoc.exists) {
+            hideLoading();
+            alert('Dados do quiz do usuário não encontrados.');
+            return;
+        }
+        
+        if (!quizDoc.exists) {
             hideLoading();
             alert('Dados do quiz não encontrados.');
             return;
@@ -2565,6 +2608,8 @@ function loadReviewData(userQuizId, quizId) {
         
         const userQuiz = userQuizDoc.data();
         const quiz = quizDoc.data();
+        
+        console.log('Dados carregados:', { userQuiz, quiz });
         
         // Buscar questões da categoria do quiz
         let questionsQuery = db.collection('questions');
@@ -2582,8 +2627,23 @@ function loadReviewData(userQuizId, quizId) {
             
             const allQuestions = [];
             questionsSnapshot.forEach(doc => {
-                allQuestions.push({ id: doc.id, ...doc.data() });
+                const questionData = doc.data();
+                // Garantir que a questão tem estrutura correta
+                if (questionData.text && questionData.options) {
+                    allQuestions.push({ 
+                        id: doc.id, 
+                        ...questionData,
+                        correctAnswer: questionData.correctAnswer || 'a'
+                    });
+                }
             });
+            
+            console.log('Questões encontradas:', allQuestions.length);
+            
+            if (allQuestions.length === 0) {
+                alert('Nenhuma questão válida encontrada para este quiz.');
+                return;
+            }
             
             // Embaralhar e selecionar questões (igual ao processo original)
             const shuffledQuestions = [...allQuestions];
@@ -2592,18 +2652,23 @@ function loadReviewData(userQuizId, quizId) {
                 [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
             }
             
-            currentQuestions = shuffledQuestions.slice(0, quiz.questionsCount);
+            // Usar o número correto de questões do quiz
+            const questionCount = Math.min(quiz.questionsCount || 10, shuffledQuestions.length);
+            currentQuestions = shuffledQuestions.slice(0, questionCount);
             userAnswers = userQuiz.answers || [];
+            
+            console.log('Questões selecionadas para revisão:', currentQuestions.length);
+            console.log('Respostas do usuário:', userAnswers);
             
             showReviewModal();
         }).catch(error => {
             hideLoading();
             console.error('Erro ao buscar questões:', error);
-            alert('Erro ao carregar questões para revisão.');
+            alert('Erro ao carregar questões para revisão: ' + error.message);
         });
     }).catch(error => {
         hideLoading();
         console.error('Erro ao carregar dados para revisão:', error);
-        alert('Erro ao carregar dados para revisão.');
+        alert('Erro ao carregar dados para revisão: ' + error.message);
     });
 }
