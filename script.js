@@ -557,6 +557,7 @@ function showSuccess(elementId, message) {
 function getAuthErrorMessage(errorCode) {
     const messages = {
         'auth/invalid-email': 'E-mail inválido.',
+
         'auth/user-disabled': 'Esta conta foi desativada.',
         'auth/user-not-found': 'Nenhuma conta encontrada com este e-mail.',
         'auth/wrong-password': 'Senha incorreta.',
@@ -955,14 +956,6 @@ function confirmExitQuiz() {
         // Segunda saída - finalizar quiz automaticamente e voltar para aba de Quizzes
         if (confirm('Esta é sua segunda saída do quiz. O quiz será finalizado automaticamente com as questões respondidas até agora. Deseja continuar?')) {
             finishQuiz(true); // Forçar finalização
-            // Após finalizar, voltar para a aba de Quizzes
-            setTimeout(() => {
-                showDashboard();
-                if (currentUser.userType === 'aluno') {
-                    switchTab('quizzes-tab', 'quizzes-section');
-                    loadQuizzes();
-                }
-            }, 100);
         }
     } else {
         // Primeira saída
@@ -1007,9 +1000,10 @@ function finishQuiz(forced = false) {
     });
     
     const timeTaken = totalTime - timeRemaining;
-    const percentage = Math.round((score / currentQuestions.length) * 100);
+    const totalQuestions = currentQuestions.length;
+    const percentage = Math.round((score / totalQuestions) * 100);
     
-    console.log(`Score: ${score}, Percentage: ${percentage}, Time: ${timeTaken}`); // Debug
+    console.log(`Score: ${score}, Total: ${totalQuestions}, Percentage: ${percentage}`); // Debug
     
     // Atualizar status do quiz do usuário no Firestore
     if (userQuizId) {
@@ -1024,21 +1018,21 @@ function finishQuiz(forced = false) {
         .then(() => {
             console.log('Quiz salvo no Firestore'); // Debug
             // Mostrar resultado imediatamente
-            showQuizResultImmediately(score, percentage, timeTaken, forced);
+            showQuizResultImmediately(score, percentage, timeTaken, totalQuestions, forced);
         })
         .catch(error => {
-            console.error('Erro ao salvar quiz no Firestore:', error);
-            // Mesmo com erro, mostrar resultado
-            showQuizResultImmediately(score, percentage, timeTaken, forced);
+            console.error('Erro ao salvar quiz:', error);
+            // Mostrar resultado mesmo com erro
+            showQuizResultImmediately(score, percentage, timeTaken, totalQuestions, forced);
         });
     } else {
         // Se não há userQuizId, apenas mostrar resultado
-        showQuizResultImmediately(score, percentage, timeTaken, forced);
+        showQuizResultImmediately(score, percentage, timeTaken, totalQuestions, forced);
     }
 }
 
 // Mostrar resultado do quiz imediatamente - FUNÇÃO CORRIGIDA
-function showQuizResultImmediately(score, percentage, timeTaken, forced = false) {
+function showQuizResultImmediately(score, percentage, timeTaken, totalQuestions, forced = false) {
     console.log('Mostrando resultado...'); // Debug
     
     const minutes = Math.floor(timeTaken / 60);
@@ -1047,7 +1041,7 @@ function showQuizResultImmediately(score, percentage, timeTaken, forced = false)
     
     // Atualizar elementos da tela de resultado
     document.getElementById('score-percentage').textContent = `${percentage}%`;
-    document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length}`;
+    document.getElementById('score-fraction').textContent = `${score}/${totalQuestions}`;
     
     if (forced) {
         document.getElementById('result-subtitle').textContent = 'Quiz finalizado - Algumas questões não foram respondidas';
@@ -1056,7 +1050,7 @@ function showQuizResultImmediately(score, percentage, timeTaken, forced = false)
     }
     
     document.getElementById('correct-answers').textContent = score;
-    document.getElementById('wrong-answers').textContent = currentQuestions.length - score;
+    document.getElementById('wrong-answers').textContent = totalQuestions - score;
     document.getElementById('time-taken').textContent = timeText;
     
     // Animar o círculo de progresso
@@ -1067,9 +1061,13 @@ function showQuizResultImmediately(score, percentage, timeTaken, forced = false)
     }
     
     // Calcular posição no ranking
-    calculateRankingPosition(currentQuiz.id, percentage);
+    if (currentQuiz && currentQuiz.id) {
+        calculateRankingPosition(currentQuiz.id, percentage);
+    } else {
+        document.getElementById('ranking-position').textContent = '-';
+    }
     
-    // Mostrar tela de resultado
+    // Mostrar tela de resultado e esconder tela do quiz
     quizContainer.classList.add('hidden');
     quizResult.classList.remove('hidden');
     
@@ -1092,9 +1090,9 @@ function showQuizResult(quizId) {
                 const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                 
                 document.getElementById('score-percentage').textContent = `${userQuiz.percentage}%`;
-                document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions?.length || userQuiz.score}`;
+                document.getElementById('score-fraction').textContent = `${userQuiz.score}/${userQuiz.score * (100 / userQuiz.percentage)}`;
                 document.getElementById('correct-answers').textContent = userQuiz.score;
-                document.getElementById('wrong-answers').textContent = (currentQuestions?.length || userQuiz.score) - userQuiz.score;
+                document.getElementById('wrong-answers').textContent = (userQuiz.score * (100 / userQuiz.percentage)) - userQuiz.score;
                 document.getElementById('time-taken').textContent = timeText;
                 
                 // Animar o círculo de progresso
