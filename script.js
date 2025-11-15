@@ -419,7 +419,7 @@ function initQuizControls() {
     });
 }
 
-// Inicializar modais
+// Inicializar modals
 function initModals() {
     // Modal do quiz
     document.getElementById('close-quiz-modal').addEventListener('click', closeQuizModal);
@@ -445,7 +445,7 @@ function initModals() {
     document.getElementById('close-review-modal').addEventListener('click', closeReviewModal);
     document.getElementById('close-review').addEventListener('click', closeReviewModal);
     
-    // Fechar modais ao clicar fora
+    // Fechar modals ao clicar fora
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
@@ -2430,7 +2430,7 @@ function loadUserHistory() {
     db.collection('userQuizzes')
         .where('userId', '==', currentUser.uid)
         .where('status', '==', 'completed')
-        .orderBy('completedAt', 'desc')
+        .orderBy('updatedAt', 'desc')
         .get()
         .then(querySnapshot => {
             historyList.innerHTML = '';
@@ -2447,6 +2447,11 @@ function loadUserHistory() {
             
             // Buscar informações dos quizzes
             const quizIds = userQuizzes.map(userQuiz => userQuiz.quizId);
+            
+            if (quizIds.length === 0) {
+                historyList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz concluído ainda.</div></div>';
+                return;
+            }
             
             db.collection('quizzes')
                 .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
@@ -2479,31 +2484,37 @@ function loadUserHistory() {
                             const seconds = userQuiz.timeTaken % 60;
                             const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                             
+                            // Usar completedAt se existir, caso contrário usar updatedAt
+                            const completionDate = userQuiz.completedAt || userQuiz.updatedAt;
+                            const dateText = completionDate ? 
+                                completionDate.toDate().toLocaleDateString('pt-BR') : 
+                                'Data não disponível';
+                            
                             historyCard.innerHTML = `
                                 <div class="card-header">
                                     <h3 class="card-title">${quiz.title}</h3>
-                                    <span class="${badgeClass}">${userQuiz.percentage.toFixed(1)}%</span>
+                                    <span class="${badgeClass}">${userQuiz.percentage ? userQuiz.percentage.toFixed(1) : '0'}%</span>
                                 </div>
                                 <div class="card-content">
                                     <p>${quiz.description || 'Sem descrição'}</p>
                                     <div class="history-details">
                                         <div class="detail">
-                                            <strong>Pontuação:</strong> ${userQuiz.score}/${quiz.questionsCount}
+                                            <strong>Pontuação:</strong> ${userQuiz.score || 0}/${quiz.questionsCount || 'N/A'}
                                         </div>
                                         <div class="detail">
                                             <strong>Tempo:</strong> ${timeText}
                                         </div>
                                         <div class="detail">
-                                            <strong>Concluído em:</strong> ${userQuiz.completedAt.toDate().toLocaleDateString('pt-BR')}
+                                            <strong>Concluído em:</strong> ${dateText}
                                         </div>
                                     </div>
                                 </div>
                                 <div class="card-actions">
-                                    <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}">
+                                    <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}" data-user-quiz-id="${userQuiz.id}">
                                         <i class="fas fa-chart-bar"></i>
                                         <span class="btn-text">Ver Detalhes</span>
                                     </button>
-                                    <button class="btn btn-secondary review-answers" data-user-quiz-id="${userQuiz.id}">
+                                    <button class="btn btn-secondary review-answers" data-user-quiz-id="${userQuiz.id}" data-quiz-id="${quiz.id}">
                                         <i class="fas fa-redo"></i>
                                         <span class="btn-text">Revisar</span>
                                     </button>
@@ -2511,14 +2522,16 @@ function loadUserHistory() {
                             `;
                             
                             const viewButton = historyCard.querySelector('.view-details');
-                            viewButton.addEventListener('click', () => {
-                                showQuizResult(quiz.id);
+                            viewButton.addEventListener('click', function() {
+                                const quizId = this.getAttribute('data-quiz-id');
+                                showQuizResult(quizId);
                             });
                             
                             const reviewButton = historyCard.querySelector('.review-answers');
-                            reviewButton.addEventListener('click', () => {
-                                // Buscar questões e respostas para revisão
-                                loadReviewData(userQuiz.id, quiz.id);
+                            reviewButton.addEventListener('click', function() {
+                                const userQuizId = this.getAttribute('data-user-quiz-id');
+                                const quizId = this.getAttribute('data-quiz-id');
+                                loadReviewData(userQuizId, quizId);
                             });
                             
                             historyList.appendChild(historyCard);
@@ -2536,7 +2549,7 @@ function loadUserHistory() {
         });
 }
 
-// Carregar dados para revisão
+// Carregar dados para revisão - CORRIGIDO
 function loadReviewData(userQuizId, quizId) {
     showLoading();
     
@@ -2544,6 +2557,12 @@ function loadReviewData(userQuizId, quizId) {
         db.collection('userQuizzes').doc(userQuizId).get(),
         db.collection('quizzes').doc(quizId).get()
     ]).then(([userQuizDoc, quizDoc]) => {
+        if (!userQuizDoc.exists || !quizDoc.exists) {
+            hideLoading();
+            alert('Dados do quiz não encontrados.');
+            return;
+        }
+        
         const userQuiz = userQuizDoc.data();
         const quiz = quizDoc.data();
         
@@ -2555,6 +2574,11 @@ function loadReviewData(userQuizId, quizId) {
         
         questionsQuery.get().then(questionsSnapshot => {
             hideLoading();
+            
+            if (questionsSnapshot.empty) {
+                alert('Nenhuma questão encontrada para este quiz.');
+                return;
+            }
             
             const allQuestions = [];
             questionsSnapshot.forEach(doc => {
@@ -2572,6 +2596,10 @@ function loadReviewData(userQuizId, quizId) {
             userAnswers = userQuiz.answers || [];
             
             showReviewModal();
+        }).catch(error => {
+            hideLoading();
+            console.error('Erro ao buscar questões:', error);
+            alert('Erro ao carregar questões para revisão.');
         });
     }).catch(error => {
         hideLoading();
