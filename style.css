@@ -1774,7 +1774,7 @@ body {
 /* Estilos para a imagem do avatar */
 .avatar-image {
     width: 150%;
-    height: 150%;
+    height: 100%;
     border-radius: 50%;
     object-fit: cover;
     border: 3px solid white;
@@ -1783,7 +1783,7 @@ body {
 
 .developer-avatar {
     width: 150px;
-    height: 150px;
+    height: 180px;
     border-radius: 50%;
     background: var(--primary-color);
     display: flex;
@@ -1794,6 +1794,7 @@ body {
     flex-shrink: 0;
     overflow: hidden; /* Importante para a imagem ficar redonda */
 }
+
 
 
 
