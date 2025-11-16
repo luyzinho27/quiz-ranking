@@ -2073,3 +2073,15 @@ body {
         padding: 0.75rem;
     }
 }
+/* -------------Adicione estas regras ao final do arquivo CSS existente----------------- */
+/* Indicador de finalização automática no histórico */
+.card-badge.card-badge-secondary {
+    background: var(--secondary-color);
+    color: white;
+}
+
+/* Estados para quizzes com saídas */
+.quiz-warning {
+    border-left: 4px solid var(--warning-color);
+    background: rgba(255, 193, 7, 0.1);
+}
