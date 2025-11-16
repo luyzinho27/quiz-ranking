@@ -13,7 +13,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Configurar persistência de sessão como LOCAL para manter login
+// Configurar persistência de sessão como LOCAL para manter login ao recarregar
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
     .catch((error) => {
         console.error('Erro ao configurar persistência:', error);
@@ -35,6 +35,7 @@ let editingUserId = null;
 let exitCount = 0;
 let quizStartTime = 0;
 let hasUnsavedChanges = false;
+let isReloading = false;
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -82,25 +83,18 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Prevenir recarregamento da página com quiz ativo
+    // Detectar recarregamento da página
     window.addEventListener('beforeunload', function(e) {
+        isReloading = true;
+        
         if (hasUnsavedChanges && currentQuiz && userQuizId) {
-            e.preventDefault();
-            e.returnValue = 'Você tem um quiz em andamento. Tem certeza que deseja sair?';
-            return 'Você tem um quiz em andamento. Tem certeza que deseja sair?';
-        }
-    });
-    
-    // Lidar com recarregamento da página
-    window.addEventListener('unload', function() {
-        if (currentQuiz && userQuizId) {
-            // Atualizar progresso antes de sair
+            // Se estiver no meio de um quiz, atualizar progresso antes de recarregar
             updateUserQuizProgress();
         }
     });
 });
 
-// Verificar se há quiz ativo - MODIFICADA
+// Verificar se há quiz ativo - FUNÇÃO MODIFICADA
 function checkActiveQuiz() {
     if (currentUser && currentUser.userType === 'aluno') {
         db.collection('userQuizzes')
@@ -112,19 +106,28 @@ function checkActiveQuiz() {
                     const userQuizDoc = querySnapshot.docs[0];
                     const userQuiz = userQuizDoc.data();
                     
-                    // Verificar se já atingiu o limite de saídas
-                    if (userQuiz.exitCount >= 2) {
-                        // Finalizar quiz automaticamente
+                    // Se foi um recarregamento de página (F5) e já saiu uma vez antes
+                    if (isReloading && userQuiz.exitCount >= 1) {
+                        // Finalizar quiz automaticamente na segunda saída (que inclui recarregamento)
                         finalizeQuizOnSecondExit(userQuizDoc.id, userQuiz);
+                    } else if (isReloading) {
+                        // Se foi recarregamento mas é a primeira "saída", apenas incrementar contador
+                        handleFirstExitOnReload(userQuizDoc.id, userQuiz);
                     } else {
-                        // Mostrar dashboard normalmente
+                        // Carregamento normal - mostrar opção de continuar
                         showDashboard();
                         setTimeout(() => {
-                            switchTab('quizzes-tab', 'quizzes-section');
-                            loadQuizzes();
-                        }, 100);
+                            if (confirm('Você tem um quiz em andamento. Deseja continuar de onde parou?')) {
+                                loadQuizById(userQuiz.quizId, userQuizDoc.id);
+                            } else {
+                                // Manter na aba de Quizzes
+                                switchTab('quizzes-tab', 'quizzes-section');
+                                loadQuizzes();
+                            }
+                        }, 500);
                     }
                 } else {
+                    // Nenhum quiz ativo, mostrar dashboard normalmente
                     showDashboard();
                 }
             })
@@ -137,13 +140,48 @@ function checkActiveQuiz() {
     }
 }
 
-// Finalizar quiz na segunda saída - MODIFICADA
+// Nova função: Lidar com primeira saída durante recarregamento
+function handleFirstExitOnReload(userQuizId, userQuiz) {
+    // Incrementar contador de saídas
+    const newExitCount = (userQuiz.exitCount || 0) + 1;
+    
+    db.collection('userQuizzes').doc(userQuizId).update({
+        exitCount: newExitCount,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        // Mostrar dashboard normalmente
+        showDashboard();
+        setTimeout(() => {
+            switchTab('quizzes-tab', 'quizzes-section');
+            loadQuizzes();
+            
+            // Mostrar alerta informativo
+            if (newExitCount === 1) {
+                setTimeout(() => {
+                    alert('Esta foi sua primeira saída do quiz. Você pode continuar depois, mas a próxima saída finalizará o quiz automaticamente.');
+                }, 1000);
+            }
+        }, 100);
+    })
+    .catch(error => {
+        console.error('Erro ao atualizar contador de saídas:', error);
+        showDashboard();
+    });
+}
+
+// Finalizar quiz na segunda saída (incluindo recarregamento)
 function finalizeQuizOnSecondExit(userQuizId, userQuiz) {
+    // Calcular pontuação atual
+    const score = calculateCurrentScore(userQuiz.answers || []);
+    const percentage = calculateCurrentPercentage(userQuiz.answers || []);
+    const timeTaken = (userQuiz.quizTime || 0) - (userQuiz.timeRemaining || 0);
+    
     db.collection('userQuizzes').doc(userQuizId).update({
         status: 'completed',
-        score: calculateCurrentScore(userQuiz.answers || []),
-        percentage: calculateCurrentPercentage(userQuiz.answers || []),
-        timeTaken: (userQuiz.quizTime || 0) - (userQuiz.timeRemaining || 0),
+        score: score,
+        percentage: percentage,
+        timeTaken: timeTaken,
         completedAt: firebase.firestore.FieldValue.serverTimestamp(),
         forcedCompletion: true,
         exitCount: 2
@@ -155,7 +193,7 @@ function finalizeQuizOnSecondExit(userQuizId, userQuiz) {
         setTimeout(() => {
             switchTab('quizzes-tab', 'quizzes-section');
             loadQuizzes();
-            alert('Seu quiz foi finalizado automaticamente devido à segunda saída.');
+            alert('Seu quiz foi finalizado automaticamente devido à segunda saída (recarregamento da página).');
         }, 100);
     })
     .catch(error => {
@@ -873,6 +911,7 @@ function startQuiz(quiz) {
     currentQuestionIndex = 0;
     exitCount = 0;
     hasUnsavedChanges = true;
+    isReloading = false; // Resetar flag ao iniciar novo quiz
     
     // Verificar se já existe um quiz em andamento
     db.collection('userQuizzes')
@@ -1283,6 +1322,7 @@ function resetQuizState() {
     userQuizId = null;
     exitCount = 0;
     hasUnsavedChanges = false;
+    isReloading = false;
     
     if (quizTimer) {
         clearInterval(quizTimer);
