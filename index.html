@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QuizMaster - Sistema de Quiz Educacional</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
     <!-- Firebase App (core) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <!-- Firebase Auth -->
@@ -39,7 +41,7 @@
                 </div>
                 
                 <!-- Formulário de Login -->
-                <div id="login-form" class="form active">
+                <form id="login-form" class="form active">
                     <h2>Entre na sua conta</h2>
                     <div class="input-group">
                         <i class="fas fa-envelope"></i>
@@ -48,9 +50,9 @@
                     <div class="input-group password-group">
                         <i class="fas fa-lock"></i>
                         <input type="password" id="login-password" placeholder="Senha" required>
-                        <i class="toggle-password" id="toggle-login-password"></i>
+                        <i class="toggle-password fas fa-eye-slash" id="toggle-login-password"></i>
                     </div>
-                    <button id="login-btn" class="btn btn-primary">
+                    <button type="submit" id="login-btn" class="btn btn-primary">
                         <i class="fas fa-sign-in-alt"></i>
                         Entrar
                     </button>
@@ -58,10 +60,10 @@
                         <a href="#" id="forgot-password">Esqueci minha senha</a>
                     </div>
                     <p id="login-error" class="error-message"></p>
-                </div>
+                </form>
                 
                 <!-- Formulário de Cadastro -->
-                <div id="register-form" class="form">
+                <form id="register-form" class="form">
                     <h2>Crie sua conta</h2>
                     <div class="input-group">
                         <i class="fas fa-user"></i>
@@ -74,7 +76,7 @@
                     <div class="input-group password-group">
                         <i class="fas fa-lock"></i>
                         <input type="password" id="register-password" placeholder="Senha" required>
-                        <i class="toggle-password" id="toggle-register-password"></i>
+                        <i class="toggle-password fas fa-eye-slash" id="toggle-register-password"></i>
                     </div>
                     <div class="input-group">
                         <i class="fas fa-users"></i>
@@ -83,12 +85,12 @@
                             <option value="admin" id="admin-option">Administrador</option>
                         </select>
                     </div>
-                    <button id="register-btn" class="btn btn-primary">
+                    <button type="submit" id="register-btn" class="btn btn-primary">
                         <i class="fas fa-user-plus"></i>
                         Cadastrar
                     </button>
                     <p id="register-error" class="error-message"></p>
-                </div>
+                </form>
             </div>
             
             <div class="auth-footer">
@@ -850,12 +852,3 @@
     <script src="script.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
