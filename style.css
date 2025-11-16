@@ -208,6 +208,7 @@ body {
     font-size: 1rem;
     background: none;
     border: none;
+    margin-left: 86%;
     padding: 0.5rem;
 }
 
@@ -1927,6 +1928,7 @@ body {
         transform: translateY(0);
     }
 }
+
 
 
 
