@@ -13,6 +13,12 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// Configurar persistência de sessão
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .catch((error) => {
+        console.error('Erro ao configurar persistência:', error);
+    });
+
 // Estado da aplicação
 let currentUser = null;
 let currentQuiz = null;
@@ -86,8 +92,8 @@ function hideLoading() {
 function initAuth() {
     const loginTab = document.getElementById('login-tab');
     const registerTab = document.getElementById('register-tab');
-    const loginBtn = document.getElementById('login-btn');
-    const registerBtn = document.getElementById('register-btn');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
     const forgotPasswordLink = document.getElementById('forgot-password');
     
     // Alternar entre login e cadastro
@@ -100,8 +106,8 @@ function initAuth() {
         checkAdminExists();
     });
     
-    // Login
-    loginBtn.addEventListener('click', (e) => {
+    // Login com submit do formulário
+    loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
@@ -135,8 +141,8 @@ function initAuth() {
             });
     });
     
-    // Cadastro
-    registerBtn.addEventListener('click', (e) => {
+    // Cadastro com submit do formulário
+    registerForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('register-name').value;
         const email = document.getElementById('register-email').value;
@@ -193,6 +199,36 @@ function initAuth() {
     
     document.getElementById('toggle-register-password').addEventListener('click', function() {
         togglePasswordVisibility('register-password', this);
+    });
+
+    // Permitir Enter para navegar entre campos
+    document.getElementById('login-email').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('login-password').focus();
+        }
+    });
+
+    document.getElementById('login-password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('login-btn').click();
+        }
+    });
+
+    // Para o formulário de cadastro
+    const registerFields = ['register-name', 'register-email', 'register-password'];
+    registerFields.forEach((fieldId, index) => {
+        document.getElementById(fieldId).addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (index < registerFields.length - 1) {
+                    document.getElementById(registerFields[index + 1]).focus();
+                } else {
+                    document.getElementById('register-btn').click();
+                }
+            }
+        });
     });
 }
 
@@ -1480,7 +1516,7 @@ function createFallbackHistoryCard(container, userQuiz) {
                     ${userQuiz.score} pontos
                 </div>
                 <div class="detail">
-                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Tempo:</strong> ${timeText}
+                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Temo:</strong> ${timeText}
                 </div>
                 <div class="detail">
                     <strong><i class="fas fa-calendar" style="color: #17a2b8;"></i> Concluído em:</strong> ${dateText}
