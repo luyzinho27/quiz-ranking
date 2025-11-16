@@ -1083,8 +1083,8 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
         const degrees = (percentage / 100) * 360;
         if (circleProgress) {
             circleProgress.style.transform = `rotate(${degrees}deg)`;
-        }
-        
+                    }
+
         // Calcular posição no ranking
         calculateRankingPosition(quizId, percentage);
         
@@ -1213,43 +1213,28 @@ function closeReviewModal() {
 }
 
 // ===============================
-// HISTÓRICO - CORRIGIDO E SIMPLIFICADO
+// HISTÓRICO - CORRIGIDO
 // ===============================
 
-// Carregar histórico do usuário - VERSÃO SIMPLIFICADA
+// Carregar histórico do usuário - VERSÃO CORRIGIDA
 function loadUserHistory() {
     const historyList = document.getElementById('history-list');
     historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
     
     console.log('🔍 Iniciando carregamento do histórico...');
-    console.log('📝 User ID:', currentUser.uid);
     
-    // Tentativa 1: Buscar por completedAt (campo principal)
+    // CONSULTA CORRIGIDA: Removendo a ordenação por completedAt que causava o erro
     db.collection('userQuizzes')
         .where('userId', '==', currentUser.uid)
         .where('status', '==', 'completed')
-        .orderBy('completedAt', 'desc')
         .get()
         .then(querySnapshot => {
-            console.log('✅ Consulta completedAt bem-sucedida. Documentos encontrados:', querySnapshot.size);
-            
-            if (querySnapshot.empty) {
-                // Tentativa 2: Se não encontrar com completedAt, tentar sem ordenação
-                console.log('⚠️  Nenhum documento com completedAt. Tentando busca alternativa...');
-                return db.collection('userQuizzes')
-                    .where('userId', '==', currentUser.uid)
-                    .where('status', '==', 'completed')
-                    .get();
-            }
-            return querySnapshot;
-        })
-        .then(querySnapshot => {
-            console.log('📊 Total de documentos encontrados:', querySnapshot.size);
+            console.log('✅ Consulta bem-sucedida. Documentos encontrados:', querySnapshot.size);
             
             historyList.innerHTML = '';
             
             if (querySnapshot.empty) {
-                console.log('ℹ️  Nenhum quiz concluído encontrado');
+                console.log('ℹ️ Nenhum quiz concluído encontrado');
                 historyList.innerHTML = `
                     <div class="card">
                         <div class="card-content">
@@ -1281,10 +1266,10 @@ function loadUserHistory() {
                 });
             });
             
-            // Ordenar por data (se completedAt não existir, usar o que estiver disponível)
+            // Ordenar localmente por data (mais recente primeiro)
             userQuizzes.sort((a, b) => {
-                const dateA = a.completedAt ? a.completedAt.toDate() : new Date(0);
-                const dateB = b.completedAt ? b.completedAt.toDate() : new Date(0);
+                const dateA = a.completedAt ? (a.completedAt.toDate ? a.completedAt.toDate() : new Date(a.completedAt)) : new Date(0);
+                const dateB = b.completedAt ? (b.completedAt.toDate ? b.completedAt.toDate() : new Date(b.completedAt)) : new Date(0);
                 return dateB - dateA;
             });
             
@@ -1317,42 +1302,30 @@ function loadUserHistory() {
                             createHistoryCard(historyList, userQuiz, quiz);
                         } else {
                             console.log('❌ Quiz não encontrado:', userQuiz.quizId);
+                            // Criar card mesmo sem informações do quiz
+                            createFallbackHistoryCard(historyList, userQuiz);
                         }
                     });
                     
                     // Se nenhum card foi criado, mostrar mensagem
-                    if (cardsCriados === 0) {
-                        historyList.innerHTML = `
-                            <div class="card">
-                                <div class="card-content">
-                                    <div style="text-align: center; padding: 2rem;">
-                                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #ffc107; margin-bottom: 1rem;"></i>
-                                        <h3>Histórico não disponível</h3>
-                                        <p>Os quizzes que você completou não foram encontrados no sistema.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
+                    if (cardsCriados === 0 && userQuizzes.length > 0) {
+                        userQuizzes.forEach(userQuiz => {
+                            createFallbackHistoryCard(historyList, userQuiz);
+                        });
                     }
                     
-                    // Adicionar gráfico de desempenho
-                    if (cardsCriados > 0) {
+                    // Adicionar gráfico de desempenho se houver dados
+                    if (userQuizzes.length > 0) {
                         createPerformanceChart(historyList, userQuizzes, quizzesMap);
                     }
                     
                 })
                 .catch(error => {
                     console.error('❌ Erro ao buscar quizzes:', error);
-                    historyList.innerHTML = `
-                        <div class="card">
-                            <div class="card-content">
-                                <div class="error-message">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                    Erro ao carregar informações dos quizzes.
-                                </div>
-                            </div>
-                        </div>
-                    `;
+                    // Criar cards com informações básicas mesmo sem os dados do quiz
+                    userQuizzes.forEach(userQuiz => {
+                        createFallbackHistoryCard(historyList, userQuiz);
+                    });
                 });
         })
         .catch(error => {
@@ -1362,7 +1335,7 @@ function loadUserHistory() {
                     <div class="card-content">
                         <div class="error-message">
                             <i class="fas fa-exclamation-circle"></i>
-                            Erro ao carregar histórico: ${error.message}
+                            Erro ao carregar histórico. Tente novamente.
                         </div>
                     </div>
                 </div>
@@ -1400,9 +1373,11 @@ function createHistoryCard(container, userQuiz, quiz) {
     let dateText = 'Data não disponível';
     if (userQuiz.completedAt) {
         try {
-            dateText = userQuiz.completedAt.toDate().toLocaleDateString('pt-BR');
+            const date = userQuiz.completedAt.toDate ? userQuiz.completedAt.toDate() : new Date(userQuiz.completedAt);
+            dateText = date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
         } catch (e) {
             console.log('Erro ao formatar data:', e);
+            dateText = 'Data inválida';
         }
     }
     
@@ -1459,6 +1434,64 @@ function createHistoryCard(container, userQuiz, quiz) {
     container.appendChild(historyCard);
 }
 
+// Criar card de fallback quando o quiz não for encontrado
+function createFallbackHistoryCard(container, userQuiz) {
+    const historyCard = document.createElement('div');
+    historyCard.className = 'card';
+    
+    let badgeClass = 'card-badge';
+    let badgeText = `${userQuiz.percentage.toFixed(1)}%`;
+    
+    if (userQuiz.percentage >= 80) {
+        badgeClass += ' success';
+    } else if (userQuiz.percentage >= 60) {
+        badgeClass += ' warning';
+    } else {
+        badgeClass += ' danger';
+    }
+    
+    const minutes = Math.floor(userQuiz.timeTaken / 60);
+    const seconds = userQuiz.timeTaken % 60;
+    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    let dateText = 'Data não disponível';
+    if (userQuiz.completedAt) {
+        try {
+            const date = userQuiz.completedAt.toDate ? userQuiz.completedAt.toDate() : new Date(userQuiz.completedAt);
+            dateText = date.toLocaleDateString('pt-BR');
+        } catch (e) {
+            dateText = 'Data inválida';
+        }
+    }
+    
+    historyCard.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">Quiz Concluído</h3>
+            <div>
+                <span class="${badgeClass}">${badgeText}</span>
+                <span class="card-badge card-badge-secondary">Informações Limitadas</span>
+            </div>
+        </div>
+        <div class="card-content">
+            <p>As informações completas deste quiz não estão disponíveis no momento.</p>
+            <div class="history-details">
+                <div class="detail">
+                    <strong><i class="fas fa-check-circle" style="color: #28a745;"></i> Pontuação:</strong> 
+                    ${userQuiz.score} pontos
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Tempo:</strong> ${timeText}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-calendar" style="color: #17a2b8;"></i> Concluído em:</strong> ${dateText}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(historyCard);
+}
+
 // Criar gráfico de desempenho
 function createPerformanceChart(container, userQuizzes, quizzesMap) {
     const chartCard = document.createElement('div');
@@ -1505,39 +1538,26 @@ function initializeHistoryChart(userQuizzes, quizzesMap) {
     const ctx = document.getElementById('historyPerformanceChart');
     if (!ctx) return;
     
-    // Preparar dados para o gráfico
     const labels = userQuizzes.map((quiz, index) => {
         const quizInfo = quizzesMap[quiz.quizId];
-        return quizInfo ? `Quiz ${index + 1}` : `Quiz ${index + 1}`;
+        return quizInfo ? quizInfo.title.substring(0, 20) + (quizInfo.title.length > 20 ? '...' : '') : `Quiz ${index + 1}`;
     });
     
     const percentages = userQuizzes.map(quiz => quiz.percentage);
-    const scores = userQuizzes.map(quiz => quiz.score);
     
     new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [
-                {
-                    label: 'Porcentagem (%)',
-                    data: percentages,
-                    borderColor: '#4a6cf7',
-                    backgroundColor: 'rgba(74, 108, 247, 0.1)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'Pontuação',
-                    data: scores,
-                    borderColor: '#28a745',
-                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                    borderWidth: 2,
-                    fill: false,
-                    tension: 0.4
-                }
-            ]
+            datasets: [{
+                label: 'Desempenho (%)',
+                data: percentages,
+                borderColor: '#4a6cf7',
+                backgroundColor: 'rgba(74, 108, 247, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
+            }]
         },
         options: {
             responsive: true,
@@ -1560,13 +1580,13 @@ function initializeHistoryChart(userQuizzes, quizzesMap) {
                     max: 100,
                     title: {
                         display: true,
-                        text: 'Porcentagem / Pontuação'
+                        text: 'Porcentagem (%)'
                     }
                 },
                 x: {
                     title: {
                         display: true,
-                        text: 'Tentativas'
+                        text: 'Quizzes Realizados'
                     }
                 }
             }
@@ -1574,7 +1594,7 @@ function initializeHistoryChart(userQuizzes, quizzesMap) {
     });
 }
 
-// Funções auxiliares
+// Funções auxiliares para cálculos
 function calculateAverage(array, field) {
     if (array.length === 0) return 0;
     const sum = array.reduce((acc, item) => acc + (item[field] || 0), 0);
@@ -1597,7 +1617,7 @@ function calculateTotalTime(userQuizzes) {
     return `${minutes}m`;
 }
 
-// Carregar dados para revisão - VERSÃO SIMPLIFICADA
+// Carregar dados para revisão
 function loadReviewData(userQuizId, quizId) {
     console.log('🔄 Carregando dados para revisão...');
     showLoading();
