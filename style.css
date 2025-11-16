@@ -491,7 +491,6 @@ body {
 
 .card-badge.warning {
     background: var(--warning-color);
-    color: var(--dark-color);
 }
 
 .card-badge.danger {
@@ -1078,28 +1077,27 @@ body {
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
+    gap: 1.5rem;
     margin: 1.5rem 0;
 }
 
 .stat-item {
     text-align: center;
     padding: 1.5rem;
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-    color: white;
+    background: var(--light-color);
     border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
 }
 
 .stat-value {
     font-size: 2rem;
     font-weight: 700;
+    color: var(#07080d);
     margin-bottom: 0.5rem;
 }
 
 .stat-label {
     font-size: 0.9rem;
-    opacity: 0.9;
+    color: var(#181919);
 }
 
 .popular-list, .ranking-list {
@@ -1140,102 +1138,47 @@ body {
     color: var(--secondary-color);
 }
 
-/* Histórico - Estilos específicos corrigidos */
+/* Histórico */
 .history-details {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: 0.5rem;
     margin-top: 1rem;
 }
 
-.history-details .detail {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    background: var(--light-color);
-    border-radius: 8px;
-    border-left: 4px solid var(--primary-color);
+.detail {
+    font-size: 0.9rem;
 }
 
-.history-details .detail strong {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--dark-color);
-}
-
-.chart-container {
-    position: relative;
-    height: 300px;
-    width: 100%;
-    margin: 1rem 0;
-}
-
-/* Estados de loading e erro melhorados */
+/* Estados de erro e sucesso */
 .error-message {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 2rem;
-    text-align: center;
     color: var(--danger-color);
+    text-align: center;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(220, 53, 69, 0.1);
+    border-radius: var(--border-radius);
+    border-left: 4px solid var(--danger-color);
 }
 
-.error-message i {
-    font-size: 1.5rem;
+.success-message {
+    color: var(--success-color);
+    text-align: center;
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: rgba(40, 167, 69, 0.1);
+    border-radius: var(--border-radius);
+    border-left: 4px solid var(--success-color);
 }
 
-/* Responsividade para o histórico */
-@media (max-width: 768px) {
-    .history-details {
-        grid-template-columns: 1fr;
-    }
-    
-    .history-details .detail {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5rem;
-    }
-    
-    .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .chart-container {
-        height: 250px;
-    }
-}
-
-@media (max-width: 480px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .chart-container {
-        height: 200px;
-    }
-    
-    .history-details .detail {
-        padding: 1rem;
-    }
-}
-
-/* Animações para cards do histórico */
-.card {
-    animation: slideInUp 0.5s ease;
-}
-
-@keyframes slideInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.info-text {
+    color: var(--info-color);
+    text-align: center;
+    margin: 1rem 0;
+    padding: 0.75rem;
+    background: rgba(23, 162, 184, 0.1);
+    border-radius: var(--border-radius);
+    border-left: 4px solid var(--info-color);
 }
 
 /* Estilos específicos para a página Sobre */
@@ -1372,8 +1315,8 @@ body {
 }
 
 .developer-avatar {
-    width: 150px;
-    height: 180px;
+    width: 100px;
+    height: 100px;
     border-radius: 50%;
     background: var(--primary-color);
     display: flex;
@@ -1382,16 +1325,6 @@ body {
     color: white;
     font-size: 2.5rem;
     flex-shrink: 0;
-    overflow: hidden;
-}
-
-.avatar-image {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 3px solid white;
-    box-shadow: var(--shadow);
 }
 
 .developer-details h3 {
@@ -1708,6 +1641,7 @@ body {
         padding: 0.75rem;
     }
 }
+/* Adicione estas regras ao arquivo style.css existente */
 
 /* Estilos para cards de questões recolhíveis */
 .question-card .question-options {
@@ -1760,6 +1694,21 @@ body {
     position: relative;
     height: 300px;
     width: 100%;
+}
+
+/* Histórico corrigido */
+.history-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.history-details .detail {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+    background: var(--light-color);
+    border-radius: 4px;
 }
 
 /* Modal de usuário */
@@ -1820,4 +1769,154 @@ body {
 .ranking-item:hover {
     transform: translateX(5px);
     transition: transform 0.2s ease;
+}
+
+/* Estilos para a imagem do avatar */
+.avatar-image {
+    width: 150%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid white;
+    box-shadow: var(--shadow);
+}
+
+.developer-avatar {
+    width: 150px;
+    height: 180px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2.5rem;
+    flex-shrink: 0;
+    overflow: hidden; /* Importante para a imagem ficar redonda */
+}
+/* ----------------------------------------------------------------------- */
+
+/* Estilos específicos para o histórico */
+.history-details {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.history-details .detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--light-color);
+    border-radius: 8px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.history-details .detail strong {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--dark-color);
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+/* Estados de loading e erro melhorados */
+.error-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    color: var(--danger-color);
+}
+
+.error-message i {
+    font-size: 1.5rem;
+}
+
+/* Responsividade para o histórico */
+@media (max-width: 768px) {
+    .history-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .history-details .detail {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .chart-container {
+        height: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .chart-container {
+        height: 200px;
+    }
+    
+    .history-details .detail {
+        padding: 1rem;
+    }
+}
+
+/* Animações para cards do histórico */
+.card {
+    animation: slideInUp 0.5s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
