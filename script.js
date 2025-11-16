@@ -1,5 +1,3 @@
-[file name]: script.js
-[file content begin]
 // Configuração do Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyD3e5rXGWsaeHHHx5YO3lwKz5poIwZbLiM",
@@ -15,8 +13,8 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Configurar persistência de sessão como LOCAL para manter login ao recarregar
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+// MODIFICAÇÃO: Alterar persistência para SESSION para manter login ao recarregar
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
     .catch((error) => {
         console.error('Erro ao configurar persistência:', error);
     });
@@ -69,8 +67,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentUser = { ...user, ...userData };
                 hideLoading();
                 
-                // Verificar se há quiz em andamento ao carregar a página
-                checkActiveQuiz();
+                // MODIFICAÇÃO: Verificar se há quiz em andamento e gerenciar comportamento
+                checkActiveQuizAndReload();
                 
             }).catch(error => {
                 hideLoading();
@@ -93,44 +91,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Lidar com recarregamento da página - MODIFICADO
+    // MODIFICAÇÃO: Lidar com recarregamento da página - atualizar progresso antes de sair
     window.addEventListener('unload', function() {
         if (currentQuiz && userQuizId && exitCount === 0) {
-            // Primeira saída - apenas atualizar progresso
+            // Se é a primeira saída (recarregamento), contar como primeira saída
+            updateUserQuizProgress(true);
+        } else if (currentQuiz && userQuizId) {
+            // Atualizar progresso normal
             updateUserQuizProgress();
-        } else if (currentQuiz && userQuizId && exitCount >= 1) {
-            // Segunda saída (recarregamento após primeira saída) - finalizar quiz
-            finalizeQuizOnReload();
         }
     });
 });
 
-// Finalizar quiz ao recarregar após primeira saída
-function finalizeQuizOnReload() {
-    if (!userQuizId) return;
-    
-    // Calcular pontuação atual
-    const score = calculateCurrentScore(userAnswers);
-    const percentage = calculateCurrentPercentage(userAnswers);
-    const timeTaken = totalTime - timeRemaining;
-    
-    // Atualizar status do quiz do usuário
-    db.collection('userQuizzes').doc(userQuizId).update({
-        status: 'completed',
-        score: score,
-        percentage: percentage,
-        timeTaken: timeTaken,
-        completedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        forcedCompletion: true,
-        exitCount: 2
-    })
-    .catch(error => {
-        console.error('Erro ao finalizar quiz no recarregamento:', error);
-    });
-}
-
-// Verificar se há quiz ativo - MODIFICADO
-function checkActiveQuiz() {
+// MODIFICAÇÃO: Nova função para verificar quiz ativo e gerenciar recarregamento
+function checkActiveQuizAndReload() {
     if (currentUser && currentUser.userType === 'aluno') {
         db.collection('userQuizzes')
             .where('userId', '==', currentUser.uid)
@@ -141,10 +115,10 @@ function checkActiveQuiz() {
                     const userQuizDoc = querySnapshot.docs[0];
                     const userQuiz = userQuizDoc.data();
                     
-                    // Verificar se já atingiu o limite de saídas
+                    // MODIFICAÇÃO: Se recarregou a página e já tinha uma saída, finalizar quiz
                     if (userQuiz.exitCount >= 1) {
-                        // Segunda vez que reabre - finalizar quiz automaticamente
-                        finalizeQuizOnSecondExit(userQuizDoc.id, userQuiz);
+                        // Finalizar quiz automaticamente ao recarregar após primeira saída
+                        finalizeQuizOnReload(userQuizDoc.id, userQuiz);
                     } else {
                         // Mostrar alerta informando sobre o quiz em andamento
                         showDashboard();
@@ -171,19 +145,13 @@ function checkActiveQuiz() {
     }
 }
 
-// Finalizar quiz na segunda saída - MODIFICADO
-function finalizeQuizOnSecondExit(userQuizId, userQuiz) {
-    // Calcular pontuação com base nas questões respondidas
-    const score = calculateCurrentScore(userQuiz.answers || []);
-    const answeredQuestions = (userQuiz.answers || []).filter(answer => answer !== null).length;
-    const percentage = answeredQuestions > 0 ? (score / answeredQuestions) * 100 : 0;
-    const timeTaken = (userQuiz.quizTime || 0) - (userQuiz.timeRemaining || 0);
-    
+// MODIFICAÇÃO: Nova função para finalizar quiz ao recarregar após primeira saída
+function finalizeQuizOnReload(userQuizId, userQuiz) {
     db.collection('userQuizzes').doc(userQuizId).update({
         status: 'completed',
-        score: score,
-        percentage: percentage,
-        timeTaken: timeTaken,
+        score: calculateCurrentScore(userQuiz.answers || []),
+        percentage: calculateCurrentPercentage(userQuiz.answers || []),
+        timeTaken: (userQuiz.quizTime || 0) - (userQuiz.timeRemaining || 0),
         completedAt: firebase.firestore.FieldValue.serverTimestamp(),
         forcedCompletion: true,
         exitCount: 2
@@ -195,7 +163,7 @@ function finalizeQuizOnSecondExit(userQuizId, userQuiz) {
         setTimeout(() => {
             switchTab('quizzes-tab', 'quizzes-section');
             loadQuizzes();
-            alert('Seu quiz foi finalizado automaticamente. Apenas as questões respondidas foram consideradas.');
+            alert('Seu quiz foi finalizado automaticamente devido ao recarregamento da página após a primeira saída.');
         }, 100);
     })
     .catch(error => {
@@ -230,7 +198,7 @@ function loadQuizById(quizId, existingUserQuizId = null) {
         });
 }
 
-// Continuar quiz existente - MODIFICADO
+// Continuar quiz existente
 function continueQuiz(quiz, userQuizId) {
     currentQuiz = quiz;
     
@@ -240,19 +208,12 @@ function continueQuiz(quiz, userQuizId) {
                 const userQuiz = doc.data();
                 userQuizId = doc.id;
                 
-                // Restaurar estado do quiz exatamente do ponto onde parou
+                // Restaurar estado do quiz
                 userAnswers = userQuiz.answers || new Array(quiz.questionsCount).fill(null);
                 currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
                 exitCount = userQuiz.exitCount || 0;
                 timeRemaining = userQuiz.timeRemaining || (quiz.time * 60);
                 totalTime = quiz.time * 60;
-                
-                console.log('Continuando quiz:', {
-                    currentQuestionIndex,
-                    exitCount,
-                    timeRemaining,
-                    userAnswers
-                });
                 
                 // Buscar questões
                 loadQuizQuestions(quiz.id);
@@ -606,7 +567,7 @@ function initTabNavigation() {
         switchAdminTab('admin-about-tab', 'admin-about-section');
     });
     
-    // Botão de sair do quiz - MODIFICADO
+    // Botão de sair do quiz
     document.getElementById('exit-quiz-btn').addEventListener('click', confirmExitQuiz);
 }
 
@@ -750,7 +711,7 @@ function showDashboard() {
         adminDashboard.classList.add('hidden');
         studentDashboard.classList.remove('hidden');
         document.getElementById('student-name').textContent = currentUser.name;
-        // Sempre mostrar a aba de Quizzes ao recarregar
+        // MODIFICAÇÃO: Sempre mostrar aba de Quizzes ao recarregar
         switchTab('quizzes-tab', 'quizzes-section');
         loadQuizzes();
     }
@@ -858,10 +819,12 @@ function createQuizCard(quiz) {
                 statusText = 'Em andamento';
                 statusClass = 'card-badge warning';
                 
-                // Mostrar informações sobre saídas restantes - MODIFICADO
+                // MODIFICAÇÃO: Mostrar informações sobre saídas restantes
                 const exitsLeft = 1 - (userQuizData.exitCount || 0);
                 if (exitsLeft === 0) {
                     statusText += ' (Última chance)';
+                } else {
+                    statusText += ` (${exitsLeft} saída restante)`;
                 }
             } else if (userQuizData.status === 'completed') {
                 buttonText = 'Ver Resultado';
@@ -1179,23 +1142,32 @@ function selectOption(value) {
     updateUserQuizProgress();
 }
 
-// Atualizar progresso do quiz do usuário
-function updateUserQuizProgress() {
+// MODIFICAÇÃO: Atualizar progresso do quiz do usuário com controle de saída
+function updateUserQuizProgress(isReload = false) {
     if (!userQuizId) return;
     
-    db.collection('userQuizzes').doc(userQuizId).update({
+    const updateData = {
         answers: userAnswers,
         currentQuestionIndex: currentQuestionIndex,
         timeRemaining: timeRemaining,
-        exitCount: exitCount,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
+    };
+    
+    // Se é um recarregamento e é a primeira saída, contar como saída
+    if (isReload && exitCount === 0) {
+        updateData.exitCount = 1;
+        exitCount = 1;
+    } else {
+        updateData.exitCount = exitCount;
+    }
+    
+    db.collection('userQuizzes').doc(userQuizId).update(updateData)
     .catch(error => {
         console.error('Erro ao atualizar progresso do quiz:', error);
     });
 }
 
-// Confirmar saída do quiz - MODIFICADO COMPLETAMENTE
+// MODIFICAÇÃO: Confirmar saída do quiz - Controle de saídas
 function confirmExitQuiz() {
     if (exitCount >= 1) {
         // Segunda saída - finalizar quiz automaticamente
@@ -1204,7 +1176,7 @@ function confirmExitQuiz() {
         }
     } else {
         // Primeira saída
-        if (confirm('Tem certeza que deseja sair do quiz? Você poderá continuar depois, mas esta será sua primeira e única saída permitida. A próxima saída finalizará o quiz automaticamente.')) {
+        if (confirm('Tem certeza que deseja sair do quiz? Você poderá continuar depois, mas esta será sua primeira saída. A próxima saída finalizará o quiz automaticamente.')) {
             exitCount++;
             clearInterval(quizTimer);
             
@@ -1220,7 +1192,6 @@ function confirmExitQuiz() {
                 setTimeout(() => {
                     switchTab('quizzes-tab', 'quizzes-section');
                     loadQuizzes();
-                    alert('Você pode retornar ao quiz uma única vez. Na próxima saída, o quiz será finalizado automaticamente.');
                 }, 100);
             });
         }
@@ -3168,4 +3139,3 @@ function loadFullRanking() {
             console.error('Erro ao carregar ranking completo:', error);
         });
 }
-[file content end]
