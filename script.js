@@ -1,3 +1,5 @@
+[file name]: script.js
+[file content begin]
 // Configuração do Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyD3e5rXGWsaeHHHx5YO3lwKz5poIwZbLiM",
@@ -3139,3 +3141,4 @@ function loadFullRanking() {
             console.error('Erro ao carregar ranking completo:', error);
         });
 }
+[file content end]
