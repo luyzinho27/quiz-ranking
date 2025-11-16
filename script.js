@@ -13,8 +13,8 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Configurar persistência de sessão como NONE para logout ao fechar navegador
-auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
+// Configurar persistência de sessão como LOCAL para manter login
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
     .catch((error) => {
         console.error('Erro ao configurar persistência:', error);
     });
@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Verificar se há quiz ativo
+// Verificar se há quiz ativo - MODIFICADA
 function checkActiveQuiz() {
     if (currentUser && currentUser.userType === 'aluno') {
         db.collection('userQuizzes')
@@ -117,17 +117,12 @@ function checkActiveQuiz() {
                         // Finalizar quiz automaticamente
                         finalizeQuizOnSecondExit(userQuizDoc.id, userQuiz);
                     } else {
-                        // Mostrar alerta informando sobre o quiz em andamento
+                        // Mostrar dashboard normalmente
                         showDashboard();
                         setTimeout(() => {
-                            if (confirm('Você tem um quiz em andamento. Deseja continuar de onde parou?')) {
-                                loadQuizById(userQuiz.quizId, userQuizDoc.id);
-                            } else {
-                                // Manter na aba de Quizzes
-                                switchTab('quizzes-tab', 'quizzes-section');
-                                loadQuizzes();
-                            }
-                        }, 500);
+                            switchTab('quizzes-tab', 'quizzes-section');
+                            loadQuizzes();
+                        }, 100);
                     }
                 } else {
                     showDashboard();
@@ -142,7 +137,7 @@ function checkActiveQuiz() {
     }
 }
 
-// Finalizar quiz na segunda saída
+// Finalizar quiz na segunda saída - MODIFICADA
 function finalizeQuizOnSecondExit(userQuizId, userQuiz) {
     db.collection('userQuizzes').doc(userQuizId).update({
         status: 'completed',
