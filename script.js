@@ -481,6 +481,11 @@ function initModals() {
     document.getElementById('close-review-modal').addEventListener('click', closeReviewModal);
     document.getElementById('close-review').addEventListener('click', closeReviewModal);
     
+    // Toggle password para o modal de usuário
+    document.getElementById('toggle-user-password').addEventListener('click', function() {
+        togglePasswordVisibility('user-password', this);
+    });
+    
     // Fechar modals ao clicar fora
     document.querySelectorAll('.modal').forEach(modal => {
         modal.addEventListener('click', (e) => {
@@ -2405,6 +2410,8 @@ function openUserModal(userId = null) {
                     document.getElementById('user-email').value = user.email;
                     document.getElementById('user-type').value = user.userType;
                     document.getElementById('user-status').value = user.status || 'active';
+                    // Limpar campo de senha
+                    document.getElementById('user-password').value = '';
                 }
             });
     }
@@ -2422,11 +2429,17 @@ function closeUserModal() {
 function saveUser() {
     const name = document.getElementById('user-name').value;
     const email = document.getElementById('user-email').value;
+    const password = document.getElementById('user-password').value;
     const userType = document.getElementById('user-type').value;
     const status = document.getElementById('user-status').value;
     
     if (!name || !email) {
         alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    if (password && password.length < 6) {
+        alert('A senha deve ter pelo menos 6 caracteres.');
         return;
     }
     
@@ -2440,13 +2453,32 @@ function saveUser() {
     
     if (editingUserId) {
         // Atualizar usuário existente
-        db.collection('users').doc(editingUserId).update(userData)
+        const updatePromises = [db.collection('users').doc(editingUserId).update(userData)];
+        
+        // Se foi fornecida uma nova senha, atualizar a senha no Firebase Auth
+        if (password) {
+            updatePromises.push(
+                auth.updateUserPassword(editingUserId, password).catch(error => {
+                    // Se o usuário atual não tiver permissão para atualizar senhas, 
+                    // usar o método de redefinição de senha por e-mail
+                    if (error.code === 'auth/requires-recent-login') {
+                        return auth.sendPasswordResetEmail(email).then(() => {
+                            alert('Um e-mail de redefinição de senha foi enviado para o usuário.');
+                        });
+                    }
+                    throw error;
+                })
+            );
+        }
+        
+        Promise.all(updatePromises)
             .then(() => {
-                alert('Usuário atualizado com sucesso!');
+                alert('Usuário atualizado com sucesso!' + (password ? ' A nova senha foi definida.' : ''));
                 closeUserModal();
                 loadAdminUsers();
             })
             .catch(error => {
+                console.error('Erro ao atualizar usuário:', error);
                 alert('Erro ao atualizar usuário: ' + error.message);
             });
     }
