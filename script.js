@@ -467,10 +467,18 @@ function initModals() {
     document.getElementById('cancel-question').addEventListener('click', closeQuestionModal);
     document.getElementById('save-question').addEventListener('click', saveQuestion);
     
-    // Modal do usuário
+    // Modal do usuário - CORREÇÃO: Garantir que o event listener está sendo adicionado
     document.getElementById('close-user-modal').addEventListener('click', closeUserModal);
     document.getElementById('cancel-user').addEventListener('click', closeUserModal);
-    document.getElementById('save-user').addEventListener('click', saveUser);
+    
+    // CORREÇÃO: Garantir que o event listener do save-user está sendo adicionado corretamente
+    const saveUserBtn = document.getElementById('save-user');
+    if (saveUserBtn) {
+        // Remover event listeners existentes para evitar duplicação
+        saveUserBtn.replaceWith(saveUserBtn.cloneNode(true));
+        // Adicionar novo event listener
+        document.getElementById('save-user').addEventListener('click', saveUser);
+    }
     
     // Modal de importação
     document.getElementById('close-import-modal').addEventListener('click', closeImportModal);
@@ -2425,16 +2433,20 @@ function closeUserModal() {
     editingUserId = null;
 }
 
-// Salvar usuário
+// Salvar usuário - VERSÃO SIMPLIFICADA E ROBUSTA
 function saveUser() {
+    console.log('Função saveUser executada');
+    
     const name = document.getElementById('user-name').value;
     const email = document.getElementById('user-email').value;
     const password = document.getElementById('user-password').value;
     const userType = document.getElementById('user-type').value;
     const status = document.getElementById('user-status').value;
     
+    console.log('Dados do formulário:', { name, email, password, userType, status });
+    
     if (!name || !email) {
-        alert('Por favor, preencha todos os campos obrigatórios.');
+        alert('Por favor, preencha todos os campos obrigatórios (Nome e E-mail).');
         return;
     }
     
@@ -2442,6 +2454,13 @@ function saveUser() {
         alert('A senha deve ter pelo menos 6 caracteres.');
         return;
     }
+    
+    if (!editingUserId) {
+        alert('Erro: ID do usuário não encontrado.');
+        return;
+    }
+    
+    showLoading();
     
     const userData = {
         name: name,
@@ -2451,37 +2470,83 @@ function saveUser() {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
     
-    if (editingUserId) {
-        // Atualizar usuário existente
-        const updatePromises = [db.collection('users').doc(editingUserId).update(userData)];
-        
-        // Se foi fornecida uma nova senha, atualizar a senha no Firebase Auth
-        if (password) {
-            updatePromises.push(
-                auth.updateUserPassword(editingUserId, password).catch(error => {
-                    // Se o usuário atual não tiver permissão para atualizar senhas, 
-                    // usar o método de redefinição de senha por e-mail
-                    if (error.code === 'auth/requires-recent-login') {
-                        return auth.sendPasswordResetEmail(email).then(() => {
-                            alert('Um e-mail de redefinição de senha foi enviado para o usuário.');
+    // Atualizar dados no Firestore
+    db.collection('users').doc(editingUserId).update(userData)
+        .then(() => {
+            console.log('Dados do usuário atualizados no Firestore');
+            
+            // Se há uma nova senha, tentar atualizá-la
+            if (password) {
+                console.log('Tentando atualizar senha...');
+                
+                // Método 1: Tentar atualizar diretamente (pode falhar)
+                const user = auth.currentUser;
+                if (user) {
+                    return user.updatePassword(password)
+                        .then(() => {
+                            console.log('Senha atualizada com sucesso');
+                            return 'senha_atualizada';
+                        })
+                        .catch(error => {
+                            console.log('Erro ao atualizar senha diretamente:', error);
+                            
+                            // Método 2: Enviar e-mail de redefinição
+                            return auth.sendPasswordResetEmail(email)
+                                .then(() => {
+                                    console.log('E-mail de redefinição enviado');
+                                    return 'email_enviado';
+                                })
+                                .catch(emailError => {
+                                    console.error('Erro ao enviar e-mail:', emailError);
+                                    return 'erro_email';
+                                });
                         });
-                    }
-                    throw error;
-                })
-            );
-        }
-        
-        Promise.all(updatePromises)
-            .then(() => {
-                alert('Usuário atualizado com sucesso!' + (password ? ' A nova senha foi definida.' : ''));
-                closeUserModal();
-                loadAdminUsers();
-            })
-            .catch(error => {
-                console.error('Erro ao atualizar usuário:', error);
-                alert('Erro ao atualizar usuário: ' + error.message);
-            });
-    }
+                } else {
+                    // Se não há usuário logado, enviar e-mail de reset
+                    return auth.sendPasswordResetEmail(email)
+                        .then(() => {
+                            console.log('E-mail de redefinição enviado (usuário não logado)');
+                            return 'email_enviado';
+                        })
+                        .catch(emailError => {
+                            console.error('Erro ao enviar e-mail:', emailError);
+                            return 'erro_email';
+                        });
+                }
+            } else {
+                // Não há senha para atualizar
+                return 'sem_senha';
+            }
+        })
+        .then((resultadoSenha) => {
+            hideLoading();
+            
+            let mensagem = 'Usuário atualizado com sucesso!';
+            
+            switch(resultadoSenha) {
+                case 'senha_atualizada':
+                    mensagem += ' A nova senha foi definida.';
+                    break;
+                case 'email_enviado':
+                    mensagem += ' Um e-mail de redefinição de senha foi enviado para o usuário.';
+                    break;
+                case 'erro_email':
+                    mensagem += ' A senha não pôde ser atualizada. O usuário pode usar a função "Esqueci minha senha".';
+                    break;
+                case 'sem_senha':
+                    // Nada a adicionar
+                    break;
+            }
+            
+            alert(mensagem);
+            closeUserModal();
+            loadAdminUsers();
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Erro ao atualizar usuário:', error);
+            alert('Erro ao atualizar usuário: ' + error.message);
+        });
 }
 
 // Alternar status do usuário
@@ -2942,3 +3007,4 @@ function loadFullRanking() {
             console.error('Erro ao carregar ranking completo:', error);
         });
 }
+
