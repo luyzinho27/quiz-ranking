@@ -2403,6 +2403,7 @@ function openUserModal(userId = null) {
                     const user = doc.data();
                     document.getElementById('user-name').value = user.name;
                     document.getElementById('user-email').value = user.email;
+                    document.getElementById('user-password').value = user.password;
                     document.getElementById('user-type').value = user.userType;
                     document.getElementById('user-status').value = user.status || 'active';
                 }
@@ -2422,6 +2423,7 @@ function closeUserModal() {
 function saveUser() {
     const name = document.getElementById('user-name').value;
     const email = document.getElementById('user-email').value;
+    const password = document.getElementById('user-password').value;
     const userType = document.getElementById('user-type').value;
     const status = document.getElementById('user-status').value;
     
@@ -2433,6 +2435,7 @@ function saveUser() {
     const userData = {
         name: name,
         email: email,
+        password: password,
         userType: userType,
         status: status,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2910,3 +2913,4 @@ function loadFullRanking() {
             console.error('Erro ao carregar ranking completo:', error);
         });
 }
+
