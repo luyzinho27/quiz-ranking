@@ -1928,3 +1928,41 @@ body {
         transform: translateY(0);
     }
 }
+
+/* Adicione estas regras ao arquivo style.css existente */
+
+/* Estilos para o campo de senha no modal de usuário */
+.password-info {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--secondary-color);
+    margin-top: 0.5rem;
+    font-style: italic;
+}
+
+/* Ajuste para o input-group com password no modal */
+.modal-body .input-group.password-group {
+    position: relative;
+}
+
+.modal-body .input-group.password-group input {
+    padding-right: 3rem;
+}
+
+.modal-body .input-group.password-group .toggle-password {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--secondary-color);
+    cursor: pointer;
+    z-index: 2;
+    font-size: 1rem;
+    background: none;
+    border: none;
+    padding: 0.5rem;
+}
+
+.modal-body .input-group.password-group .toggle-password:hover {
+    color: var(--primary-color);
+}
