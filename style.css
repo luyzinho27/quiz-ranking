@@ -1928,3 +1928,41 @@ body {
         transform: translateY(0);
     }
 }
+
+/* Estilo para destacar o usuário atual no ranking */
+.ranking-item-highlight {
+    background: rgba(74, 108, 247, 0.1) !important;
+    border-left: 4px solid var(--primary-color) !important;
+    font-weight: 600;
+}
+
+/* Melhorias na responsividade do ranking */
+@media (max-width: 768px) {
+    .ranking-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .ranking-position {
+        align-self: flex-start;
+    }
+    
+    .ranking-score {
+        align-self: flex-end;
+        margin-top: 0.5rem;
+    }
+}
+
+/* Estados de loading para ranking */
+.ranking-list {
+    transition: all 0.3s ease;
+}
+
+.ranking-list:empty::before {
+    content: "Carregando...";
+    display: block;
+    text-align: center;
+    padding: 2rem;
+    color: var(--secondary-color);
+}
