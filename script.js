@@ -1119,7 +1119,7 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
         const degrees = (percentage / 100) * 360;
         if (circleProgress) {
             circleProgress.style.transform = `rotate(${degrees}deg)`;
-                    }
+                }
 
         // Calcular posição no ranking
         calculateRankingPosition(quizId, percentage);
@@ -1516,7 +1516,7 @@ function createFallbackHistoryCard(container, userQuiz) {
                     ${userQuiz.score} pontos
                 </div>
                 <div class="detail">
-                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Temo:</strong> ${timeText}
+                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Tempo:</strong> ${timeText}
                 </div>
                 <div class="detail">
                     <strong><i class="fas fa-calendar" style="color: #17a2b8;"></i> Concluído em:</strong> ${dateText}
@@ -1749,50 +1749,86 @@ function loadRanking() {
                 return;
             }
             
-            db.collection('users')
-                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds.slice(0, 20)) // Limitar a 20 usuários
-                .get()
-                .then(usersSnapshot => {
-                    const usersMap = {};
-                    usersSnapshot.forEach(doc => {
-                        usersMap[doc.id] = doc.data();
-                    });
-                    
-                    // Exibir ranking
-                    rankingList.innerHTML = '';
-                    
-                    ranking.slice(0, 20).forEach((item, index) => {
-                        const user = usersMap[item.userId];
-                        if (!user) return;
-                        
-                        const rankingItem = document.createElement('div');
-                        rankingItem.className = 'ranking-item';
-                        
-                        // Destacar usuário atual
-                        if (item.userId === currentUser.uid) {
-                            rankingItem.style.background = 'rgba(74, 108, 247, 0.1)';
-                            rankingItem.style.borderLeft = '4px solid var(--primary-color)';
-                        }
-                        
-                        const avgScore = item.totalQuizzes > 0 ? (item.totalScore / item.totalQuizzes).toFixed(1) : 0;
-                        
-                        rankingItem.innerHTML = `
-                            <div class="ranking-position">${index + 1}</div>
-                            <div class="ranking-info">
-                                <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
-                                <div class="ranking-details">${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts</div>
-                            </div>
-                            <div class="ranking-score">${item.totalScore} pts</div>
-                        `;
-                        
-                        rankingList.appendChild(rankingItem);
-                    });
-                });
+            // CORREÇÃO: Buscar usuários em lotes para evitar limite de 10
+            loadUsersInBatches(userIds, ranking, rankingList);
         })
         .catch(error => {
             rankingList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar ranking.</div></div>';
             console.error('Erro ao carregar ranking:', error);
         });
+}
+
+// CORREÇÃO: Função para carregar usuários em lotes
+function loadUsersInBatches(userIds, ranking, rankingList) {
+    const batchSize = 10;
+    const userBatches = [];
+    
+    // Dividir usuários em lotes de 10
+    for (let i = 0; i < userIds.length; i += batchSize) {
+        userBatches.push(userIds.slice(i, i + batchSize));
+    }
+    
+    const usersMap = {};
+    let batchesProcessed = 0;
+    
+    // Processar cada lote
+    userBatches.forEach(batch => {
+        db.collection('users')
+            .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+            .get()
+            .then(usersSnapshot => {
+                usersSnapshot.forEach(doc => {
+                    usersMap[doc.id] = doc.data();
+                });
+                
+                batchesProcessed++;
+                
+                // Quando todos os lotes forem processados, exibir o ranking
+                if (batchesProcessed === userBatches.length) {
+                    displayRanking(ranking, usersMap, rankingList);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar lote de usuários:', error);
+                batchesProcessed++;
+                
+                if (batchesProcessed === userBatches.length) {
+                    displayRanking(ranking, usersMap, rankingList);
+                }
+            });
+    });
+}
+
+// Exibir ranking
+function displayRanking(ranking, usersMap, rankingList) {
+    rankingList.innerHTML = '';
+    
+    ranking.forEach((item, index) => {
+        const user = usersMap[item.userId];
+        if (!user) return;
+        
+        const rankingItem = document.createElement('div');
+        rankingItem.className = 'ranking-item';
+        
+        // Destacar usuário atual
+        if (item.userId === currentUser.uid) {
+            rankingItem.style.background = 'rgba(74, 108, 247, 0.1)';
+            rankingItem.style.borderLeft = '4px solid var(--primary-color)';
+        }
+        
+        const avgScore = item.totalQuizzes > 0 ? (item.totalScore / item.totalQuizzes).toFixed(1) : 0;
+        
+        rankingItem.innerHTML = `
+            <div class="ranking-position">${index + 1}</div>
+            <div class="ranking-info">
+                <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
+                <div class="ranking-details">${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts</div>
+            </div>
+            <div class="ranking-score">${item.totalScore} pts</div>
+        `;
+        
+        rankingList.appendChild(rankingItem);
+    });
 }
 
 // ===============================
@@ -2796,37 +2832,8 @@ function loadTopPlayers() {
                 return;
             }
             
-            db.collection('users')
-                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds)
-                .get()
-                .then(usersSnapshot => {
-                    const usersMap = {};
-                    usersSnapshot.forEach(doc => {
-                        usersMap[doc.id] = doc.data();
-                    });
-                    
-                    let html = '';
-                    topPlayers.forEach((player, index) => {
-                        const user = usersMap[player.userId];
-                        if (user) {
-                            const avgScore = player.totalQuizzes > 0 ? (player.totalScore / player.totalQuizzes).toFixed(1) : 0;
-                            html += `
-                                <div class="ranking-item">
-                                    <div class="ranking-position">${index + 1}</div>
-                                    <div class="ranking-info">
-                                        <div class="ranking-name">${user.name}</div>
-                                        <div class="ranking-details">
-                                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts
-                                        </div>
-                                    </div>
-                                    <div class="ranking-score">${player.totalScore} pts</div>
-                                </div>
-                            `;
-                        }
-                    });
-                    
-                    topPlayersElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
-                });
+            // CORREÇÃO: Usar a função corrigida para carregar usuários
+            loadUsersInBatches(userIds, topPlayers, topPlayersElement, true);
         })
         .catch(error => {
             topPlayersElement.innerHTML = '<p>Erro ao carregar dados.</p>';
@@ -2834,14 +2841,19 @@ function loadTopPlayers() {
         });
 }
 
-// Carregar ranking completo
+// CORREÇÃO: Função loadFullRanking completamente reescrita
 function loadFullRanking() {
     const fullRankingElement = document.getElementById('full-ranking');
+    fullRankingElement.innerHTML = '<div class="ranking-list">Carregando ranking completo...</div>';
+    
+    console.log('🔄 Iniciando carregamento do ranking completo...');
     
     db.collection('userQuizzes')
         .where('status', '==', 'completed')
         .get()
         .then(userQuizzesSnapshot => {
+            console.log('✅ Quizzes completados encontrados:', userQuizzesSnapshot.size);
+            
             const userScores = {};
             
             // Calcular pontuação total por usuário
@@ -2865,6 +2877,8 @@ function loadFullRanking() {
             const fullRanking = Object.values(userScores)
                 .sort((a, b) => b.totalScore - a.totalScore);
             
+            console.log('👥 Usuários no ranking:', fullRanking.length);
+            
             // Buscar informações dos usuários
             const userIds = fullRanking.map(player => player.userId);
             
@@ -2873,40 +2887,98 @@ function loadFullRanking() {
                 return;
             }
             
-            db.collection('users')
-                .where(firebase.firestore.FieldPath.documentId(), 'in', userIds)
-                .get()
-                .then(usersSnapshot => {
-                    const usersMap = {};
-                    usersSnapshot.forEach(doc => {
-                        usersMap[doc.id] = doc.data();
-                    });
-                    
-                    let html = '';
-                    fullRanking.forEach((player, index) => {
-                        const user = usersMap[player.userId];
-                        if (user) {
-                            const avgScore = player.totalQuizzes > 0 ? (player.totalScore / player.totalQuizzes).toFixed(1) : 0;
-                            html += `
-                                <div class="ranking-item">
-                                    <div class="ranking-position">${index + 1}</div>
-                                    <div class="ranking-info">
-                                        <div class="ranking-name">${user.name}</div>
-                                        <div class="ranking-details">
-                                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts
-                                        </div>
-                                    </div>
-                                    <div class="ranking-score">${player.totalScore} pts</div>
-                                </div>
-                            `;
-                        }
-                    });
-                    
-                    fullRankingElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
-                });
+            // CORREÇÃO: Usar a função corrigida para carregar usuários em lotes
+            loadUsersInBatchesForFullRanking(userIds, fullRanking, fullRankingElement);
         })
         .catch(error => {
-            fullRankingElement.innerHTML = '<p>Erro ao carregar dados.</p>';
-            console.error('Erro ao carregar ranking completo:', error);
+            console.error('❌ Erro ao carregar ranking completo:', error);
+            fullRankingElement.innerHTML = '<p>Erro ao carregar dados do ranking.</p>';
         });
+}
+
+// CORREÇÃO: Nova função para carregar usuários em lotes para o ranking completo
+function loadUsersInBatchesForFullRanking(userIds, fullRanking, fullRankingElement) {
+    const batchSize = 10;
+    const userBatches = [];
+    
+    // Dividir usuários em lotes de 10
+    for (let i = 0; i < userIds.length; i += batchSize) {
+        userBatches.push(userIds.slice(i, i + batchSize));
+    }
+    
+    const usersMap = {};
+    let batchesProcessed = 0;
+    const totalBatches = userBatches.length;
+    
+    console.log(`📦 Processando ${totalBatches} lotes de usuários...`);
+    
+    // Processar cada lote
+    userBatches.forEach((batch, batchIndex) => {
+        db.collection('users')
+            .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+            .get()
+            .then(usersSnapshot => {
+                usersSnapshot.forEach(doc => {
+                    usersMap[doc.id] = doc.data();
+                });
+                
+                batchesProcessed++;
+                console.log(`✅ Lote ${batchIndex + 1}/${totalBatches} processado`);
+                
+                // Atualizar progresso
+                const progress = Math.round((batchesProcessed / totalBatches) * 100);
+                fullRankingElement.innerHTML = `<div class="ranking-list">Carregando ranking... ${progress}%</div>`;
+                
+                // Quando todos os lotes forem processados, exibir o ranking completo
+                if (batchesProcessed === totalBatches) {
+                    console.log('🎉 Todos os lotes processados, exibindo ranking...');
+                    displayFullRanking(fullRanking, usersMap, fullRankingElement);
+                }
+            })
+            .catch(error => {
+                console.error(`❌ Erro ao buscar lote ${batchIndex + 1} de usuários:`, error);
+                batchesProcessed++;
+                
+                if (batchesProcessed === totalBatches) {
+                    displayFullRanking(fullRanking, usersMap, fullRankingElement);
+                }
+            });
+    });
+}
+
+// CORREÇÃO: Exibir ranking completo
+function displayFullRanking(fullRanking, usersMap, fullRankingElement) {
+    let html = '';
+    
+    fullRanking.forEach((player, index) => {
+        const user = usersMap[player.userId];
+        if (user) {
+            const avgScore = player.totalQuizzes > 0 ? (player.totalScore / player.totalQuizzes).toFixed(1) : 0;
+            
+            // Destacar usuário atual
+            const isCurrentUser = player.userId === currentUser.uid;
+            const highlightClass = isCurrentUser ? 'ranking-item-highlight' : '';
+            
+            html += `
+                <div class="ranking-item ${highlightClass}">
+                    <div class="ranking-position">${index + 1}</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">${user.name} ${isCurrentUser ? '(Você)' : ''}</div>
+                        <div class="ranking-details">
+                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts
+                        </div>
+                    </div>
+                    <div class="ranking-score">${player.totalScore} pts</div>
+                </div>
+            `;
+        }
+    });
+    
+    if (html === '') {
+        html = '<p>Nenhum dado disponível para exibir.</p>';
+    }
+    
+    fullRankingElement.innerHTML = html;
+    
+    console.log('✅ Ranking completo carregado com sucesso!');
 }
