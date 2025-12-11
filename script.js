@@ -34,6 +34,8 @@ let editingQuestionId = null;
 let editingUserId = null;
 let exitCount = 0;
 let quizStartTime = 0;
+let availableStudents = []; // Nova variável para armazenar alunos disponíveis
+let selectedStudents = []; // Nova variável para alunos selecionados
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -489,6 +491,24 @@ function initModals() {
             }
         });
     });
+    
+    // NOVO: Event listeners para a visibilidade do quiz
+    document.getElementById('quiz-visibility').addEventListener('change', function() {
+        const specificStudentsContainer = document.getElementById('specific-students-container');
+        if (this.value === 'specific') {
+            specificStudentsContainer.classList.remove('hidden');
+            loadAvailableStudents();
+        } else {
+            specificStudentsContainer.classList.add('hidden');
+            selectedStudents = [];
+            updateSelectedStudentsDisplay();
+        }
+    });
+    
+    // NOVO: Event listener para busca de alunos
+    document.getElementById('student-search')?.addEventListener('input', function() {
+        filterAvailableStudents(this.value);
+    });
 }
 
 // Inicializar página sobre
@@ -629,16 +649,61 @@ function loadQuizzes() {
                 return;
             }
             
+            const userQuizzesPromises = [];
+            const quizzesData = [];
+            
             querySnapshot.forEach(doc => {
                 const quiz = { id: doc.id, ...doc.data() };
-                const quizCard = createQuizCard(quiz);
-                quizzesList.appendChild(quizCard);
+                quizzesData.push(quiz);
+                
+                // Verificar se o quiz é visível para este aluno
+                const visibilityCheck = checkQuizVisibility(quiz, currentUser.uid);
+                userQuizzesPromises.push(visibilityCheck);
+            });
+            
+            // Esperar todas as verificações de visibilidade
+            Promise.all(userQuizzesPromises).then(visibilityResults => {
+                quizzesList.innerHTML = '';
+                
+                let hasVisibleQuizzes = false;
+                
+                quizzesData.forEach((quiz, index) => {
+                    if (visibilityResults[index]) {
+                        hasVisibleQuizzes = true;
+                        const quizCard = createQuizCard(quiz);
+                        quizzesList.appendChild(quizCard);
+                    }
+                });
+                
+                if (!hasVisibleQuizzes) {
+                    quizzesList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz disponível para você no momento.</div></div>';
+                }
             });
         })
         .catch(error => {
             quizzesList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar quizzes.</div></div>';
             console.error('Erro ao carregar quizzes:', error);
         });
+}
+
+// NOVA FUNÇÃO: Verificar se o quiz é visível para o aluno
+function checkQuizVisibility(quiz, userId) {
+    return new Promise((resolve) => {
+        // Se o quiz for para todos os alunos, é visível
+        if (quiz.visibility === 'all') {
+            resolve(true);
+            return;
+        }
+        
+        // Se for para alunos específicos, verificar se o aluno está na lista
+        if (quiz.visibility === 'specific' && quiz.allowedStudents) {
+            resolve(quiz.allowedStudents.includes(userId));
+            return;
+        }
+        
+        // Se não houver configuração de visibilidade, assume-se que é para todos
+        resolve(true);
+    });
 }
 
 // Criar card de quiz para alunos
@@ -1082,7 +1147,7 @@ function finishQuiz(forced = false) {
     });
 }
 
-// Mostrar resultado do quiz
+// Mostrar resultado do quiz - MODIFICADA
 function showQuizResult(quizId, score = null, percentage = null, timeTaken = null, forced = false) {
     console.log('Mostrando resultado:', { quizId, score, percentage, timeTaken, forced });
     
@@ -1119,10 +1184,26 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
         const degrees = (percentage / 100) * 360;
         if (circleProgress) {
             circleProgress.style.transform = `rotate(${degrees}deg)`;
-                }
+        }
 
         // Calcular posição no ranking
         calculateRankingPosition(quizId, percentage);
+        
+        // NOVO: Verificar se a revisão de respostas está permitida
+        const reviewButton = document.getElementById('review-quiz');
+        if (currentQuiz && currentQuiz.allowReview === false) {
+            // Desabilitar botão de revisão
+            reviewButton.disabled = true;
+            reviewButton.innerHTML = '<i class="fas fa-lock"></i><span class="btn-text">Revisão Bloqueada</span>';
+            reviewButton.classList.remove('btn-secondary');
+            reviewButton.classList.add('btn-danger');
+        } else {
+            // Habilitar botão de revisão
+            reviewButton.disabled = false;
+            reviewButton.innerHTML = '<i class="fas fa-redo"></i><span class="btn-text">Revisar Respostas</span>';
+            reviewButton.classList.remove('btn-danger');
+            reviewButton.classList.add('btn-secondary');
+        }
         
         quizContainer.classList.add('hidden');
         quizResult.classList.remove('hidden');
@@ -1155,6 +1236,22 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
                     
                     // Calcular posição no ranking
                     calculateRankingPosition(quizId, userQuiz.percentage);
+                    
+                    // NOVO: Verificar se a revisão de respostas está permitida
+                    const reviewButton = document.getElementById('review-quiz');
+                    if (currentQuiz && currentQuiz.allowReview === false) {
+                        // Desabilitar botão de revisão
+                        reviewButton.disabled = true;
+                        reviewButton.innerHTML = '<i class="fas fa-lock"></i><span class="btn-text">Revisão Bloqueada</span>';
+                        reviewButton.classList.remove('btn-secondary');
+                        reviewButton.classList.add('btn-danger');
+                    } else {
+                        // Habilitar botão de revisão
+                        reviewButton.disabled = false;
+                        reviewButton.innerHTML = '<i class="fas fa-redo"></i><span class="btn-text">Revisar Respostas</span>';
+                        reviewButton.classList.remove('btn-danger');
+                        reviewButton.classList.add('btn-secondary');
+                    }
                     
                     quizContainer.classList.add('hidden');
                     quizResult.classList.remove('hidden');
@@ -1316,13 +1413,15 @@ function loadUserHistory() {
                 .then(quizzesSnapshot => {
                     const quizzesMap = {};
                     quizzesSnapshot.forEach(doc => {
+                        const quizData = doc.data();
                         quizzesMap[doc.id] = {
                             id: doc.id,
-                            title: doc.data().title || 'Quiz sem título',
-                            description: doc.data().description || 'Sem descrição',
-                            questionsCount: doc.data().questionsCount || 0,
-                            category: doc.data().category || 'Geral',
-                            time: doc.data().time || 0
+                            title: quizData.title || 'Quiz sem título',
+                            description: quizData.description || 'Sem descrição',
+                            questionsCount: quizData.questionsCount || 0,
+                            category: quizData.category || 'Geral',
+                            time: quizData.time || 0,
+                            allowReview: quizData.allowReview !== false // Padrão: true
                         };
                     });
                     
@@ -1379,7 +1478,7 @@ function loadUserHistory() {
         });
 }
 
-// Criar card de histórico individual
+// Criar card de histórico individual - MODIFICADA
 function createHistoryCard(container, userQuiz, quiz) {
     const historyCard = document.createElement('div');
     historyCard.className = 'card';
@@ -1448,9 +1547,11 @@ function createHistoryCard(container, userQuiz, quiz) {
                 <i class="fas fa-chart-bar"></i>
                 <span class="btn-text">Ver Detalhes</span>
             </button>
-            <button class="btn btn-secondary review-answers" data-user-quiz-id="${userQuiz.id}" data-quiz-id="${quiz.id}">
-                <i class="fas fa-redo"></i>
-                <span class="btn-text">Revisar</span>
+            <button class="btn ${quiz.allowReview ? 'btn-secondary' : 'btn-danger disabled'}" 
+                    data-user-quiz-id="${userQuiz.id}" data-quiz-id="${quiz.id}"
+                    ${quiz.allowReview ? '' : 'disabled'}>
+                <i class="fas ${quiz.allowReview ? 'fa-redo' : 'fa-lock'}"></i>
+                <span class="btn-text">${quiz.allowReview ? 'Revisar' : 'Bloqueado'}</span>
             </button>
         </div>
     `;
@@ -1461,10 +1562,12 @@ function createHistoryCard(container, userQuiz, quiz) {
         showQuizResult(quizId);
     });
     
-    historyCard.querySelector('.review-answers').addEventListener('click', function() {
-        const userQuizId = this.getAttribute('data-user-quiz-id');
-        const quizId = this.getAttribute('data-quiz-id');
-        loadReviewData(userQuizId, quizId);
+    historyCard.querySelector('.btn:last-child').addEventListener('click', function() {
+        if (!this.disabled) {
+            const userQuizId = this.getAttribute('data-user-quiz-id');
+            const quizId = this.getAttribute('data-quiz-id');
+            loadReviewData(userQuizId, quizId);
+        }
     });
     
     container.appendChild(historyCard);
@@ -1851,6 +1954,158 @@ function loadQuestionCategories() {
         });
 }
 
+// NOVA FUNÇÃO: Carregar alunos disponíveis
+function loadAvailableStudents() {
+    const availableStudentsList = document.getElementById('available-students-list');
+    availableStudentsList.innerHTML = '<p>Carregando alunos...</p>';
+    
+    db.collection('users')
+        .where('userType', '==', 'aluno')
+        .where('status', '==', 'active')
+        .get()
+        .then(querySnapshot => {
+            availableStudents = [];
+            let html = '';
+            
+            if (querySnapshot.empty) {
+                html = '<p>Nenhum aluno cadastrado.</p>';
+            } else {
+                querySnapshot.forEach(doc => {
+                    const student = { id: doc.id, ...doc.data() };
+                    availableStudents.push(student);
+                    
+                    // Verificar se o aluno já está selecionado
+                    const isSelected = selectedStudents.some(s => s.id === student.id);
+                    
+                    html += `
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="student-${student.id}" 
+                                   data-student-id="${student.id}" 
+                                   data-student-name="${student.name}"
+                                   ${isSelected ? 'checked' : ''}>
+                            <label for="student-${student.id}">${student.name} (${student.email})</label>
+                        </div>
+                    `;
+                });
+            }
+            
+            availableStudentsList.innerHTML = html;
+            
+            // Adicionar event listeners aos checkboxes
+            document.querySelectorAll('#available-students-list input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const studentId = this.getAttribute('data-student-id');
+                    const studentName = this.getAttribute('data-student-name');
+                    
+                    if (this.checked) {
+                        addStudentToSelection(studentId, studentName);
+                    } else {
+                        removeStudentFromSelection(studentId);
+                    }
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Erro ao carregar alunos:', error);
+            availableStudentsList.innerHTML = '<p>Erro ao carregar alunos.</p>';
+        });
+}
+
+// NOVA FUNÇÃO: Filtrar alunos disponíveis
+function filterAvailableStudents(searchTerm) {
+    const filteredStudents = availableStudents.filter(student => 
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    let html = '';
+    
+    if (filteredStudents.length === 0) {
+        html = '<p>Nenhum aluno encontrado.</p>';
+    } else {
+        filteredStudents.forEach(student => {
+            const isSelected = selectedStudents.some(s => s.id === student.id);
+            
+            html += `
+                <div class="checkbox-row">
+                    <input type="checkbox" id="student-${student.id}" 
+                           data-student-id="${student.id}" 
+                           data-student-name="${student.name}"
+                           ${isSelected ? 'checked' : ''}>
+                    <label for="student-${student.id}">${student.name} (${student.email})</label>
+                </div>
+            `;
+        });
+    }
+    
+    document.getElementById('available-students-list').innerHTML = html;
+    
+    // Adicionar event listeners aos checkboxes
+    document.querySelectorAll('#available-students-list input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const studentId = this.getAttribute('data-student-id');
+            const studentName = this.getAttribute('data-student-name');
+            
+            if (this.checked) {
+                addStudentToSelection(studentId, studentName);
+            } else {
+                removeStudentFromSelection(studentId);
+            }
+        });
+    });
+}
+
+// NOVA FUNÇÃO: Adicionar aluno à seleção
+function addStudentToSelection(studentId, studentName) {
+    // Verificar se o aluno já está selecionado
+    if (!selectedStudents.some(student => student.id === studentId)) {
+        selectedStudents.push({ id: studentId, name: studentName });
+        updateSelectedStudentsDisplay();
+    }
+}
+
+// NOVA FUNÇÃO: Remover aluno da seleção
+function removeStudentFromSelection(studentId) {
+    selectedStudents = selectedStudents.filter(student => student.id !== studentId);
+    updateSelectedStudentsDisplay();
+}
+
+// NOVA FUNÇÃO: Atualizar display dos alunos selecionados
+function updateSelectedStudentsDisplay() {
+    const selectedStudentsContainer = document.getElementById('selected-students');
+    
+    if (selectedStudents.length === 0) {
+        selectedStudentsContainer.innerHTML = '<p>Nenhum aluno selecionado</p>';
+    } else {
+        let html = '';
+        selectedStudents.forEach(student => {
+            html += `
+                <div class="selected-student-item">
+                    <span>${student.name}</span>
+                    <button class="remove-student" data-student-id="${student.id}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+        });
+        selectedStudentsContainer.innerHTML = html;
+        
+        // Adicionar event listeners aos botões de remover
+        document.querySelectorAll('.remove-student').forEach(button => {
+            button.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                removeStudentFromSelection(studentId);
+                
+                // Atualizar checkbox correspondente
+                const checkbox = document.querySelector(`#available-students-list input[data-student-id="${studentId}"]`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            });
+        });
+    }
+}
+
 // Carregar quizzes para administrador
 function loadAdminQuizzes() {
     const quizzesList = document.getElementById('admin-quizzes-list');
@@ -1880,21 +2135,44 @@ function loadAdminQuizzes() {
         });
 }
 
-// Criar card de quiz para administrador
+// Criar card de quiz para administrador - MODIFICADA
 function createAdminQuizCard(quiz) {
     const card = document.createElement('div');
     card.className = 'card';
     
+    // Determinar badge de visibilidade
+    let visibilityBadge = '';
+    if (quiz.visibility === 'specific' && quiz.allowedStudents) {
+        const studentCount = quiz.allowedStudents.length;
+        visibilityBadge = `<span class="card-badge card-badge-secondary">${studentCount} aluno(s)</span>`;
+    } else {
+        visibilityBadge = '<span class="card-badge card-badge-secondary">Todos os alunos</span>';
+    }
+    
+    // Determinar badge de revisão
+    let reviewBadge = '';
+    if (quiz.allowReview === false) {
+        reviewBadge = '<span class="card-badge danger">Revisão Bloqueada</span>';
+    } else {
+        reviewBadge = '<span class="card-badge success">Revisão Permitida</span>';
+    }
+    
     card.innerHTML = `
         <div class="card-header">
             <h3 class="card-title">${quiz.title}</h3>
-            <span class="card-badge ${quiz.status === 'active' ? '' : 'card-badge-secondary'}">${quiz.status === 'active' ? 'Ativo' : 'Inativo'}</span>
+            <div>
+                <span class="card-badge ${quiz.status === 'active' ? '' : 'card-badge-secondary'}">${quiz.status === 'active' ? 'Ativo' : 'Inativo'}</span>
+                ${visibilityBadge}
+                ${reviewBadge}
+            </div>
         </div>
         <div class="card-content">
             <p>${quiz.description || 'Sem descrição'}</p>
             <p><strong>Categoria:</strong> ${quiz.category || 'Geral'}</p>
             <p><strong>Questões:</strong> ${quiz.questionsCount}</p>
             <p><strong>Tempo:</strong> ${quiz.time} minutos</p>
+            <p><strong>Visibilidade:</strong> ${quiz.visibility === 'specific' ? 'Alunos Específicos' : 'Todos os Alunos'}</p>
+            <p><strong>Revisão de Respostas:</strong> ${quiz.allowReview === false ? 'Bloqueada' : 'Permitida'}</p>
             <p><strong>Criado em:</strong> ${quiz.createdAt ? quiz.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
         <div class="card-actions">
@@ -1929,12 +2207,15 @@ function createAdminQuizCard(quiz) {
     return card;
 }
 
-// Abrir modal do quiz
+// Abrir modal do quiz - MODIFICADA
 function openQuizModal(quizId = null) {
     editingQuizId = quizId;
     const modal = document.getElementById('quiz-modal');
     const title = document.getElementById('quiz-modal-title');
     const categorySelect = document.getElementById('quiz-category');
+    
+    // Resetar seleção de alunos
+    selectedStudents = [];
     
     // Carregar categorias
     categorySelect.innerHTML = '<option value="">Carregando categorias...</option>';
@@ -1953,11 +2234,40 @@ function openQuizModal(quizId = null) {
                 .then(doc => {
                     if (doc.exists) {
                         const quiz = doc.data();
+                        
+                        // Preencher campos básicos
                         document.getElementById('quiz-title').value = quiz.title;
                         document.getElementById('quiz-description').value = quiz.description || '';
                         document.getElementById('quiz-category').value = quiz.category || '';
                         document.getElementById('quiz-questions-count').value = quiz.questionsCount;
                         document.getElementById('quiz-time').value = quiz.time;
+                        document.getElementById('quiz-status').value = quiz.status || 'active';
+                        document.getElementById('allow-review').checked = quiz.allowReview !== false;
+                        
+                        // Preencher visibilidade
+                        document.getElementById('quiz-visibility').value = quiz.visibility || 'all';
+                        
+                        // Se for visibilidade específica, carregar alunos
+                        if (quiz.visibility === 'specific' && quiz.allowedStudents) {
+                            document.getElementById('specific-students-container').classList.remove('hidden');
+                            
+                            // Carregar alunos e selecionar os que estão na lista
+                            loadAvailableStudents().then(() => {
+                                // Selecionar alunos permitidos
+                                quiz.allowedStudents.forEach(studentId => {
+                                    const student = availableStudents.find(s => s.id === studentId);
+                                    if (student) {
+                                        addStudentToSelection(studentId, student.name);
+                                        
+                                        // Marcar checkbox correspondente
+                                        const checkbox = document.querySelector(`#available-students-list input[data-student-id="${studentId}"]`);
+                                        if (checkbox) {
+                                            checkbox.checked = true;
+                                        }
+                                    }
+                                });
+                            });
+                        }
                     }
                 });
         } else {
@@ -1969,6 +2279,11 @@ function openQuizModal(quizId = null) {
             document.getElementById('quiz-category').value = '';
             document.getElementById('quiz-questions-count').value = '';
             document.getElementById('quiz-time').value = '';
+            document.getElementById('quiz-status').value = 'active';
+            document.getElementById('quiz-visibility').value = 'all';
+            document.getElementById('allow-review').checked = true;
+            document.getElementById('specific-students-container').classList.add('hidden');
+            updateSelectedStudentsDisplay();
         }
     });
     
@@ -1979,18 +2294,28 @@ function openQuizModal(quizId = null) {
 function closeQuizModal() {
     document.getElementById('quiz-modal').classList.add('hidden');
     editingQuizId = null;
+    selectedStudents = [];
 }
 
-// Salvar quiz
+// Salvar quiz - MODIFICADA
 function saveQuiz() {
     const title = document.getElementById('quiz-title').value;
     const description = document.getElementById('quiz-description').value;
     const category = document.getElementById('quiz-category').value;
     const questionsCount = parseInt(document.getElementById('quiz-questions-count').value);
     const time = parseInt(document.getElementById('quiz-time').value);
+    const status = document.getElementById('quiz-status').value;
+    const visibility = document.getElementById('quiz-visibility').value;
+    const allowReview = document.getElementById('allow-review').checked;
     
     if (!title || !category || isNaN(questionsCount) || isNaN(time)) {
         alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    // Se for visibilidade específica, verificar se há alunos selecionados
+    if (visibility === 'specific' && selectedStudents.length === 0) {
+        alert('Por favor, selecione pelo menos um aluno para visibilidade específica.');
         return;
     }
     
@@ -2000,8 +2325,19 @@ function saveQuiz() {
         category: category,
         questionsCount: questionsCount,
         time: time,
+        status: status,
+        visibility: visibility,
+        allowReview: allowReview,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+    
+    // Adicionar lista de alunos permitidos se for visibilidade específica
+    if (visibility === 'specific' && selectedStudents.length > 0) {
+        quizData.allowedStudents = selectedStudents.map(student => student.id);
+    } else {
+        // Garantir que não haja lista de alunos permitidos se for para todos
+        quizData.allowedStudents = null;
+    }
     
     if (editingQuizId) {
         // Atualizar quiz existente
@@ -2016,7 +2352,6 @@ function saveQuiz() {
             });
     } else {
         // Criar novo quiz
-        quizData.status = 'active';
         quizData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
         
         db.collection('quizzes').add(quizData)
