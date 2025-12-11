@@ -1966,3 +1966,114 @@ body {
     padding: 2rem;
     color: var(--secondary-color);
 }
+
+/* Estilos para o novo campo de seleção de alunos */
+.select2-container {
+    width: 100% !important;
+}
+
+.select2-selection {
+    min-height: 46px;
+    border: 2px solid var(--border-color) !important;
+    border-radius: var(--border-radius) !important;
+    padding: 0.5rem;
+}
+
+.select2-selection:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1) !important;
+    outline: none !important;
+}
+
+.select2-selection__choice {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    color: white !important;
+    border-radius: 4px !important;
+}
+
+.select2-selection__choice__remove {
+    color: white !important;
+    margin-right: 5px;
+}
+
+.select2-selection__choice__remove:hover {
+    color: #ffcccc !important;
+}
+
+/* Estilos para o botão de revisão desabilitado */
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed !important;
+}
+
+.btn:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* Estilos para o select de status */
+.input-group select:disabled {
+    background-color: var(--light-color);
+    cursor: not-allowed;
+}
+
+/* Estilo para alunos selecionados */
+.selected-students-list {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: var(--light-color);
+    border-radius: 4px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.selected-student-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.selected-student-item:last-child {
+    border-bottom: none;
+}
+
+.remove-student {
+    background: none;
+    border: none;
+    color: var(--danger-color);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+/* Estilos para checkboxes em linhas */
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.checkbox-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.checkbox-row label {
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Responsividade para os novos campos */
+@media (max-width: 768px) {
+    .select2-selection {
+        min-height: 42px;
+    }
+    
+    .selected-students-list {
+        max-height: 120px;
+    }
+}
