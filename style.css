@@ -2077,3 +2077,23 @@ body {
         max-height: 120px;
     }
 }
+
+#auth-links-1 {
+    /* 1. Remove o sublinhado do próprio elemento <a> */
+    text-decoration: none;
+    /* 2. Garante que a fonte do link seja normal, caso haja herança */
+    font-weight: normal; 
+    /* 3. Garante que a cor do link seja a cor padrão ou herdada (opcional) */
+    color: inherit;
+}
+
+#auth-links-1 h1 {
+    /* 4. Remove o sublinhado especificamente do título H1,
+          que é onde o texto "QuizMaster" está. */
+    text-decoration: none;
+    /* 5. Garante que o H1 também tenha peso de fonte normal,
+          se a regra que está causando o sublinhado também estiver causando negrito. */
+    font-weight: bold; 
+    /* 6. Garante que o H1 use a cor do link pai ou outra cor (opcional) */
+    color: inherit;
+}
