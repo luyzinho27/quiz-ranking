@@ -1,1164 +1,3319 @@
 // Configuração do Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyBwK58We6awwwCMuHThYZA8iXXji5MuVeI",
-  authDomain: "mathkids-de4a0.firebaseapp.com",
-  projectId: "mathkids-de4a0",
-  storageBucket: "mathkids-de4a0.firebasestorage.app",
-  messagingSenderId: "463966125316",
-  appId: "1:463966125316:web:6656af016d1c5a44da6451"
+    apiKey: "AIzaSyD3e5rXGWsaeHHHx5YO3lwKz5poIwZbLiM",
+    authDomain: "quiz-informatica-2025.firebaseapp.com",
+    projectId: "quiz-informatica-2025",
+    storageBucket: "quiz-informatica-2025.firebasestorage.app",
+    messagingSenderId: "1006125147967",
+    appId: "1:1006125147967:web:539b201776164523e5558a"
 };
 
 // Inicializar Firebase
-let app, db, auth, analytics;
-let currentUser = null;
-let userData = null;
-let adminExists = false;
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
 
-// Inicializar Firebase
-try {
-    app = firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    auth = firebase.auth();
-    analytics = firebase.analytics();
-    console.log("Firebase inicializado com sucesso!");
-} catch (error) {
-    console.error("Erro ao inicializar Firebase:", error);
-    showNotification("Erro de conexão", "Não foi possível conectar ao servidor.", "error");
-}
+// Configurar persistência de sessão
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+    .catch((error) => {
+        console.error('Erro ao configurar persistência:', error);
+    });
 
 // Estado da aplicação
-let currentSection = 'dashboard';
-let currentAdminTab = 'users';
-let currentOperation = null;
-let currentGame = null;
-let progressData = {
-    exercisesCompleted: 0,
-    correctAnswers: 0,
-    totalAnswers: 0,
-    practiceTime: 0,
-    level: 1,
-    addition: { correct: 0, total: 0 },
-    subtraction: { correct: 0, total: 0 },
-    multiplication: { correct: 0, total: 0 },
-    division: { correct: 0, total: 0 }
-};
+let currentUser = null;
+let currentQuiz = null;
+let currentQuestions = [];
+let currentQuestionIndex = 0;
+let userAnswers = [];
+let quizTimer = null;
+let timeRemaining = 0;
+let totalTime = 0;
+let userQuizId = null;
+let editingQuizId = null;
+let editingQuestionId = null;
+let editingUserId = null;
+let exitCount = 0;
+let quizStartTime = 0;
+let availableStudents = []; // Nova variável para armazenar alunos disponíveis
+let selectedStudents = []; // Nova variável para alunos selecionados
 
-// Elementos DOM
-const loadingOverlay = document.getElementById('loadingOverlay');
-const authScreen = document.getElementById('authScreen');
-const mainApp = document.getElementById('mainApp');
+// Elementos da DOM
+const authContainer = document.getElementById('auth-container');
+const studentDashboard = document.getElementById('student-dashboard');
+const adminDashboard = document.getElementById('admin-dashboard');
+const quizContainer = document.getElementById('quiz-container');
+const quizResult = document.getElementById('quiz-result');
+const loading = document.getElementById('loading');
 
-// Elementos de autenticação
-const authTabs = document.querySelectorAll('.auth-tab');
-const authForms = document.querySelectorAll('.auth-form');
-const loginForm = document.getElementById('loginForm');
-const registerForm = document.getElementById('registerForm');
-const recoverForm = document.getElementById('recoverForm');
-const loginBtn = document.getElementById('loginBtn');
-const googleLoginBtn = document.getElementById('googleLoginBtn');
-const registerBtn = document.getElementById('registerBtn');
-const recoverBtn = document.getElementById('recoverBtn');
-const userTypeSelect = document.getElementById('userType');
-const adminOption = document.getElementById('adminOption');
-const adminHint = document.getElementById('adminHint');
-
-// Elementos principais
-const menuToggle = document.getElementById('menuToggle');
-const sidebar = document.getElementById('sidebar');
-const sidebarClose = document.getElementById('sidebarClose');
-const userBtn = document.getElementById('userBtn');
-const userDropdown = document.getElementById('userDropdown');
-const logoutBtn = document.getElementById('logoutBtn');
-const navLinks = document.querySelectorAll('.nav-link');
-const sidebarLinks = document.querySelectorAll('.sidebar-link');
-const appSections = document.querySelectorAll('.app-section');
-
-// Elementos admin
-const adminNav = document.getElementById('adminNav');
-const adminSidebar = document.getElementById('adminSidebar');
-const adminTabs = document.querySelectorAll('.admin-tab');
-const adminTabContents = document.querySelectorAll('.admin-tab-content');
-const addUserBtn = document.getElementById('addUserBtn');
-const usersTableBody = document.getElementById('usersTableBody');
-const userModal = document.getElementById('userModal');
-const modalCloseButtons = document.querySelectorAll('.modal-close');
-const userForm = document.getElementById('userForm');
-
-// Elementos de progresso
-const dashboardUserName = document.getElementById('dashboardUserName');
-const userNameElements = document.querySelectorAll('#userName, #dropdownUserName, #sidebarUserName');
-const userRoleElements = document.querySelectorAll('#dropdownUserRole, #sidebarUserRole');
-const statExercises = document.getElementById('statExercises');
-const statAccuracy = document.getElementById('statAccuracy');
-const statTime = document.getElementById('statTime');
-const statLevel = document.getElementById('statLevel');
-const sidebarLevel = document.getElementById('sidebarLevel');
-const sidebarProgress = document.getElementById('sidebarProgress');
-
-// Elementos de aprendizado e jogos
-const operationsGrid = document.querySelector('.operations-grid');
-const gamesGrid = document.querySelector('.games-grid');
-
-// Notificações
-const notificationContainer = document.getElementById('notificationContainer');
-
-// Chart.js instance
-let progressChart = null;
-
-// Inicialização da aplicação
+// Inicializar a aplicação
 document.addEventListener('DOMContentLoaded', function() {
-    initApplication();
+    initAuth();
+    initEventListeners();
+    initModals();
+    
+    // Verificar se há um usuário logado
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            // Usuário está logado
+            showLoading();
+            getUserData(user.uid).then(userData => {
+                // Verificar se o usuário está ativo
+                if (userData.status === 'inactive' && userData.userType === 'aluno') {
+                    auth.signOut();
+                    hideLoading();
+                    alert('Sua conta foi desativada. Entre em contato com o administrador.');
+                    return;
+                }
+                
+                currentUser = { ...user, ...userData };
+                hideLoading();
+                showDashboard();
+            }).catch(error => {
+                hideLoading();
+                console.error('Erro ao carregar dados do usuário:', error);
+                auth.signOut();
+            });
+        } else {
+            // Nenhum usuário logado
+            hideLoading();
+            showAuth();
+        }
+    });
 });
 
-async function initApplication() {
-    // Verificar se já existe admin
-    await checkAdminExists();
+// Funções de loading
+function showLoading() {
+    loading.classList.remove('hidden');
+}
+
+function hideLoading() {
+    loading.classList.add('hidden');
+}
+
+// Inicializar autenticação
+function initAuth() {
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const forgotPasswordLink = document.getElementById('forgot-password');
     
-    // Configurar event listeners
-    setupEventListeners();
+    // Alternar entre login e cadastro
+    loginTab.addEventListener('click', () => {
+        switchAuthTab('login');
+    });
     
-    // Configurar Firebase auth state observer
-    setupAuthObserver();
+    registerTab.addEventListener('click', () => {
+        switchAuthTab('register');
+        checkAdminExists();
+    });
     
-    // Inicializar gráfico
-    initProgressChart();
+    // Login com submit do formulário
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        
+        if (!email || !password) {
+            showError('login-error', 'Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        showLoading();
+        auth.signInWithEmailAndPassword(email, password)
+            .then((userCredential) => {
+                // Verificar status do usuário
+                return getUserData(userCredential.user.uid);
+            })
+            .then(userData => {
+                if (userData.status === 'inactive' && userData.userType === 'aluno') {
+                    auth.signOut();
+                    hideLoading();
+                    showError('login-error', 'Sua conta foi desativada. Entre em contato com o administrador.');
+                    return;
+                }
+                
+                // Login bem-sucedido
+                document.getElementById('login-error').textContent = '';
+                hideLoading();
+            })
+            .catch((error) => {
+                hideLoading();
+                showError('login-error', getAuthErrorMessage(error.code));
+            });
+    });
     
-    // Esconder loading após 1.5 segundos
-    setTimeout(() => {
-        loadingOverlay.classList.remove('active');
-    }, 1500);
+    // Cadastro com submit do formulário
+    registerForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('register-name').value;
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+        const userType = document.getElementById('register-type').value;
+        
+        if (!name || !email || !password) {
+            showError('register-error', 'Por favor, preencha todos os campos.');
+            return;
+        }
+        
+        if (password.length < 6) {
+            showError('register-error', 'A senha deve ter pelo menos 6 caracteres.');
+            return;
+        }
+        
+        // Verificar se já existe administrador
+        if (userType === 'admin') {
+            checkAdminExists().then(adminExists => {
+                if (adminExists) {
+                    showError('register-error', 'Já existe um administrador cadastrado. Não é possível criar outro.');
+                    return;
+                } else {
+                    registerUser(name, email, password, userType);
+                }
+            });
+        } else {
+            registerUser(name, email, password, userType);
+        }
+    });
+    
+    // Recuperação de senha
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        if (!email) {
+            alert('Por favor, insira seu e-mail para recuperar a senha.');
+            return;
+        }
+        
+        auth.sendPasswordResetEmail(email)
+            .then(() => {
+                alert('E-mail de recuperação enviado! Verifique sua caixa de entrada.');
+            })
+            .catch(error => {
+                alert('Erro ao enviar e-mail de recuperação: ' + getAuthErrorMessage(error.code));
+            });
+    });
+    
+    // Toggle password visibility
+    document.getElementById('toggle-login-password').addEventListener('click', function() {
+        togglePasswordVisibility('login-password', this);
+    });
+    
+    document.getElementById('toggle-register-password').addEventListener('click', function() {
+        togglePasswordVisibility('register-password', this);
+    });
+
+    // Permitir Enter para navegar entre campos
+    document.getElementById('login-email').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('login-password').focus();
+        }
+    });
+
+    document.getElementById('login-password').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            document.getElementById('login-btn').click();
+        }
+    });
+
+    // Para o formulário de cadastro
+    const registerFields = ['register-name', 'register-email', 'register-password'];
+    registerFields.forEach((fieldId, index) => {
+        document.getElementById(fieldId).addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (index < registerFields.length - 1) {
+                    document.getElementById(registerFields[index + 1]).focus();
+                } else {
+                    document.getElementById('register-btn').click();
+                }
+            }
+        });
+    });
+}
+
+// Alternar visibilidade da senha
+function togglePasswordVisibility(passwordFieldId, toggleIcon) {
+    const passwordField = document.getElementById(passwordFieldId);
+    const type = passwordField.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordField.setAttribute('type', type);
+    
+    // Alterar ícone
+    toggleIcon.classList.toggle('fa-eye');
+    toggleIcon.classList.toggle('fa-eye-slash');
 }
 
 // Verificar se já existe administrador
-async function checkAdminExists() {
-    try {
-        const adminSnapshot = await db.collection('users')
-            .where('role', '==', 'admin')
-            .limit(1)
-            .get();
-        
-        adminExists = !adminSnapshot.empty;
-        
-        // Atualizar UI baseado na existência de admin
-        if (adminExists) {
-            adminOption.disabled = true;
-            adminHint.textContent = "O cadastro de administrador está disponível apenas para administradores existentes";
-        } else {
-            adminOption.disabled = false;
-            adminHint.textContent = "Você está criando o primeiro administrador do sistema";
-        }
-    } catch (error) {
-        console.error("Erro ao verificar administradores:", error);
-    }
-}
-
-// Configurar observador de autenticação
-function setupAuthObserver() {
-    if (!auth) return;
-    
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            // Usuário está logado
-            currentUser = user;
-            await loadUserData();
-            showMainApp();
-        } else {
-            // Usuário não está logado
-            currentUser = null;
-            userData = null;
-            showAuthScreen();
-        }
-    });
-}
-
-// Configurar todos os event listeners
-function setupEventListeners() {
-    // Tabs de autenticação
-    authTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabId = tab.getAttribute('data-tab');
-            switchAuthTab(tabId);
-        });
-    });
-    
-    // Botões de alternar formulário
-    document.querySelectorAll('.switch-tab').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tabId = link.getAttribute('data-tab');
-            switchAuthTab(tabId);
-        });
-    });
-    
-    // Botões de login
-    loginBtn.addEventListener('click', handleEmailLogin);
-    googleLoginBtn.addEventListener('click', handleGoogleLogin);
-    registerBtn.addEventListener('click', handleRegister);
-    recoverBtn.addEventListener('click', handlePasswordRecovery);
-    
-    // Alternar visibilidade de senha
-    document.querySelectorAll('.toggle-password').forEach(button => {
-        button.addEventListener('click', function() {
-            const targetId = this.getAttribute('data-target');
-            const input = document.getElementById(targetId);
-            const icon = this.querySelector('i');
-            
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
+function checkAdminExists() {
+    return db.collection('users')
+        .where('userType', '==', 'admin')
+        .get()
+        .then(querySnapshot => {
+            const adminOption = document.getElementById('admin-option');
+            if (!querySnapshot.empty) {
+                // Já existe administrador, desabilitar opção
+                adminOption.disabled = true;
+                adminOption.textContent = 'Administrador (Já existe)';
+                return true;
             } else {
-                input.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
+                // Não existe administrador, habilitar opção
+                adminOption.disabled = false;
+                adminOption.textContent = 'Administrador';
+                return false;
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao verificar administradores:', error);
+            return false;
+        });
+}
+
+// Alternar entre abas de autenticação
+function switchAuthTab(tab) {
+    const loginTab = document.getElementById('login-tab');
+    const registerTab = document.getElementById('register-tab');
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    
+    if (tab === 'login') {
+        loginTab.classList.add('active');
+        registerTab.classList.remove('active');
+        loginForm.classList.add('active');
+        registerForm.classList.remove('active');
+    } else {
+        registerTab.classList.add('active');
+        loginTab.classList.remove('active');
+        registerForm.classList.add('active');
+        loginForm.classList.remove('active');
+    }
+}
+
+// Registrar novo usuário
+function registerUser(name, email, password, userType) {
+    showLoading();
+    auth.createUserWithEmailAndPassword(email, password)
+        .then((userCredential) => {
+            const user = userCredential.user;
+            
+            // Salvar dados adicionais do usuário no Firestore
+            return db.collection('users').doc(user.uid).set({
+                name: name,
+                email: email,
+                userType: userType,
+                status: 'active',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        })
+        .then(() => {
+            hideLoading();
+            document.getElementById('register-error').textContent = '';
+            showSuccess('register-error', 'Cadastro realizado com sucesso!');
+            
+            // Limpar formulário e mudar para login após 2 segundos
+            setTimeout(() => {
+                document.getElementById('register-form').reset();
+                switchAuthTab('login');
+            }, 2000);
+        })
+        .catch((error) => {
+            hideLoading();
+            showError('register-error', getAuthErrorMessage(error.code));
+        });
+}
+
+// Obter dados do usuário
+function getUserData(uid) {
+    return db.collection('users').doc(uid).get()
+        .then(doc => {
+            if (doc.exists) {
+                return doc.data();
+            } else {
+                throw new Error('Usuário não encontrado');
             }
         });
-    });
-    
-    // Navegação
-    menuToggle.addEventListener('click', () => {
-        sidebar.classList.add('active');
-    });
-    
-    sidebarClose.addEventListener('click', () => {
-        sidebar.classList.remove('active');
-    });
-    
-    // Menu do usuário
-    userBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        userDropdown.classList.toggle('active');
-    });
-    
-    // Fechar dropdown ao clicar fora
-    document.addEventListener('click', (e) => {
-        if (!userBtn.contains(e.target) && !userDropdown.contains(e.target)) {
-            userDropdown.classList.remove('active');
-        }
-    });
-    
+}
+
+// Inicializar event listeners
+function initEventListeners() {
     // Logout
-    logoutBtn.addEventListener('click', handleLogout);
+    document.getElementById('student-logout').addEventListener('click', logout);
+    document.getElementById('admin-logout').addEventListener('click', logout);
     
-    // Navegação por links
-    navLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const sectionId = this.getAttribute('href').substring(1);
-            switchSection(sectionId);
-            
-            // Atualizar navegação ativa
-            navLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
-        });
+    // Navegação entre abas
+    initTabNavigation();
+    
+    // Controles do quiz
+    initQuizControls();
+    
+    // Navegação dos resultados
+    document.getElementById('back-to-dashboard').addEventListener('click', () => {
+        showDashboard();
     });
     
-    // Navegação por sidebar
-    sidebarLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const sectionId = this.getAttribute('href').substring(1);
-            switchSection(sectionId);
-            
-            // Atualizar navegação ativa
-            sidebarLinks.forEach(l => l.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Fechar sidebar em mobile
-            if (window.innerWidth < 768) {
-                sidebar.classList.remove('active');
+    document.getElementById('new-quiz').addEventListener('click', () => {
+        showDashboard();
+        setTimeout(() => {
+            if (currentUser.userType === 'aluno') {
+                switchTab('quizzes-tab', 'quizzes-section');
+                loadQuizzes();
+            }
+        }, 100);
+    });
+    
+    document.getElementById('review-quiz').addEventListener('click', showReviewModal);
+    
+    // Botões do admin
+    document.getElementById('create-quiz-btn').addEventListener('click', () => openQuizModal());
+    document.getElementById('create-question-btn').addEventListener('click', () => openQuestionModal());
+    document.getElementById('import-questions-btn').addEventListener('click', openImportModal);
+    
+    // Inicializar página sobre se existir
+    if (document.getElementById('about-section')) {
+        initAboutPage();
+    }
+}
+
+// Inicializar navegação por abas
+function initTabNavigation() {
+    // Abas do aluno
+    document.getElementById('quizzes-tab').addEventListener('click', () => {
+        switchTab('quizzes-tab', 'quizzes-section');
+        loadQuizzes();
+    });
+    
+    document.getElementById('ranking-tab').addEventListener('click', () => {
+        switchTab('ranking-tab', 'ranking-section');
+        loadRanking();
+    });
+    
+    document.getElementById('history-tab').addEventListener('click', () => {
+        switchTab('history-tab', 'history-section');
+        loadUserHistory();
+    });
+    
+    document.getElementById('about-tab').addEventListener('click', () => {
+        switchTab('about-tab', 'about-section');
+    });
+    
+    // Abas do admin
+    document.getElementById('admin-quizzes-tab').addEventListener('click', () => {
+        switchAdminTab('admin-quizzes-tab', 'admin-quizzes-section');
+        loadAdminQuizzes();
+    });
+    
+    document.getElementById('admin-questions-tab').addEventListener('click', () => {
+        switchAdminTab('admin-questions-tab', 'admin-questions-section');
+        loadAdminQuestions();
+    });
+    
+    document.getElementById('admin-users-tab').addEventListener('click', () => {
+        switchAdminTab('admin-users-tab', 'admin-users-section');
+        loadAdminUsers();
+    });
+    
+    document.getElementById('admin-reports-tab').addEventListener('click', () => {
+        switchAdminTab('admin-reports-tab', 'admin-reports-section');
+        loadAdminReports();
+    });
+    
+    document.getElementById('admin-about-tab').addEventListener('click', () => {
+        switchAdminTab('admin-about-tab', 'admin-about-section');
+    });
+    
+    // Botão de sair do quiz
+    document.getElementById('exit-quiz-btn').addEventListener('click', confirmExitQuiz);
+}
+
+// Inicializar controles do quiz
+function initQuizControls() {
+    document.getElementById('prev-question').addEventListener('click', () => {
+        if (currentQuestionIndex > 0) {
+            currentQuestionIndex--;
+            displayQuestion();
+        }
+    });
+    
+    document.getElementById('next-question').addEventListener('click', () => {
+        if (currentQuestionIndex < currentQuestions.length - 1) {
+            currentQuestionIndex++;
+            displayQuestion();
+        }
+    });
+    
+    // CORREÇÃO: Adicionar event listener corretamente para o botão "Finalizar Quiz"
+    document.getElementById('finish-quiz').addEventListener('click', () => {
+        finishQuiz();
+    });
+    
+    // Seleção de opções
+    document.querySelectorAll('.option').forEach(option => {
+        option.addEventListener('click', function() {
+            const selectedValue = this.getAttribute('data-value');
+            selectOption(selectedValue);
+        });
+    });
+}
+
+// Inicializar modals
+function initModals() {
+    // Modal do quiz
+    document.getElementById('close-quiz-modal').addEventListener('click', closeQuizModal);
+    document.getElementById('cancel-quiz').addEventListener('click', closeQuizModal);
+    document.getElementById('save-quiz').addEventListener('click', saveQuiz);
+    
+    // Modal da questão
+    document.getElementById('close-question-modal').addEventListener('click', closeQuestionModal);
+    document.getElementById('cancel-question').addEventListener('click', closeQuestionModal);
+    document.getElementById('save-question').addEventListener('click', saveQuestion);
+    
+    // Modal do usuário
+    document.getElementById('close-user-modal').addEventListener('click', closeUserModal);
+    document.getElementById('cancel-user').addEventListener('click', closeUserModal);
+    document.getElementById('save-user').addEventListener('click', saveUser);
+    
+    // Modal de importação
+    document.getElementById('close-import-modal').addEventListener('click', closeImportModal);
+    document.getElementById('cancel-import').addEventListener('click', closeImportModal);
+    document.getElementById('import-questions').addEventListener('click', importQuestions);
+    
+    // Modal de revisão
+    document.getElementById('close-review-modal').addEventListener('click', closeReviewModal);
+    document.getElementById('close-review').addEventListener('click', closeReviewModal);
+    
+    // Fechar modals ao clicar fora
+    document.querySelectorAll('.modal').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
             }
         });
     });
     
-    // Tabs admin
-    adminTabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            const tabId = this.getAttribute('data-tab');
-            switchAdminTab(tabId);
+    // NOVO: Event listeners para a visibilidade do quiz
+    document.getElementById('quiz-visibility').addEventListener('change', function() {
+        const specificStudentsContainer = document.getElementById('specific-students-container');
+        if (this.value === 'specific') {
+            specificStudentsContainer.classList.remove('hidden');
+            loadAvailableStudents();
+        } else {
+            specificStudentsContainer.classList.add('hidden');
+            selectedStudents = [];
+            updateSelectedStudentsDisplay();
+        }
+    });
+    
+    // NOVO: Event listener para busca de alunos
+    document.getElementById('student-search')?.addEventListener('input', function() {
+        filterAvailableStudents(this.value);
+    });
+}
+
+// Inicializar página sobre
+function initAboutPage() {
+    // Adicionar event listener para o botão de reportar bug
+    const reportBugBtn = document.getElementById('report-bug');
+    if (reportBugBtn) {
+        reportBugBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            openBugReportModal();
         });
-    });
+    }
+}
+
+// Função para abrir modal de reportar bug
+function openBugReportModal() {
+    const email = 'luizynho27@email.com';
+    const subject = 'Reportar Bug - QuizMaster';
+    const body = `Olá,\n\nEncontrei um bug no QuizMaster:\n\n• Descrição do problema:\n• Passos para reproduzir:\n• Comportamento esperado:\n• Comportamento atual:\n\nInformações do sistema:\n- Navegador: ${navigator.userAgent}\n- Resolução: ${screen.width}x${screen.height}\n\nObrigado!`;
     
-    // Modal de usuário
-    addUserBtn.addEventListener('click', () => {
-        openUserModal();
-    });
+    window.open(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+}
+
+// Alternar entre abas do aluno
+function switchTab(tabId, sectionId) {
+    // Remover classe active de todas as abas e seções
+    const tabs = document.querySelectorAll('#student-dashboard .dashboard-header .tab');
+    const sections = document.querySelectorAll('#student-dashboard .dashboard-content .section');
     
-    modalCloseButtons.forEach(button => {
+    tabs.forEach(tab => tab.classList.remove('active'));
+    sections.forEach(section => section.classList.remove('active'));
+    
+    // Adicionar classe active à aba e seção selecionadas
+    document.getElementById(tabId).classList.add('active');
+    document.getElementById(sectionId).classList.add('active');
+}
+
+// Alternar entre abas do admin
+function switchAdminTab(tabId, sectionId) {
+    // Remover classe active de todas as abas e seções
+    const tabs = document.querySelectorAll('#admin-dashboard .dashboard-header .tab');
+    const sections = document.querySelectorAll('#admin-dashboard .dashboard-content .section');
+    
+    tabs.forEach(tab => tab.classList.remove('active'));
+    sections.forEach(section => section.classList.remove('active'));
+    
+    // Adicionar classe active à aba e seção selecionadas
+    document.getElementById(tabId).classList.add('active');
+    document.getElementById(sectionId).classList.add('active');
+}
+
+// Mostrar tela de autenticação
+function showAuth() {
+    authContainer.classList.remove('hidden');
+    studentDashboard.classList.add('hidden');
+    adminDashboard.classList.add('hidden');
+    quizContainer.classList.add('hidden');
+    quizResult.classList.add('hidden');
+}
+
+// Mostrar dashboard apropriado
+function showDashboard() {
+    authContainer.classList.add('hidden');
+    quizContainer.classList.add('hidden');
+    quizResult.classList.add('hidden');
+    
+    if (currentUser.userType === 'admin') {
+        studentDashboard.classList.add('hidden');
+        adminDashboard.classList.remove('hidden');
+        document.getElementById('admin-name').textContent = currentUser.name;
+        loadAdminQuizzes();
+    } else {
+        adminDashboard.classList.add('hidden');
+        studentDashboard.classList.remove('hidden');
+        document.getElementById('student-name').textContent = currentUser.name;
+        loadQuizzes();
+    }
+}
+
+// Fazer logout
+function logout() {
+    showLoading();
+    auth.signOut().then(() => {
+        currentUser = null;
+        hideLoading();
+        showAuth();
+    });
+}
+
+// Mostrar erro
+function showError(elementId, message) {
+    const element = document.getElementById(elementId);
+    element.textContent = message;
+    element.className = 'error-message';
+}
+
+// Mostrar sucesso
+function showSuccess(elementId, message) {
+    const element = document.getElementById(elementId);
+    element.textContent = message;
+    element.className = 'success-message';
+}
+
+// Obter mensagem de erro amigável
+function getAuthErrorMessage(errorCode) {
+    const messages = {
+        'auth/invalid-email': 'E-mail inválido.',
+        'auth/user-disabled': 'Esta conta foi desativada.',
+        'auth/user-not-found': 'Nenhuma conta encontrada com este e-mail.',
+        'auth/wrong-password': 'Senha incorreta.',
+        'auth/email-already-in-use': 'Este e-mail já está em uso.',
+        'auth/weak-password': 'A senha é muito fraca.',
+        'auth/operation-not-allowed': 'Operação não permitida.',
+        'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.'
+    };
+    
+    return messages[errorCode] || 'Ocorreu um erro. Tente novamente.';
+}
+
+// ===============================
+// GERENCIAMENTO DE QUIZZES
+// ===============================
+
+// Carregar quizzes para alunos
+function loadQuizzes() {
+    const quizzesList = document.getElementById('quizzes-list');
+    quizzesList.innerHTML = '<div class="card"><div class="card-content">Carregando quizzes...</div></div>';
+    
+    // Buscar quizzes ativos
+    db.collection('quizzes')
+        .where('status', '==', 'active')
+        .get()
+        .then(querySnapshot => {
+            quizzesList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                quizzesList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz disponível no momento.</div></div>';
+                return;
+            }
+            
+            const userQuizzesPromises = [];
+            const quizzesData = [];
+            
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                quizzesData.push(quiz);
+                
+                // Verificar se o quiz é visível para este aluno
+                const visibilityCheck = checkQuizVisibility(quiz, currentUser.uid);
+                userQuizzesPromises.push(visibilityCheck);
+            });
+            
+            // Esperar todas as verificações de visibilidade
+            Promise.all(userQuizzesPromises).then(visibilityResults => {
+                quizzesList.innerHTML = '';
+                
+                let hasVisibleQuizzes = false;
+                
+                quizzesData.forEach((quiz, index) => {
+                    if (visibilityResults[index]) {
+                        hasVisibleQuizzes = true;
+                        const quizCard = createQuizCard(quiz);
+                        quizzesList.appendChild(quizCard);
+                    }
+                });
+                
+                if (!hasVisibleQuizzes) {
+                    quizzesList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz disponível para você no momento.</div></div>';
+                }
+            });
+        })
+        .catch(error => {
+            quizzesList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar quizzes.</div></div>';
+            console.error('Erro ao carregar quizzes:', error);
+        });
+}
+
+// NOVA FUNÇÃO: Verificar se o quiz é visível para o aluno
+function checkQuizVisibility(quiz, userId) {
+    return new Promise((resolve) => {
+        // Se o quiz for para todos os alunos, é visível
+        if (quiz.visibility === 'all') {
+            resolve(true);
+            return;
+        }
+        
+        // Se for para alunos específicos, verificar se o aluno está na lista
+        if (quiz.visibility === 'specific' && quiz.allowedStudents) {
+            resolve(quiz.allowedStudents.includes(userId));
+            return;
+        }
+        
+        // Se não houver configuração de visibilidade, assume-se que é para todos
+        resolve(true);
+    });
+}
+
+// Criar card de quiz para alunos
+function createQuizCard(quiz) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    // Verificar se o usuário já iniciou este quiz
+    const userQuizRef = db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quiz.id)
+        .where('status', 'in', ['in-progress', 'completed']);
+    
+    userQuizRef.get().then(querySnapshot => {
+        let buttonText = 'Iniciar Quiz';
+        let buttonClass = 'btn btn-primary';
+        let statusText = 'Não iniciado';
+        let statusClass = 'card-badge';
+        
+        if (!querySnapshot.empty) {
+            const userQuiz = querySnapshot.docs[0].data();
+            userQuizId = querySnapshot.docs[0].id;
+            
+            if (userQuiz.status === 'in-progress') {
+                buttonText = 'Continuar Quiz';
+                buttonClass = 'btn btn-success';
+                statusText = 'Em andamento';
+                statusClass = 'card-badge';
+            } else if (userQuiz.status === 'completed') {
+                buttonText = 'Ver Resultado';
+                buttonClass = 'btn btn-secondary';
+                statusText = 'Concluído';
+                statusClass = 'card-badge';
+            }
+        }
+        
+        card.innerHTML = `
+            <div class="card-header">
+                <h3 class="card-title">${quiz.title}</h3>
+                <span class="${statusClass}">${statusText}</span>
+            </div>
+            <div class="card-content">
+                <p>${quiz.description || 'Sem descrição'}</p>
+            </div>
+            <div class="card-meta">
+                <span><i class="fas fa-clock"></i> ${quiz.time} min</span>
+                <span><i class="fas fa-question-circle"></i> ${quiz.questionsCount} questões</span>
+                <span><i class="fas fa-layer-group"></i> ${quiz.category || 'Geral'}</span>
+            </div>
+            <div class="card-actions">
+                <button class="${buttonClass}" data-quiz-id="${quiz.id}">
+                    <i class="fas fa-play"></i>
+                    <span class="btn-text">${buttonText}</span>
+                </button>
+            </div>
+        `;
+        
+        const button = card.querySelector('button');
         button.addEventListener('click', () => {
-            userModal.classList.remove('active');
+            if (buttonText === 'Ver Resultado') {
+                showQuizResult(quiz.id);
+            } else {
+                startQuiz(quiz);
+            }
         });
     });
     
-    // Formulário de usuário
-    userForm.addEventListener('submit', handleUserFormSubmit);
+    return card;
+}
+
+// ===============================
+// QUIZ - EXECUÇÃO
+// ===============================
+
+// Iniciar quiz
+function startQuiz(quiz) {
+    currentQuiz = quiz;
+    userAnswers = new Array(quiz.questionsCount).fill(null);
+    currentQuestionIndex = 0;
+    exitCount = 0;
     
-    // Fechar modal ao clicar fora
-    userModal.addEventListener('click', (e) => {
-        if (e.target === userModal) {
-            userModal.classList.remove('active');
-        }
-    });
-    
-    // Ações rápidas do dashboard
-    document.querySelectorAll('.action-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const action = this.getAttribute('data-action');
-            handleQuickAction(action);
+    // Verificar se já existe um quiz em andamento
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quiz.id)
+        .where('status', '==', 'in-progress')
+        .get()
+        .then(querySnapshot => {
+            if (!querySnapshot.empty) {
+                // Continuar quiz existente
+                const userQuizDoc = querySnapshot.docs[0];
+                userQuizId = userQuizDoc.id;
+                const userQuiz = userQuizDoc.data();
+                
+                userAnswers = userQuiz.answers || new Array(quiz.questionsCount).fill(null);
+                currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
+                exitCount = userQuiz.exitCount || 0;
+                timeRemaining = userQuiz.timeRemaining || (quiz.time * 60);
+                
+                // Buscar questões do quiz
+                loadQuizQuestions(quiz.id);
+            } else {
+                // Criar novo registro do quiz do usuário
+                timeRemaining = quiz.time * 60;
+                
+                db.collection('userQuizzes').add({
+                    userId: currentUser.uid,
+                    quizId: quiz.id,
+                    status: 'in-progress',
+                    answers: userAnswers,
+                    currentQuestionIndex: 0,
+                    timeRemaining: timeRemaining,
+                    exitCount: 0,
+                    startTime: firebase.firestore.FieldValue.serverTimestamp(),
+                    attempts: 1,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                })
+                .then((docRef) => {
+                    userQuizId = docRef.id;
+                    // Buscar questões do quiz
+                    loadQuizQuestions(quiz.id);
+                });
+            }
+        })
+        .catch(error => {
+            alert('Erro ao iniciar quiz: ' + error.message);
         });
-    });
-    
-    // Aprender com operações (será carregado dinamicamente)
-    // Jogos (serão carregados dinamicamente)
 }
 
-// Alternar entre tabs de autenticação
-function switchAuthTab(tabId) {
-    // Atualizar tabs ativas
-    authTabs.forEach(tab => {
-        if (tab.getAttribute('data-tab') === tabId) {
-            tab.classList.add('active');
-        } else {
-            tab.classList.remove('active');
-        }
-    });
+// Carregar questões do quiz
+function loadQuizQuestions(quizId) {
+    showLoading();
     
-    // Mostrar formulário correspondente
-    authForms.forEach(form => {
-        if (form.id === `${tabId}Form`) {
-            form.classList.add('active');
-        } else {
-            form.classList.remove('active');
-        }
-    });
-}
-
-// Login com email e senha
-async function handleEmailLogin() {
-    const email = document.getElementById('loginEmail').value;
-    const password = document.getElementById('loginPassword').value;
-    const rememberMe = document.getElementById('rememberMe').checked;
+    // Buscar questões baseado na categoria do quiz
+    let questionsQuery = db.collection('questions');
     
-    if (!email || !password) {
-        showNotification("Campos obrigatórios", "Preencha todos os campos.", "error");
-        return;
+    // Se o quiz tem uma categoria específica, filtrar por ela
+    if (currentQuiz.category && currentQuiz.category.trim() !== '') {
+        questionsQuery = questionsQuery.where('category', '==', currentQuiz.category);
     }
     
-    try {
-        // Configurar persistência de autenticação
-        const persistence = rememberMe ? 
-            firebase.auth.Auth.Persistence.LOCAL : 
-            firebase.auth.Auth.Persistence.SESSION;
-        
-        await auth.setPersistence(persistence);
-        
-        // Fazer login
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        
-        showNotification("Login realizado", "Bem-vindo de volta!", "success");
-        
-        // Registrar evento no analytics
-        if (analytics) {
-            analytics.logEvent('login', { method: 'email' });
-        }
-        
-    } catch (error) {
-        console.error("Erro no login:", error);
-        
-        let message = "Erro ao fazer login. Verifique suas credenciais.";
-        if (error.code === 'auth/user-not-found') {
-            message = "Usuário não encontrado.";
-        } else if (error.code === 'auth/wrong-password') {
-            message = "Senha incorreta.";
-        } else if (error.code === 'auth/too-many-requests') {
-            message = "Muitas tentativas. Tente novamente mais tarde.";
-        }
-        
-        showNotification("Erro no login", message, "error");
-    }
-}
-
-// Login com Google
-async function handleGoogleLogin() {
-    try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.addScope('email');
-        provider.addScope('profile');
-        
-        const userCredential = await auth.signInWithPopup(provider);
-        
-        showNotification("Login realizado", "Bem-vindo com Google!", "success");
-        
-        // Registrar evento no analytics
-        if (analytics) {
-            analytics.logEvent('login', { method: 'google' });
-        }
-        
-    } catch (error) {
-        console.error("Erro no login com Google:", error);
-        
-        let message = "Erro ao fazer login com Google.";
-        if (error.code === 'auth/popup-closed-by-user') {
-            message = "Login cancelado.";
-        }
-        
-        showNotification("Erro no login", message, "error");
-    }
-}
-
-// Cadastro de novo usuário
-async function handleRegister() {
-    const name = document.getElementById('registerName').value;
-    const email = document.getElementById('registerEmail').value;
-    const password = document.getElementById('registerPassword').value;
-    const confirmPassword = document.getElementById('registerConfirmPassword').value;
-    const userType = document.getElementById('userType').value;
-    const acceptTerms = document.getElementById('acceptTerms').checked;
-    
-    // Validações
-    if (!name || !email || !password || !confirmPassword || !userType) {
-        showNotification("Campos obrigatórios", "Preencha todos os campos.", "error");
-        return;
-    }
-    
-    if (!acceptTerms) {
-        showNotification("Termos não aceitos", "Você deve aceitar os termos de serviço.", "error");
-        return;
-    }
-    
-    if (password.length < 6) {
-        showNotification("Senha fraca", "A senha deve ter pelo menos 6 caracteres.", "error");
-        return;
-    }
-    
-    if (password !== confirmPassword) {
-        showNotification("Senhas diferentes", "As senhas não coincidem.", "error");
-        return;
-    }
-    
-    // Validar se é tentativa de cadastro de admin
-    if (userType === 'admin' && adminExists) {
-        showNotification("Acesso negado", "Apenas administradores podem criar novos administradores.", "error");
-        return;
-    }
-    
-    try {
-        // Criar usuário no Firebase Auth
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        const user = userCredential.user;
-        
-        // Preparar dados do usuário
-        const userData = {
-            uid: user.uid,
-            name: name,
-            email: email,
-            role: userType,
-            status: 'active',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
-            progress: {
-                exercisesCompleted: 0,
-                correctAnswers: 0,
-                totalAnswers: 0,
-                practiceTime: 0,
-                level: 1,
-                addition: { correct: 0, total: 0 },
-                subtraction: { correct: 0, total: 0 },
-                multiplication: { correct: 0, total: 0 },
-                division: { correct: 0, total: 0 }
-            }
-        };
-        
-        // Salvar dados do usuário no Firestore
-        await db.collection('users').doc(user.uid).set(userData);
-        
-        // Atualizar estado de admin se necessário
-        if (userType === 'admin') {
-            adminExists = true;
-            await checkAdminExists();
-        }
-        
-        // Enviar email de verificação
-        await user.sendEmailVerification();
-        
-        showNotification("Cadastro realizado", "Conta criada com sucesso! Verifique seu email.", "success");
-        
-        // Registrar evento no analytics
-        if (analytics) {
-            analytics.logEvent('sign_up', { method: 'email' });
-        }
-        
-        // Alternar para tela de login
-        switchAuthTab('login');
-        
-        // Limpar formulário
-        document.getElementById('registerForm').reset();
-        
-    } catch (error) {
-        console.error("Erro no cadastro:", error);
-        
-        let message = "Erro ao criar conta.";
-        if (error.code === 'auth/email-already-in-use') {
-            message = "Este email já está em uso.";
-        } else if (error.code === 'auth/invalid-email') {
-            message = "Email inválido.";
-        } else if (error.code === 'auth/weak-password') {
-            message = "Senha muito fraca.";
-        }
-        
-        showNotification("Erro no cadastro", message, "error");
-    }
-}
-
-// Recuperação de senha
-async function handlePasswordRecovery() {
-    const email = document.getElementById('recoverEmail').value;
-    
-    if (!email) {
-        showNotification("Email obrigatório", "Digite seu email para recuperar a senha.", "error");
-        return;
-    }
-    
-    try {
-        await auth.sendPasswordResetEmail(email);
-        showNotification("Email enviado", "Verifique sua caixa de entrada para redefinir sua senha.", "success");
-        
-        // Alternar para tela de login
-        switchAuthTab('login');
-        
-        // Limpar formulário
-        document.getElementById('recoverEmail').value = '';
-        
-    } catch (error) {
-        console.error("Erro na recuperação:", error);
-        
-        let message = "Erro ao enviar email de recuperação.";
-        if (error.code === 'auth/user-not-found') {
-            message = "Usuário não encontrado.";
-        } else if (error.code === 'auth/invalid-email') {
-            message = "Email inválido.";
-        }
-        
-        showNotification("Erro na recuperação", message, "error");
-    }
-}
-
-// Logout
-async function handleLogout() {
-    try {
-        await auth.signOut();
-        showNotification("Logout realizado", "Você saiu da sua conta.", "info");
-    } catch (error) {
-        console.error("Erro no logout:", error);
-        showNotification("Erro", "Não foi possível sair da conta.", "error");
-    }
-}
-
-// Carregar dados do usuário
-async function loadUserData() {
-    if (!currentUser || !db) return;
-    
-    try {
-        const userDoc = await db.collection('users').doc(currentUser.uid).get();
-        
-        if (userDoc.exists) {
-            userData = userDoc.data();
-            updateUserUI();
-            loadOperations();
-            loadGames();
+    questionsQuery.get()
+        .then(querySnapshot => {
+            hideLoading();
             
-            if (userData.role === 'admin') {
-                loadAdminPanel();
+            if (querySnapshot.empty) {
+                alert('Nenhuma questão disponível para este quiz. Tente selecionar outra categoria.');
+                return;
             }
             
-            // Atualizar último login
-            await db.collection('users').doc(currentUser.uid).update({
-                lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+            const allQuestions = [];
+            querySnapshot.forEach(doc => {
+                const question = { id: doc.id, ...doc.data() };
+                // Garantir que a questão tem o campo 'text' (enunciado)
+                if (question.text) {
+                    allQuestions.push(question);
+                }
+            });
+            
+            // Selecionar questões aleatórias
+            const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
+            
+            // Embaralhar questões usando Fisher-Yates
+            const shuffledQuestions = [...allQuestions];
+            for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+            }
+            
+            // Selecionar as primeiras N questões
+            currentQuestions = shuffledQuestions.slice(0, questionCount);
+            
+            // Garantir que userAnswers tenha o tamanho correto
+            userAnswers = new Array(currentQuestions.length).fill(null);
+            
+            // Iniciar quiz
+            showQuiz();
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Erro detalhado ao carregar questões:', error);
+            alert('Erro ao carregar questões: ' + error.message);
+        });
+}
+
+// Mostrar tela do quiz
+function showQuiz() {
+    authContainer.classList.add('hidden');
+    studentDashboard.classList.add('hidden');
+    adminDashboard.classList.add('hidden');
+    quizResult.classList.add('hidden');
+    quizContainer.classList.remove('hidden');
+    
+    // Configurar informações do quiz
+    document.getElementById('quiz-title-display').textContent = currentQuiz.title;
+    document.getElementById('quiz-description-display').textContent = currentQuiz.description || '';
+    
+    // Iniciar timer
+    totalTime = currentQuiz.time * 60;
+    startTimer();
+    
+    // Exibir primeira questão
+    displayQuestion();
+}
+
+// Iniciar timer do quiz
+function startTimer() {
+    updateTimerDisplay();
+    quizStartTime = Date.now();
+    
+    quizTimer = setInterval(() => {
+        timeRemaining--;
+        updateTimerDisplay();
+        
+        if (timeRemaining <= 0) {
+            finishQuiz();
+        }
+    }, 1000);
+}
+
+// Atualizar display do timer
+function updateTimerDisplay() {
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = timeRemaining % 60;
+    const timerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    document.getElementById('quiz-timer').textContent = timerText;
+    
+    // Atualizar progresso do círculo do timer
+    const progress = document.getElementById('timer-progress');
+    const circumference = 2 * Math.PI * 28;
+    const offset = circumference - (timeRemaining / totalTime) * circumference;
+    progress.style.strokeDashoffset = offset;
+}
+
+// Função auxiliar para atualizar progresso do quiz
+function updateQuizProgress() {
+    const progress = ((currentQuestionIndex + 1) / currentQuestions.length) * 100;
+    const progressFill = document.getElementById('progress-fill');
+    const progressText = document.getElementById('quiz-progress-text');
+    const currentQuestionElement = document.getElementById('current-question');
+    const totalQuestionsElement = document.getElementById('total-questions');
+    
+    if (progressFill) progressFill.style.width = `${progress}%`;
+    if (progressText) progressText.textContent = `Questão ${currentQuestionIndex + 1}/${currentQuestions.length}`;
+    if (currentQuestionElement) currentQuestionElement.textContent = currentQuestionIndex + 1;
+    if (totalQuestionsElement) totalQuestionsElement.textContent = currentQuestions.length;
+}
+
+// Função auxiliar para atualizar botões de navegação
+function updateNavigationButtons() {
+    const prevButton = document.getElementById('prev-question');
+    const nextButton = document.getElementById('next-question');
+    const finishButton = document.getElementById('finish-quiz');
+    
+    if (prevButton) prevButton.disabled = currentQuestionIndex === 0;
+    if (nextButton) nextButton.style.display = currentQuestionIndex === currentQuestions.length - 1 ? 'none' : 'flex';
+    if (finishButton) finishButton.classList.toggle('hidden', currentQuestionIndex !== currentQuestions.length - 1);
+}
+
+// Exibir questão atual
+function displayQuestion() {
+    if (!currentQuestions || currentQuestions.length === 0 || currentQuestionIndex >= currentQuestions.length) {
+        console.error('Nenhuma questão disponível para exibir ou índice inválido');
+        return;
+    }
+    
+    const question = currentQuestions[currentQuestionIndex];
+    
+    // Exibir o enunciado da questão (campo 'text')
+    const questionTextElement = document.getElementById('question-text');
+    const optionATextElement = document.getElementById('option-a-text');
+    const optionBTextElement = document.getElementById('option-b-text');
+    const optionCTextElement = document.getElementById('option-c-text');
+    const optionDTextElement = document.getElementById('option-d-text');
+    
+    if (questionTextElement) {
+        questionTextElement.textContent = question.text || 'Questão sem texto definido';
+    }
+    
+    if (optionATextElement) {
+        optionATextElement.textContent = question.options?.a || 'Opção A não definida';
+    }
+    
+    if (optionBTextElement) {
+        optionBTextElement.textContent = question.options?.b || 'Opção B não definida';
+    }
+    
+    if (optionCTextElement) {
+        optionCTextElement.textContent = question.options?.c || 'Opção C não definida';
+    }
+    
+    if (optionDTextElement) {
+        optionDTextElement.textContent = question.options?.d || 'Opção D não definida';
+    }
+    
+    // Atualizar progresso
+    updateQuizProgress();
+    
+    // Limpar seleção anterior
+    document.querySelectorAll('.option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Restaurar resposta salva, se houver
+    if (userAnswers[currentQuestionIndex]) {
+        const selectedOption = document.querySelector(`.option[data-value="${userAnswers[currentQuestionIndex]}"]`);
+        if (selectedOption) {
+            selectedOption.classList.add('selected');
+        }
+    }
+    
+    // Atualizar estado dos botões de navegação
+    updateNavigationButtons();
+}
+
+// Selecionar opção
+function selectOption(value) {
+    // Limpar seleção anterior
+    document.querySelectorAll('.option').forEach(option => {
+        option.classList.remove('selected');
+    });
+    
+    // Selecionar nova opção
+    const selectedOption = document.querySelector(`.option[data-value="${value}"]`);
+    selectedOption.classList.add('selected');
+    
+    // Salvar resposta
+    userAnswers[currentQuestionIndex] = value;
+    
+    // Atualizar no Firestore
+    updateUserQuizProgress();
+}
+
+// Atualizar progresso do quiz do usuário
+function updateUserQuizProgress() {
+    if (!userQuizId) return;
+    
+    db.collection('userQuizzes').doc(userQuizId).update({
+        answers: userAnswers,
+        currentQuestionIndex: currentQuestionIndex,
+        timeRemaining: timeRemaining,
+        exitCount: exitCount,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .catch(error => {
+        console.error('Erro ao atualizar progresso do quiz:', error);
+    });
+}
+
+// Confirmar saída do quiz - MODIFICADO
+function confirmExitQuiz() {
+    if (exitCount >= 1) {
+        // Segunda saída - finalizar quiz automaticamente e voltar para aba de Quizzes
+        if (confirm('Esta é sua segunda saída do quiz. O quiz será finalizado automaticamente com as questões respondidas até agora. Deseja continuar?')) {
+            finishQuiz(true); // Forçar finalização
+            // Após finalizar, voltar para a aba de Quizzes
+            setTimeout(() => {
+                showDashboard();
+                if (currentUser.userType === 'aluno') {
+                    switchTab('quizzes-tab', 'quizzes-section');
+                    loadQuizzes();
+                }
+            }, 100);
+        }
+    } else {
+        // Primeira saída
+        if (confirm('Tem certeza que deseja sair do quiz? Seu progresso será salvo e você poderá continuar depois.')) {
+            exitCount++;
+            clearInterval(quizTimer);
+            
+            // Atualizar contador de saídas
+            db.collection('userQuizzes').doc(userQuizId).update({
+                exitCount: exitCount,
+                timeRemaining: timeRemaining,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            })
+            .then(() => {
+                showDashboard();
             });
         }
-    } catch (error) {
-        console.error("Erro ao carregar dados do usuário:", error);
     }
 }
 
-// Atualizar UI com dados do usuário
-function updateUserUI() {
-    if (!userData) return;
+// CORREÇÃO: Função finishQuiz completamente reescrita
+function finishQuiz(forced = false) {
+    console.log('Finalizando quiz...', { forced, userQuizId, currentQuestions, userAnswers });
     
-    // Nome do usuário
-    userNameElements.forEach(element => {
-        element.textContent = userData.name;
+    // Parar o timer
+    if (quizTimer) {
+        clearInterval(quizTimer);
+        quizTimer = null;
+    }
+    
+    // Calcular pontuação
+    let score = 0;
+    let answeredQuestions = 0;
+    
+    if (currentQuestions && userAnswers) {
+        currentQuestions.forEach((question, index) => {
+            if (userAnswers[index]) {
+                answeredQuestions++;
+                if (userAnswers[index] === question.correctAnswer) {
+                    score++;
+                }
+            }
+        });
+    }
+    
+    const timeTaken = totalTime - timeRemaining;
+    const percentage = forced ? 
+        (answeredQuestions > 0 ? (score / answeredQuestions) * 100 : 0) : 
+        (currentQuestions.length > 0 ? (score / currentQuestions.length) * 100 : 0);
+    
+    console.log('Resultado calculado:', { score, answeredQuestions, percentage, timeTaken });
+    
+    // Se não temos userQuizId, mostrar resultado diretamente
+    if (!userQuizId) {
+        console.warn('userQuizId não encontrado, mostrando resultado diretamente');
+        showQuizResult(currentQuiz.id, score, percentage, timeTaken, forced);
+        return;
+    }
+    
+    // Atualizar status do quiz do usuário
+    db.collection('userQuizzes').doc(userQuizId).update({
+        status: 'completed',
+        score: score,
+        percentage: percentage,
+        timeTaken: timeTaken,
+        completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        forcedCompletion: forced || false
+    })
+    .then(() => {
+        console.log('Quiz finalizado com sucesso no Firestore');
+        // Mostrar resultado
+        showQuizResult(currentQuiz.id, score, percentage, timeTaken, forced);
+    })
+    .catch(error => {
+        console.error('Erro ao finalizar quiz no Firestore:', error);
+        // Mostrar resultado mesmo com erro
+        showQuizResult(currentQuiz.id, score, percentage, timeTaken, forced);
     });
+}
+
+// Mostrar resultado do quiz - MODIFICADA
+function showQuizResult(quizId, score = null, percentage = null, timeTaken = null, forced = false) {
+    console.log('Mostrando resultado:', { quizId, score, percentage, timeTaken, forced });
     
-    dashboardUserName.textContent = userData.name;
-    
-    // Tipo de usuário
-    const roleText = userData.role === 'admin' ? 'Administrador' : 'Aluno';
-    userRoleElements.forEach(element => {
-        element.textContent = roleText;
-    });
-    
-    // Mostrar/ocultar seções admin
-    if (userData.role === 'admin') {
-        adminNav.style.display = 'block';
-        adminSidebar.style.display = 'block';
+    if (score !== null && percentage !== null && timeTaken !== null) {
+        // Exibir resultado recém-calculado
+        const minutes = Math.floor(timeTaken / 60);
+        const seconds = timeTaken % 60;
+        const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        document.getElementById('score-percentage').textContent = `${percentage.toFixed(1)}%`;
+        
+        // CORREÇÃO: Calcular answeredQuestions corretamente
+        let answeredQuestions = 0;
+        if (userAnswers) {
+            answeredQuestions = userAnswers.filter(answer => answer !== null).length;
+        }
+        
+        if (forced) {
+            document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length} (${answeredQuestions} respondidas)`;
+            document.getElementById('result-subtitle').textContent = 'Quiz finalizado - Algumas questões não foram respondidas';
+        } else {
+            document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length}`;
+            document.getElementById('result-subtitle').textContent = 'Veja como você foi';
+        }
+        
+        document.getElementById('correct-answers').textContent = score;
+        document.getElementById('wrong-answers').textContent = forced ? 
+            (answeredQuestions - score) : 
+            (currentQuestions.length - score);
+        document.getElementById('time-taken').textContent = timeText;
+        
+        // Animar o círculo de progresso
+        const circleProgress = document.getElementById('circle-progress');
+        const degrees = (percentage / 100) * 360;
+        if (circleProgress) {
+            circleProgress.style.transform = `rotate(${degrees}deg)`;
+        }
+
+        // Calcular posição no ranking
+        calculateRankingPosition(quizId, percentage);
+        
+        // NOVO: Verificar se a revisão de respostas está permitida
+        const reviewButton = document.getElementById('review-quiz');
+        if (currentQuiz && currentQuiz.allowReview === false) {
+            // Desabilitar botão de revisão
+            reviewButton.disabled = true;
+            reviewButton.innerHTML = '<i class="fas fa-lock"></i><span class="btn-text">Revisão Bloqueada</span>';
+            reviewButton.classList.remove('btn-secondary');
+            reviewButton.classList.add('btn-danger');
+        } else {
+            // Habilitar botão de revisão
+            reviewButton.disabled = false;
+            reviewButton.innerHTML = '<i class="fas fa-redo"></i><span class="btn-text">Revisar Respostas</span>';
+            reviewButton.classList.remove('btn-danger');
+            reviewButton.classList.add('btn-secondary');
+        }
+        
+        quizContainer.classList.add('hidden');
+        quizResult.classList.remove('hidden');
     } else {
-        adminNav.style.display = 'none';
-        adminSidebar.style.display = 'none';
-    }
-    
-    // Atualizar estatísticas
-    if (userData.progress) {
-        progressData = userData.progress;
-        updateProgressUI();
+        // Buscar resultado salvo
+        db.collection('userQuizzes')
+            .where('userId', '==', currentUser.uid)
+            .where('quizId', '==', quizId)
+            .where('status', '==', 'completed')
+            .get()
+            .then(querySnapshot => {
+                if (!querySnapshot.empty) {
+                    const userQuiz = querySnapshot.docs[0].data();
+                    const minutes = Math.floor(userQuiz.timeTaken / 60);
+                    const seconds = userQuiz.timeTaken % 60;
+                    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    document.getElementById('score-percentage').textContent = `${userQuiz.percentage.toFixed(1)}%`;
+                    document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions.length}`;
+                    document.getElementById('correct-answers').textContent = userQuiz.score;
+                    document.getElementById('wrong-answers').textContent = currentQuestions.length - userQuiz.score;
+                    document.getElementById('time-taken').textContent = timeText;
+                    
+                    // Animar o círculo de progresso
+                    const circleProgress = document.getElementById('circle-progress');
+                    const degrees = (userQuiz.percentage / 100) * 360;
+                    if (circleProgress) {
+                        circleProgress.style.transform = `rotate(${degrees}deg)`;
+                    }
+                    
+                    // Calcular posição no ranking
+                    calculateRankingPosition(quizId, userQuiz.percentage);
+                    
+                    // NOVO: Verificar se a revisão de respostas está permitida
+                    const reviewButton = document.getElementById('review-quiz');
+                    if (currentQuiz && currentQuiz.allowReview === false) {
+                        // Desabilitar botão de revisão
+                        reviewButton.disabled = true;
+                        reviewButton.innerHTML = '<i class="fas fa-lock"></i><span class="btn-text">Revisão Bloqueada</span>';
+                        reviewButton.classList.remove('btn-secondary');
+                        reviewButton.classList.add('btn-danger');
+                    } else {
+                        // Habilitar botão de revisão
+                        reviewButton.disabled = false;
+                        reviewButton.innerHTML = '<i class="fas fa-redo"></i><span class="btn-text">Revisar Respostas</span>';
+                        reviewButton.classList.remove('btn-danger');
+                        reviewButton.classList.add('btn-secondary');
+                    }
+                    
+                    quizContainer.classList.add('hidden');
+                    quizResult.classList.remove('hidden');
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar resultado salvo:', error);
+                // Em caso de erro, voltar para o dashboard
+                showDashboard();
+            });
     }
 }
 
-// Atualizar UI de progresso
-function updateProgressUI() {
-    // Estatísticas do dashboard
-    statExercises.textContent = progressData.exercisesCompleted;
-    
-    const accuracy = progressData.totalAnswers > 0 ?
-        Math.round((progressData.correctAnswers / progressData.totalAnswers) * 100) : 0;
-    statAccuracy.textContent = `${accuracy}%`;
-    
-    statTime.textContent = `${Math.floor(progressData.practiceTime / 60)}min`;
-    statLevel.textContent = progressData.level;
-    
-    // Sidebar
-    sidebarLevel.textContent = progressData.level;
-    const progressPercentage = Math.min((progressData.exercisesCompleted % 100) / 100 * 100, 100);
-    sidebarProgress.style.width = `${progressPercentage}%`;
-    
-    // Atualizar gráfico
-    updateProgressChart();
+// Calcular posição no ranking
+function calculateRankingPosition(quizId, percentage) {
+    db.collection('userQuizzes')
+        .where('quizId', '==', quizId)
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const rankings = [];
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                rankings.push({
+                    userId: userQuiz.userId,
+                    percentage: userQuiz.percentage
+                });
+            });
+            
+            // Ordenar por porcentagem (decrescente)
+            rankings.sort((a, b) => b.percentage - a.percentage);
+            
+            // Encontrar posição do usuário atual
+            const userPosition = rankings.findIndex(ranking => ranking.userId === currentUser.uid) + 1;
+            const totalPlayers = rankings.length;
+            
+            document.getElementById('ranking-position').textContent = userPosition > 0 ? 
+                `${userPosition}º de ${totalPlayers}` : '-';
+        })
+        .catch(error => {
+            console.error('Erro ao calcular ranking:', error);
+            document.getElementById('ranking-position').textContent = '-';
+        });
 }
 
-// Inicializar gráfico de progresso
-function initProgressChart() {
-    const ctx = document.getElementById('progressChart').getContext('2d');
+// Mostrar modal de revisão
+function showReviewModal() {
+    const reviewContent = document.getElementById('review-content');
+    reviewContent.innerHTML = '';
     
-    progressChart = new Chart(ctx, {
-        type: 'radar',
+    currentQuestions.forEach((question, index) => {
+        const userAnswer = userAnswers[index];
+        const isCorrect = userAnswer === question.correctAnswer;
+        
+        const reviewItem = document.createElement('div');
+        reviewItem.className = `review-item ${isCorrect ? 'correct' : 'wrong'}`;
+        reviewItem.innerHTML = `
+            <div class="review-question">
+                <h4>Questão ${index + 1}</h4>
+                <p>${question.text}</p>
+            </div>
+            <div class="review-answers">
+                <div class="review-answer ${userAnswer === 'a' ? 'user-answer' : ''} ${question.correctAnswer === 'a' ? 'correct-answer' : ''}">
+                    <strong>A:</strong> ${question.options.a}
+                </div>
+                <div class="review-answer ${userAnswer === 'b' ? 'user-answer' : ''} ${question.correctAnswer === 'b' ? 'correct-answer' : ''}">
+                    <strong>B:</strong> ${question.options.b}
+                </div>
+                <div class="review-answer ${userAnswer === 'c' ? 'user-answer' : ''} ${question.correctAnswer === 'c' ? 'correct-answer' : ''}">
+                    <strong>C:</strong> ${question.options.c}
+                </div>
+                <div class="review-answer ${userAnswer === 'd' ? 'user-answer' : ''} ${question.correctAnswer === 'd' ? 'correct-answer' : ''}">
+                    <strong>D:</strong> ${question.options.d}
+                </div>
+            </div>
+            <div class="review-result">
+                <strong>Sua resposta:</strong> ${userAnswer ? userAnswer.toUpperCase() : 'Não respondida'} 
+                ${isCorrect ? '✓ Correto' : '✗ Incorreto'}
+                ${!isCorrect ? `<br><strong>Resposta correta:</strong> ${question.correctAnswer.toUpperCase()}` : ''}
+            </div>
+        `;
+        
+        reviewContent.appendChild(reviewItem);
+    });
+    
+    document.getElementById('review-modal').classList.remove('hidden');
+}
+
+// Fechar modal de revisão
+function closeReviewModal() {
+    document.getElementById('review-modal').classList.add('hidden');
+}
+
+// ===============================
+// HISTÓRICO - CORRIGIDO
+// ===============================
+
+// Carregar histórico do usuário - VERSÃO CORRIGIDA
+function loadUserHistory() {
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
+    
+    console.log('🔍 Iniciando carregamento do histórico...');
+    
+    // CONSULTA CORRIGIDA: Removendo a ordenação por completedAt que causava o erro
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            console.log('✅ Consulta bem-sucedida. Documentos encontrados:', querySnapshot.size);
+            
+            historyList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                console.log('ℹ️ Nenhum quiz concluído encontrado');
+                historyList.innerHTML = `
+                    <div class="card">
+                        <div class="card-content">
+                            <div style="text-align: center; padding: 2rem;">
+                                <i class="fas fa-inbox" style="font-size: 3rem; color: #6c757d; margin-bottom: 1rem;"></i>
+                                <h3>Nenhum quiz concluído ainda</h3>
+                                <p>Complete alguns quizzes para ver seu histórico aqui!</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const userQuizzes = [];
+            querySnapshot.forEach(doc => {
+                const data = doc.data();
+                console.log('📄 Documento:', doc.id, data);
+                
+                userQuizzes.push({
+                    id: doc.id,
+                    quizId: data.quizId,
+                    score: data.score || 0,
+                    percentage: data.percentage || 0,
+                    timeTaken: data.timeTaken || 0,
+                    answers: data.answers || [],
+                    completedAt: data.completedAt || data.updatedAt || data.startTime,
+                    attempts: data.attempts || 1
+                });
+            });
+            
+            // Ordenar localmente por data (mais recente primeiro)
+            userQuizzes.sort((a, b) => {
+                const dateA = a.completedAt ? (a.completedAt.toDate ? a.completedAt.toDate() : new Date(a.completedAt)) : new Date(0);
+                const dateB = b.completedAt ? (b.completedAt.toDate ? b.completedAt.toDate() : new Date(b.completedAt)) : new Date(0);
+                return dateB - dateA;
+            });
+            
+            console.log('🔄 Buscando informações dos quizzes...');
+            
+            // Buscar todos os quizzes de uma vez
+            db.collection('quizzes').get()
+                .then(quizzesSnapshot => {
+                    const quizzesMap = {};
+                    quizzesSnapshot.forEach(doc => {
+                        const quizData = doc.data();
+                        quizzesMap[doc.id] = {
+                            id: doc.id,
+                            title: quizData.title || 'Quiz sem título',
+                            description: quizData.description || 'Sem descrição',
+                            questionsCount: quizData.questionsCount || 0,
+                            category: quizData.category || 'Geral',
+                            time: quizData.time || 0,
+                            allowReview: quizData.allowReview !== false // Padrão: true
+                        };
+                    });
+                    
+                    console.log('🎯 Quizzes disponíveis no sistema:', Object.keys(quizzesMap));
+                    
+                    // Criar cards de histórico
+                    let cardsCriados = 0;
+                    userQuizzes.forEach(userQuiz => {
+                        const quiz = quizzesMap[userQuiz.quizId];
+                        
+                        if (quiz) {
+                            cardsCriados++;
+                            createHistoryCard(historyList, userQuiz, quiz);
+                        } else {
+                            console.log('❌ Quiz não encontrado:', userQuiz.quizId);
+                            // Criar card mesmo sem informações do quiz
+                            createFallbackHistoryCard(historyList, userQuiz);
+                        }
+                    });
+                    
+                    // Se nenhum card foi criado, mostrar mensagem
+                    if (cardsCriados === 0 && userQuizzes.length > 0) {
+                        userQuizzes.forEach(userQuiz => {
+                            createFallbackHistoryCard(historyList, userQuiz);
+                        });
+                    }
+                    
+                    // Adicionar gráfico de desempenho se houver dados
+                    if (userQuizzes.length > 0) {
+                        createPerformanceChart(historyList, userQuizzes, quizzesMap);
+                    }
+                    
+                })
+                .catch(error => {
+                    console.error('❌ Erro ao buscar quizzes:', error);
+                    // Criar cards com informações básicas mesmo sem os dados do quiz
+                    userQuizzes.forEach(userQuiz => {
+                        createFallbackHistoryCard(historyList, userQuiz);
+                    });
+                });
+        })
+        .catch(error => {
+            console.error('❌ Erro geral ao carregar histórico:', error);
+            historyList.innerHTML = `
+                <div class="card">
+                    <div class="card-content">
+                        <div class="error-message">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Erro ao carregar histórico. Tente novamente.
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+}
+
+// Criar card de histórico individual - MODIFICADA
+function createHistoryCard(container, userQuiz, quiz) {
+    const historyCard = document.createElement('div');
+    historyCard.className = 'card';
+    
+    // Determinar cor do badge baseado na performance
+    let badgeClass = 'card-badge';
+    let badgeText = `${userQuiz.percentage.toFixed(1)}%`;
+    let performanceText = '';
+    
+    if (userQuiz.percentage >= 80) {
+        badgeClass += ' success';
+        performanceText = 'Excelente!';
+    } else if (userQuiz.percentage >= 60) {
+        badgeClass += ' warning';
+        performanceText = 'Bom!';
+    } else {
+        badgeClass += ' danger';
+        performanceText = 'Precisa melhorar';
+    }
+    
+    // Calcular tempo
+    const minutes = Math.floor(userQuiz.timeTaken / 60);
+    const seconds = userQuiz.timeTaken % 60;
+    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Formatar data
+    let dateText = 'Data não disponível';
+    if (userQuiz.completedAt) {
+        try {
+            const date = userQuiz.completedAt.toDate ? userQuiz.completedAt.toDate() : new Date(userQuiz.completedAt);
+            dateText = date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+        } catch (e) {
+            console.log('Erro ao formatar data:', e);
+            dateText = 'Data inválida';
+        }
+    }
+    
+    historyCard.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${quiz.title}</h3>
+            <div>
+                <span class="${badgeClass}">${badgeText}</span>
+                <span class="card-badge card-badge-secondary">${performanceText}</span>
+            </div>
+        </div>
+        <div class="card-content">
+            <p>${quiz.description}</p>
+            <div class="history-details">
+                <div class="detail">
+                    <strong><i class="fas fa-check-circle" style="color: #28a745;"></i> Pontuação:</strong> 
+                    ${userQuiz.score}/${quiz.questionsCount}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Tempo:</strong> ${timeText}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-calendar" style="color: #17a2b8;"></i> Concluído em:</strong> ${dateText}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-layer-group" style="color: #6f42c1;"></i> Categoria:</strong> ${quiz.category}
+                </div>
+            </div>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-primary view-details" data-quiz-id="${quiz.id}">
+                <i class="fas fa-chart-bar"></i>
+                <span class="btn-text">Ver Detalhes</span>
+            </button>
+            <button class="btn ${quiz.allowReview ? 'btn-secondary' : 'btn-danger disabled'}" 
+                    data-user-quiz-id="${userQuiz.id}" data-quiz-id="${quiz.id}"
+                    ${quiz.allowReview ? '' : 'disabled'}>
+                <i class="fas ${quiz.allowReview ? 'fa-redo' : 'fa-lock'}"></i>
+                <span class="btn-text">${quiz.allowReview ? 'Revisar' : 'Bloqueado'}</span>
+            </button>
+        </div>
+    `;
+    
+    // Event listeners
+    historyCard.querySelector('.view-details').addEventListener('click', function() {
+        const quizId = this.getAttribute('data-quiz-id');
+        showQuizResult(quizId);
+    });
+    
+    historyCard.querySelector('.btn:last-child').addEventListener('click', function() {
+        if (!this.disabled) {
+            const userQuizId = this.getAttribute('data-user-quiz-id');
+            const quizId = this.getAttribute('data-quiz-id');
+            loadReviewData(userQuizId, quizId);
+        }
+    });
+    
+    container.appendChild(historyCard);
+}
+
+// Criar card de fallback quando o quiz não for encontrado
+function createFallbackHistoryCard(container, userQuiz) {
+    const historyCard = document.createElement('div');
+    historyCard.className = 'card';
+    
+    let badgeClass = 'card-badge';
+    let badgeText = `${userQuiz.percentage.toFixed(1)}%`;
+    
+    if (userQuiz.percentage >= 80) {
+        badgeClass += ' success';
+    } else if (userQuiz.percentage >= 60) {
+        badgeClass += ' warning';
+    } else {
+        badgeClass += ' danger';
+    }
+    
+    const minutes = Math.floor(userQuiz.timeTaken / 60);
+    const seconds = userQuiz.timeTaken % 60;
+    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    let dateText = 'Data não disponível';
+    if (userQuiz.completedAt) {
+        try {
+            const date = userQuiz.completedAt.toDate ? userQuiz.completedAt.toDate() : new Date(userQuiz.completedAt);
+            dateText = date.toLocaleDateString('pt-BR');
+        } catch (e) {
+            dateText = 'Data inválida';
+        }
+    }
+    
+    historyCard.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">Quiz Concluído</h3>
+            <div>
+                <span class="${badgeClass}">${badgeText}</span>
+                <span class="card-badge card-badge-secondary">Informações Limitadas</span>
+            </div>
+        </div>
+        <div class="card-content">
+            <p>As informações completas deste quiz não estão disponíveis no momento.</p>
+            <div class="history-details">
+                <div class="detail">
+                    <strong><i class="fas fa-check-circle" style="color: #28a745;"></i> Pontuação:</strong> 
+                    ${userQuiz.score} pontos
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-clock" style="color: #6c757d;"></i> Tempo:</strong> ${timeText}
+                </div>
+                <div class="detail">
+                    <strong><i class="fas fa-calendar" style="color: #17a2b8;"></i> Concluído em:</strong> ${dateText}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(historyCard);
+}
+
+// Criar gráfico de desempenho
+function createPerformanceChart(container, userQuizzes, quizzesMap) {
+    const chartCard = document.createElement('div');
+    chartCard.className = 'card';
+    chartCard.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title"><i class="fas fa-chart-line"></i> Meu Desempenho</h3>
+        </div>
+        <div class="card-content">
+            <div class="chart-container">
+                <canvas id="historyPerformanceChart" width="400" height="200"></canvas>
+            </div>
+            <div class="stats-grid" style="margin-top: 1.5rem;">
+                <div class="stat-item">
+                    <div class="stat-value">${userQuizzes.length}</div>
+                    <div class="stat-label">Quizzes Concluídos</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${calculateAverage(userQuizzes, 'percentage').toFixed(1)}%</div>
+                    <div class="stat-label">Pontuação Média</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${findBestPerformance(userQuizzes).toFixed(1)}%</div>
+                    <div class="stat-label">Melhor Pontuação</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${calculateTotalTime(userQuizzes)}</div>
+                    <div class="stat-label">Tempo Total</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertBefore(chartCard, container.firstChild);
+    
+    // Inicializar gráfico após o DOM ser atualizado
+    setTimeout(() => {
+        initializeHistoryChart(userQuizzes, quizzesMap);
+    }, 100);
+}
+
+// Inicializar gráfico do histórico
+function initializeHistoryChart(userQuizzes, quizzesMap) {
+    const ctx = document.getElementById('historyPerformanceChart');
+    if (!ctx) return;
+    
+    const labels = userQuizzes.map((quiz, index) => {
+        const quizInfo = quizzesMap[quiz.quizId];
+        return quizInfo ? quizInfo.title.substring(0, 20) + (quizInfo.title.length > 20 ? '...' : '') : `Quiz ${index + 1}`;
+    });
+    
+    const percentages = userQuizzes.map(quiz => quiz.percentage);
+    
+    new Chart(ctx, {
+        type: 'line',
         data: {
-            labels: ['Adição', 'Subtração', 'Multiplicação', 'Divisão'],
+            labels: labels,
             datasets: [{
-                label: 'Desempenho',
-                data: [
-                    progressData.addition.correct,
-                    progressData.subtraction.correct,
-                    progressData.multiplication.correct,
-                    progressData.division.correct
-                ],
-                backgroundColor: 'rgba(67, 97, 238, 0.2)',
-                borderColor: 'rgba(67, 97, 238, 1)',
-                borderWidth: 2,
-                pointBackgroundColor: 'rgba(67, 97, 238, 1)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 6
+                label: 'Desempenho (%)',
+                data: percentages,
+                borderColor: '#4a6cf7',
+                backgroundColor: 'rgba(74, 108, 247, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                r: {
-                    angleLines: {
-                        display: true,
-                        color: 'rgba(0, 0, 0, 0.1)'
-                    },
-                    suggestedMin: 0,
-                    suggestedMax: 100
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Evolução do Desempenho',
+                    font: {
+                        size: 16
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top'
                 }
             },
-            plugins: {
-                legend: {
-                    display: false
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Porcentagem (%)'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Quizzes Realizados'
+                    }
                 }
             }
         }
     });
 }
 
-// Atualizar gráfico de progresso
-function updateProgressChart() {
-    if (!progressChart) return;
-    
-    progressChart.data.datasets[0].data = [
-        progressData.addition.correct,
-        progressData.subtraction.correct,
-        progressData.multiplication.correct,
-        progressData.division.correct
-    ];
-    
-    progressChart.update();
+// Funções auxiliares para cálculos
+function calculateAverage(array, field) {
+    if (array.length === 0) return 0;
+    const sum = array.reduce((acc, item) => acc + (item[field] || 0), 0);
+    return sum / array.length;
 }
 
-// Carregar operações matemáticas
-function loadOperations() {
-    const operations = [
-        {
-            id: 'addition',
-            name: 'Adição',
-            icon: 'fas fa-plus',
-            description: 'Aprenda a somar números de forma simples e eficiente',
-            color: '#4ade80'
-        },
-        {
-            id: 'subtraction',
-            name: 'Subtração',
-            icon: 'fas fa-minus',
-            description: 'Domine a arte de subtrair e encontrar diferenças',
-            color: '#fbbf24'
-        },
-        {
-            id: 'multiplication',
-            name: 'Multiplicação',
-            icon: 'fas fa-times',
-            description: 'Multiplique seu conhecimento com tabuadas e técnicas',
-            color: '#4361ee'
-        },
-        {
-            id: 'division',
-            name: 'Divisão',
-            icon: 'fas fa-divide',
-            description: 'Divida para conquistar: aprenda divisão passo a passo',
-            color: '#f87171'
-        }
-    ];
-    
-    operationsGrid.innerHTML = operations.map(op => `
-        <div class="operation-card" data-operation="${op.id}">
-            <div class="operation-icon" style="background: linear-gradient(135deg, ${op.color}, ${op.color}dd)">
-                <i class="${op.icon}"></i>
-            </div>
-            <h3>${op.name}</h3>
-            <p>${op.description}</p>
-            <button class="btn-operation" onclick="startOperation('${op.id}')">
-                <i class="fas fa-play-circle"></i> Começar
-            </button>
-        </div>
-    `).join('');
+function findBestPerformance(userQuizzes) {
+    if (userQuizzes.length === 0) return 0;
+    return Math.max(...userQuizzes.map(quiz => quiz.percentage));
 }
 
-// Carregar jogos
-function loadGames() {
-    const games = [
-        {
-            id: 'lightning',
-            name: 'Desafio Relâmpago',
-            icon: 'fas fa-bolt',
-            description: 'Resolva o máximo de multiplicações em 60 segundos!',
-            color: '#7209b7'
-        },
-        {
-            id: 'puzzle',
-            name: 'Quebra-cabeça da Divisão',
-            icon: 'fas fa-puzzle-piece',
-            description: 'Complete o quebra-cabeça dividindo números corretamente',
-            color: '#fbbf24'
-        },
-        {
-            id: 'championship',
-            name: 'Campeonato MathMaster',
-            icon: 'fas fa-trophy',
-            description: 'Enfrente operações mistas e suba no ranking',
-            color: '#4cc9f0'
-        }
-    ];
+function calculateTotalTime(userQuizzes) {
+    const totalSeconds = userQuizzes.reduce((acc, quiz) => acc + (quiz.timeTaken || 0), 0);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
     
-    gamesGrid.innerHTML = games.map(game => `
-        <div class="game-card" data-game="${game.id}">
-            <div class="game-header" style="background: linear-gradient(135deg, ${game.color}, ${game.color}dd)">
-                <h3>${game.name}</h3>
-                <div class="game-stats">
-                    <div class="stat-display">
-                        <span class="stat-value">60</span>
-                        <span class="stat-label">Segundos</span>
-                    </div>
-                    <div class="stat-display">
-                        <span class="stat-value">★</span>
-                        <span class="stat-label">Desafio</span>
-                    </div>
-                </div>
-            </div>
-            <div class="game-content">
-                <div class="game-exercise">
-                    <p>${game.description}</p>
-                </div>
-                <div class="game-controls">
-                    <button class="btn-game btn-start" onclick="startGame('${game.id}')">
-                        <i class="fas fa-play"></i> Jogar
-                    </button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-// Iniciar operação matemática
-function startOperation(operationId) {
-    currentOperation = operationId;
-    switchSection('learn');
-    
-    showNotification(
-        "Operação selecionada",
-        `Pronto para praticar ${operationId === 'addition' ? 'adição' : 
-        operationId === 'subtraction' ? 'subtração' : 
-        operationId === 'multiplication' ? 'multiplicação' : 'divisão'}!`,
-        "info"
-    );
-}
-
-// Iniciar jogo
-function startGame(gameId) {
-    currentGame = gameId;
-    
-    showNotification(
-        "Jogo iniciado",
-        `Boa sorte no ${gameId === 'lightning' ? 'Desafio Relâmpago' : 
-        gameId === 'puzzle' ? 'Quebra-cabeça da Divisão' : 'Campeonato MathMaster'}!`,
-        "info"
-    );
-}
-
-// Ações rápidas do dashboard
-function handleQuickAction(action) {
-    switch (action) {
-        case 'practice':
-            switchSection('learn');
-            break;
-        case 'games':
-            switchSection('games');
-            break;
-        case 'challenges':
-            showNotification("Em breve", "Desafios estarão disponíveis em breve!", "info");
-            break;
-        case 'progress':
-            switchSection('progress');
-            break;
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
     }
+    return `${minutes}m`;
 }
 
-// Mostrar tela de autenticação
-function showAuthScreen() {
-    authScreen.classList.add('active');
-    mainApp.classList.remove('active');
-}
-
-// Mostrar aplicação principal
-function showMainApp() {
-    authScreen.classList.remove('active');
-    mainApp.classList.add('active');
-    switchSection('dashboard');
-}
-
-// Alternar entre seções
-function switchSection(sectionId) {
-    // Atualizar seções
-    appSections.forEach(section => {
-        if (section.id === sectionId) {
-            section.classList.add('active');
-        } else {
-            section.classList.remove('active');
-        }
-    });
+// Carregar dados para revisão
+function loadReviewData(userQuizId, quizId) {
+    console.log('🔄 Carregando dados para revisão...');
+    showLoading();
     
-    // Atualizar navegação ativa
-    navLinks.forEach(link => {
-        if (link.getAttribute('href') === `#${sectionId}`) {
-            link.classList.add('active');
-        } else {
-            link.classList.remove('active');
-        }
-    });
-    
-    sidebarLinks.forEach(link => {
-        if (link.getAttribute('href') === `#${sectionId}`) {
-            link.classList.add('active');
-        } else {
-            link.classList.remove('active');
-        }
-    });
-    
-    currentSection = sectionId;
-}
-
-// Alternar entre tabs admin
-function switchAdminTab(tabId) {
-    // Atualizar tabs ativas
-    adminTabs.forEach(tab => {
-        if (tab.getAttribute('data-tab') === tabId) {
-            tab.classList.add('active');
-        } else {
-            tab.classList.remove('active');
-        }
-    });
-    
-    // Mostrar conteúdo correspondente
-    adminTabContents.forEach(content => {
-        if (content.id === `admin${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`) {
-            content.classList.add('active');
-        } else {
-            content.classList.remove('active');
-        }
-    });
-    
-    currentAdminTab = tabId;
-    
-    // Carregar dados se necessário
-    if (tabId === 'users') {
-        loadUsers();
-    } else if (tabId === 'reports') {
-        loadReports();
-    }
-}
-
-// Carregar painel admin
-async function loadAdminPanel() {
-    await loadUsers();
-    loadReports();
-}
-
-// Carregar lista de usuários
-async function loadUsers() {
-    if (!db || userData?.role !== 'admin') return;
-    
-    try {
-        const usersSnapshot = await db.collection('users').get();
-        
-        usersTableBody.innerHTML = '';
-        
-        usersSnapshot.forEach(doc => {
-            const user = doc.data();
-            const createdAt = user.createdAt?.toDate() || new Date();
-            
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${user.name}</td>
-                <td>${user.email}</td>
-                <td>${user.role === 'admin' ? 'Administrador' : 'Aluno'}</td>
-                <td>${createdAt.toLocaleDateString('pt-BR')}</td>
-                <td><span class="user-status status-${user.status}">${user.status === 'active' ? 'Ativo' : user.status === 'inactive' ? 'Inativo' : 'Bloqueado'}</span></td>
-                <td class="user-actions">
-                    <button class="btn-action btn-edit" onclick="editUser('${doc.id}')">
-                        <i class="fas fa-edit"></i> Editar
-                    </button>
-                    <button class="btn-action btn-delete" onclick="deleteUser('${doc.id}')">
-                        <i class="fas fa-trash"></i> Excluir
-                    </button>
-                </td>
-            `;
-            
-            usersTableBody.appendChild(row);
-        });
-        
-    } catch (error) {
-        console.error("Erro ao carregar usuários:", error);
-        showNotification("Erro", "Não foi possível carregar a lista de usuários.", "error");
-    }
-}
-
-// Carregar relatórios
-async function loadReports() {
-    if (!db || userData?.role !== 'admin') return;
-    
-    try {
-        // Aqui você pode carregar estatísticas do sistema
-        // Por exemplo: total de usuários, atividades recentes, etc.
-        
-    } catch (error) {
-        console.error("Erro ao carregar relatórios:", error);
-    }
-}
-
-// Abrir modal de usuário
-async function openUserModal(userId = null) {
-    const modalTitle = document.getElementById('modalTitle');
-    const form = document.getElementById('userForm');
-    
-    if (userId) {
-        // Modo edição
-        modalTitle.textContent = "Editar Usuário";
-        
-        try {
-            const userDoc = await db.collection('users').doc(userId).get();
-            const user = userDoc.data();
-            
-            document.getElementById('modalUserName').value = user.name;
-            document.getElementById('modalUserEmail').value = user.email;
-            document.getElementById('modalUserType').value = user.role;
-            document.getElementById('modalUserStatus').value = user.status;
-            
-            // Salvar userId no formulário para referência
-            form.dataset.userId = userId;
-            
-        } catch (error) {
-            console.error("Erro ao carregar usuário:", error);
-            showNotification("Erro", "Não foi possível carregar os dados do usuário.", "error");
+    Promise.all([
+        db.collection('userQuizzes').doc(userQuizId).get(),
+        db.collection('quizzes').doc(quizId).get()
+    ]).then(([userQuizDoc, quizDoc]) => {
+        if (!userQuizDoc.exists || !quizDoc.exists) {
+            hideLoading();
+            alert('Dados não encontrados para revisão.');
             return;
         }
-    } else {
-        // Modo criação
-        modalTitle.textContent = "Adicionar Usuário";
         
-        // Resetar formulário
-        form.reset();
-        document.getElementById('modalUserType').value = 'student';
-        document.getElementById('modalUserStatus').value = 'active';
-        delete form.dataset.userId;
-    }
-    
-    userModal.classList.add('active');
-}
-
-// Manipular envio do formulário de usuário
-async function handleUserFormSubmit(e) {
-    e.preventDefault();
-    
-    const form = e.target;
-    const userId = form.dataset.userId;
-    const name = document.getElementById('modalUserName').value;
-    const email = document.getElementById('modalUserEmail').value;
-    const role = document.getElementById('modalUserType').value;
-    const status = document.getElementById('modalUserStatus').value;
-    
-    try {
-        if (userId) {
-            // Atualizar usuário existente
-            await db.collection('users').doc(userId).update({
-                name: name,
-                email: email,
-                role: role,
-                status: status,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        const userQuiz = userQuizDoc.data();
+        const quiz = quizDoc.data();
+        
+        // Buscar questões
+        db.collection('questions').get().then(questionsSnapshot => {
+            hideLoading();
+            
+            const allQuestions = [];
+            questionsSnapshot.forEach(doc => {
+                allQuestions.push({ id: doc.id, ...doc.data() });
             });
             
-            showNotification("Sucesso", "Usuário atualizado com sucesso!", "success");
-        } else {
-            // Criar novo usuário (apenas admin pode fazer isso)
-            // Note: Esta funcionalidade requer que o admin crie a conta de autenticação também
-            // Para simplificar, estamos apenas criando o documento no Firestore
-            // Em uma aplicação real, você precisaria usar o Admin SDK para criar a conta de autenticação
+            // Selecionar questões aleatórias (simulando o quiz original)
+            const shuffledQuestions = [...allQuestions];
+            for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+            }
             
-            showNotification("Aviso", "Para criar usuários completos, use o Admin SDK do Firebase.", "warning");
+            currentQuestions = shuffledQuestions.slice(0, quiz.questionsCount || 10);
+            userAnswers = userQuiz.answers || [];
+            
+            showReviewModal();
+            
+        }).catch(error => {
+            hideLoading();
+            console.error('Erro ao buscar questões:', error);
+            alert('Erro ao carregar questões para revisão.');
+        });
+        
+    }).catch(error => {
+        hideLoading();
+        console.error('Erro ao carregar dados para revisão:', error);
+        alert('Erro ao carregar dados para revisão.');
+    });
+}
+
+// ===============================
+// RANKING E RELATÓRIOS
+// ===============================
+
+// Carregar ranking
+function loadRanking() {
+    const rankingList = document.getElementById('ranking-list');
+    rankingList.innerHTML = '<div class="card"><div class="card-content">Carregando ranking...</div></div>';
+    
+    // Buscar todos os quizzes completados
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter objeto em array e ordenar por pontuação
+            const ranking = Object.values(userScores).sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Buscar informações dos usuários
+            const userIds = ranking.map(item => item.userId);
+            
+            if (userIds.length === 0) {
+                rankingList.innerHTML = '<div class="card"><div class="card-content">Nenhum resultado disponível no ranking.</div></div>';
+                return;
+            }
+            
+            // CORREÇÃO: Buscar usuários em lotes para evitar limite de 10
+            loadUsersInBatches(userIds, ranking, rankingList);
+        })
+        .catch(error => {
+            rankingList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar ranking.</div></div>';
+            console.error('Erro ao carregar ranking:', error);
+        });
+}
+
+// CORREÇÃO: Função para carregar usuários em lotes
+function loadUsersInBatches(userIds, ranking, rankingList) {
+    const batchSize = 10;
+    const userBatches = [];
+    
+    // Dividir usuários em lotes de 10
+    for (let i = 0; i < userIds.length; i += batchSize) {
+        userBatches.push(userIds.slice(i, i + batchSize));
+    }
+    
+    const usersMap = {};
+    let batchesProcessed = 0;
+    
+    // Processar cada lote
+    userBatches.forEach(batch => {
+        db.collection('users')
+            .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+            .get()
+            .then(usersSnapshot => {
+                usersSnapshot.forEach(doc => {
+                    usersMap[doc.id] = doc.data();
+                });
+                
+                batchesProcessed++;
+                
+                // Quando todos os lotes forem processados, exibir o ranking
+                if (batchesProcessed === userBatches.length) {
+                    displayRanking(ranking, usersMap, rankingList);
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao buscar lote de usuários:', error);
+                batchesProcessed++;
+                
+                if (batchesProcessed === userBatches.length) {
+                    displayRanking(ranking, usersMap, rankingList);
+                }
+            });
+    });
+}
+
+// Exibir ranking
+function displayRanking(ranking, usersMap, rankingList) {
+    rankingList.innerHTML = '';
+    
+    ranking.forEach((item, index) => {
+        const user = usersMap[item.userId];
+        if (!user) return;
+        
+        const rankingItem = document.createElement('div');
+        rankingItem.className = 'ranking-item';
+        
+        // Destacar usuário atual
+        if (item.userId === currentUser.uid) {
+            rankingItem.style.background = 'rgba(74, 108, 247, 0.1)';
+            rankingItem.style.borderLeft = '4px solid var(--primary-color)';
         }
         
-        // Recarregar lista de usuários
-        await loadUsers();
+        const avgScore = item.totalQuizzes > 0 ? (item.totalScore / item.totalQuizzes).toFixed(1) : 0;
         
-        // Fechar modal
-        userModal.classList.remove('active');
+        rankingItem.innerHTML = `
+            <div class="ranking-position">${index + 1}</div>
+            <div class="ranking-info">
+                <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
+                <div class="ranking-details">${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts</div>
+            </div>
+            <div class="ranking-score">${item.totalScore} pts</div>
+        `;
         
-    } catch (error) {
-        console.error("Erro ao salvar usuário:", error);
-        showNotification("Erro", "Não foi possível salvar as alterações.", "error");
+        rankingList.appendChild(rankingItem);
+    });
+}
+
+// ===============================
+// FUNÇÕES DO ADMINISTRADOR
+// ===============================
+
+// Carregar categorias das questões
+function loadQuestionCategories() {
+    return db.collection('questions')
+        .get()
+        .then(querySnapshot => {
+            const categories = new Set(['Geral']);
+            querySnapshot.forEach(doc => {
+                const question = doc.data();
+                if (question.category && question.category.trim() !== '') {
+                    categories.add(question.category);
+                }
+            });
+            return Array.from(categories).sort();
+        });
+}
+
+// NOVA FUNÇÃO: Carregar alunos disponíveis
+function loadAvailableStudents() {
+    const availableStudentsList = document.getElementById('available-students-list');
+    availableStudentsList.innerHTML = '<p>Carregando alunos...</p>';
+    
+    db.collection('users')
+        .where('userType', '==', 'aluno')
+        .where('status', '==', 'active')
+        .get()
+        .then(querySnapshot => {
+            availableStudents = [];
+            let html = '';
+            
+            if (querySnapshot.empty) {
+                html = '<p>Nenhum aluno cadastrado.</p>';
+            } else {
+                querySnapshot.forEach(doc => {
+                    const student = { id: doc.id, ...doc.data() };
+                    availableStudents.push(student);
+                    
+                    // Verificar se o aluno já está selecionado
+                    const isSelected = selectedStudents.some(s => s.id === student.id);
+                    
+                    html += `
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="student-${student.id}" 
+                                   data-student-id="${student.id}" 
+                                   data-student-name="${student.name}"
+                                   ${isSelected ? 'checked' : ''}>
+                            <label for="student-${student.id}">${student.name} (${student.email})</label>
+                        </div>
+                    `;
+                });
+            }
+            
+            availableStudentsList.innerHTML = html;
+            
+            // Adicionar event listeners aos checkboxes
+            document.querySelectorAll('#available-students-list input[type="checkbox"]').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const studentId = this.getAttribute('data-student-id');
+                    const studentName = this.getAttribute('data-student-name');
+                    
+                    if (this.checked) {
+                        addStudentToSelection(studentId, studentName);
+                    } else {
+                        removeStudentFromSelection(studentId);
+                    }
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Erro ao carregar alunos:', error);
+            availableStudentsList.innerHTML = '<p>Erro ao carregar alunos.</p>';
+        });
+}
+
+// NOVA FUNÇÃO: Filtrar alunos disponíveis
+function filterAvailableStudents(searchTerm) {
+    const filteredStudents = availableStudents.filter(student => 
+        student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    
+    let html = '';
+    
+    if (filteredStudents.length === 0) {
+        html = '<p>Nenhum aluno encontrado.</p>';
+    } else {
+        filteredStudents.forEach(student => {
+            const isSelected = selectedStudents.some(s => s.id === student.id);
+            
+            html += `
+                <div class="checkbox-row">
+                    <input type="checkbox" id="student-${student.id}" 
+                           data-student-id="${student.id}" 
+                           data-student-name="${student.name}"
+                           ${isSelected ? 'checked' : ''}>
+                    <label for="student-${student.id}">${student.name} (${student.email})</label>
+                </div>
+            `;
+        });
+    }
+    
+    document.getElementById('available-students-list').innerHTML = html;
+    
+    // Adicionar event listeners aos checkboxes
+    document.querySelectorAll('#available-students-list input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const studentId = this.getAttribute('data-student-id');
+            const studentName = this.getAttribute('data-student-name');
+            
+            if (this.checked) {
+                addStudentToSelection(studentId, studentName);
+            } else {
+                removeStudentFromSelection(studentId);
+            }
+        });
+    });
+}
+
+// NOVA FUNÇÃO: Adicionar aluno à seleção
+function addStudentToSelection(studentId, studentName) {
+    // Verificar se o aluno já está selecionado
+    if (!selectedStudents.some(student => student.id === studentId)) {
+        selectedStudents.push({ id: studentId, name: studentName });
+        updateSelectedStudentsDisplay();
     }
 }
 
-// Editar usuário
-function editUser(userId) {
-    openUserModal(userId);
+// NOVA FUNÇÃO: Remover aluno da seleção
+function removeStudentFromSelection(studentId) {
+    selectedStudents = selectedStudents.filter(student => student.id !== studentId);
+    updateSelectedStudentsDisplay();
 }
 
-// Excluir usuário
-async function deleteUser(userId) {
-    if (!confirm("Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.")) {
+// NOVA FUNÇÃO: Atualizar display dos alunos selecionados
+function updateSelectedStudentsDisplay() {
+    const selectedStudentsContainer = document.getElementById('selected-students');
+    
+    if (selectedStudents.length === 0) {
+        selectedStudentsContainer.innerHTML = '<p>Nenhum aluno selecionado</p>';
+    } else {
+        let html = '';
+        selectedStudents.forEach(student => {
+            html += `
+                <div class="selected-student-item">
+                    <span>${student.name}</span>
+                    <button class="remove-student" data-student-id="${student.id}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+        });
+        selectedStudentsContainer.innerHTML = html;
+        
+        // Adicionar event listeners aos botões de remover
+        document.querySelectorAll('.remove-student').forEach(button => {
+            button.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                removeStudentFromSelection(studentId);
+                
+                // Atualizar checkbox correspondente
+                const checkbox = document.querySelector(`#available-students-list input[data-student-id="${studentId}"]`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                }
+            });
+        });
+    }
+}
+
+// Carregar quizzes para administrador
+function loadAdminQuizzes() {
+    const quizzesList = document.getElementById('admin-quizzes-list');
+    quizzesList.innerHTML = '<div class="card"><div class="card-content">Carregando quizzes...</div></div>';
+    
+    // Buscar todos os quizzes
+    db.collection('quizzes')
+        .orderBy('createdAt', 'desc')
+        .get()
+        .then(querySnapshot => {
+            quizzesList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                quizzesList.innerHTML = '<div class="card"><div class="card-content">Nenhum quiz criado ainda.</div></div>';
+                return;
+            }
+            
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                const quizCard = createAdminQuizCard(quiz);
+                quizzesList.appendChild(quizCard);
+            });
+        })
+        .catch(error => {
+            quizzesList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar quizzes.</div></div>';
+            console.error('Erro ao carregar quizzes:', error);
+        });
+}
+
+// Criar card de quiz para administrador - MODIFICADA
+function createAdminQuizCard(quiz) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    // Determinar badge de visibilidade
+    let visibilityBadge = '';
+    if (quiz.visibility === 'specific' && quiz.allowedStudents) {
+        const studentCount = quiz.allowedStudents.length;
+        visibilityBadge = `<span class="card-badge card-badge-secondary">${studentCount} aluno(s)</span>`;
+    } else {
+        visibilityBadge = '<span class="card-badge card-badge-secondary">Todos os alunos</span>';
+    }
+    
+    // Determinar badge de revisão
+    let reviewBadge = '';
+    if (quiz.allowReview === false) {
+        reviewBadge = '<span class="card-badge danger">Revisão Bloqueada</span>';
+    } else {
+        reviewBadge = '<span class="card-badge success">Revisão Permitida</span>';
+    }
+    
+    card.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${quiz.title}</h3>
+            <div>
+                <span class="card-badge ${quiz.status === 'active' ? '' : 'card-badge-secondary'}">${quiz.status === 'active' ? 'Ativo' : 'Inativo'}</span>
+                ${visibilityBadge}
+                ${reviewBadge}
+            </div>
+        </div>
+        <div class="card-content">
+            <p>${quiz.description || 'Sem descrição'}</p>
+            <p><strong>Categoria:</strong> ${quiz.category || 'Geral'}</p>
+            <p><strong>Questões:</strong> ${quiz.questionsCount}</p>
+            <p><strong>Tempo:</strong> ${quiz.time} minutos</p>
+            <p><strong>Visibilidade:</strong> ${quiz.visibility === 'specific' ? 'Alunos Específicos' : 'Todos os Alunos'}</p>
+            <p><strong>Revisão de Respostas:</strong> ${quiz.allowReview === false ? 'Bloqueada' : 'Permitida'}</p>
+            <p><strong>Criado em:</strong> ${quiz.createdAt ? quiz.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-primary edit-quiz" data-quiz-id="${quiz.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-secondary toggle-quiz" data-quiz-id="${quiz.id}" data-status="${quiz.status}">
+                <i class="fas fa-power-off"></i>
+                <span class="btn-text">${quiz.status === 'active' ? 'Desativar' : 'Ativar'}</span>
+            </button>
+            <button class="btn btn-danger delete-quiz" data-quiz-id="${quiz.id}">
+                <i class="fas fa-trash"></i>
+                <span class="btn-text">Excluir</span>
+            </button>
+        </div>
+    `;
+    
+    // Adicionar event listeners aos botões
+    card.querySelector('.edit-quiz').addEventListener('click', () => {
+        openQuizModal(quiz.id);
+    });
+    
+    card.querySelector('.toggle-quiz').addEventListener('click', () => {
+        toggleQuizStatus(quiz.id, quiz.status === 'active' ? 'inactive' : 'active');
+    });
+    
+    card.querySelector('.delete-quiz').addEventListener('click', () => {
+        deleteQuiz(quiz.id);
+    });
+    
+    return card;
+}
+
+// Abrir modal do quiz - MODIFICADA
+function openQuizModal(quizId = null) {
+    editingQuizId = quizId;
+    const modal = document.getElementById('quiz-modal');
+    const title = document.getElementById('quiz-modal-title');
+    const categorySelect = document.getElementById('quiz-category');
+    
+    // Resetar seleção de alunos
+    selectedStudents = [];
+    
+    // Carregar categorias
+    categorySelect.innerHTML = '<option value="">Carregando categorias...</option>';
+    loadQuestionCategories().then(categories => {
+        categorySelect.innerHTML = '<option value="">Selecione uma categoria</option>';
+        categories.forEach(category => {
+            categorySelect.innerHTML += `<option value="${category}">${category}</option>`;
+        });
+        
+        if (quizId) {
+            // Modo edição
+            title.textContent = 'Editar Quiz';
+            
+            // Carregar dados do quiz
+            db.collection('quizzes').doc(quizId).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const quiz = doc.data();
+                        
+                        // Preencher campos básicos
+                        document.getElementById('quiz-title').value = quiz.title;
+                        document.getElementById('quiz-description').value = quiz.description || '';
+                        document.getElementById('quiz-category').value = quiz.category || '';
+                        document.getElementById('quiz-questions-count').value = quiz.questionsCount;
+                        document.getElementById('quiz-time').value = quiz.time;
+                        document.getElementById('quiz-status').value = quiz.status || 'active';
+                        document.getElementById('allow-review').checked = quiz.allowReview !== false;
+                        
+                        // Preencher visibilidade
+                        document.getElementById('quiz-visibility').value = quiz.visibility || 'all';
+                        
+                        // Se for visibilidade específica, carregar alunos
+                        if (quiz.visibility === 'specific' && quiz.allowedStudents) {
+                            document.getElementById('specific-students-container').classList.remove('hidden');
+                            
+                            // Carregar alunos e selecionar os que estão na lista
+                            loadAvailableStudents().then(() => {
+                                // Selecionar alunos permitidos
+                                quiz.allowedStudents.forEach(studentId => {
+                                    const student = availableStudents.find(s => s.id === studentId);
+                                    if (student) {
+                                        addStudentToSelection(studentId, student.name);
+                                        
+                                        // Marcar checkbox correspondente
+                                        const checkbox = document.querySelector(`#available-students-list input[data-student-id="${studentId}"]`);
+                                        if (checkbox) {
+                                            checkbox.checked = true;
+                                        }
+                                    }
+                                });
+                            });
+                        }
+                    }
+                });
+        } else {
+            // Modo criação
+            title.textContent = 'Criar Novo Quiz';
+            // Limpar campos
+            document.getElementById('quiz-title').value = '';
+            document.getElementById('quiz-description').value = '';
+            document.getElementById('quiz-category').value = '';
+            document.getElementById('quiz-questions-count').value = '';
+            document.getElementById('quiz-time').value = '';
+            document.getElementById('quiz-status').value = 'active';
+            document.getElementById('quiz-visibility').value = 'all';
+            document.getElementById('allow-review').checked = true;
+            document.getElementById('specific-students-container').classList.add('hidden');
+            updateSelectedStudentsDisplay();
+        }
+    });
+    
+    modal.classList.remove('hidden');
+}
+
+// Fechar modal do quiz
+function closeQuizModal() {
+    document.getElementById('quiz-modal').classList.add('hidden');
+    editingQuizId = null;
+    selectedStudents = [];
+}
+
+// Salvar quiz - MODIFICADA
+function saveQuiz() {
+    const title = document.getElementById('quiz-title').value;
+    const description = document.getElementById('quiz-description').value;
+    const category = document.getElementById('quiz-category').value;
+    const questionsCount = parseInt(document.getElementById('quiz-questions-count').value);
+    const time = parseInt(document.getElementById('quiz-time').value);
+    const status = document.getElementById('quiz-status').value;
+    const visibility = document.getElementById('quiz-visibility').value;
+    const allowReview = document.getElementById('allow-review').checked;
+    
+    if (!title || !category || isNaN(questionsCount) || isNaN(time)) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
+    }
+    
+    // Se for visibilidade específica, verificar se há alunos selecionados
+    if (visibility === 'specific' && selectedStudents.length === 0) {
+        alert('Por favor, selecione pelo menos um aluno para visibilidade específica.');
+        return;
+    }
+    
+    const quizData = {
+        title: title,
+        description: description,
+        category: category,
+        questionsCount: questionsCount,
+        time: time,
+        status: status,
+        visibility: visibility,
+        allowReview: allowReview,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    // Adicionar lista de alunos permitidos se for visibilidade específica
+    if (visibility === 'specific' && selectedStudents.length > 0) {
+        quizData.allowedStudents = selectedStudents.map(student => student.id);
+    } else {
+        // Garantir que não haja lista de alunos permitidos se for para todos
+        quizData.allowedStudents = null;
+    }
+    
+    if (editingQuizId) {
+        // Atualizar quiz existente
+        db.collection('quizzes').doc(editingQuizId).update(quizData)
+            .then(() => {
+                alert('Quiz atualizado com sucesso!');
+                closeQuizModal();
+                loadAdminQuizzes();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar quiz: ' + error.message);
+            });
+    } else {
+        // Criar novo quiz
+        quizData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        
+        db.collection('quizzes').add(quizData)
+            .then(() => {
+                alert('Quiz criado com sucesso!');
+                closeQuizModal();
+                loadAdminQuizzes();
+            })
+            .catch(error => {
+                alert('Erro ao criar quiz: ' + error.message);
+            });
+    }
+}
+
+// Alternar status do quiz
+function toggleQuizStatus(quizId, newStatus) {
+    db.collection('quizzes').doc(quizId).update({
+        status: newStatus,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        alert('Status do quiz atualizado com sucesso!');
+        loadAdminQuizzes();
+    })
+    .catch(error => {
+        alert('Erro ao atualizar status do quiz: ' + error.message);
+    });
+}
+
+// Excluir quiz
+function deleteQuiz(quizId) {
+    if (confirm('Tem certeza que deseja excluir este quiz? Esta ação não pode ser desfeita.')) {
+        db.collection('quizzes').doc(quizId).delete()
+        .then(() => {
+            alert('Quiz excluído com sucesso!');
+            loadAdminQuizzes();
+        })
+        .catch(error => {
+            alert('Erro ao excluir quiz: ' + error.message);
+        });
+    }
+}
+
+// Carregar questões para administrador
+function loadAdminQuestions() {
+    const questionsList = document.getElementById('admin-questions-list');
+    questionsList.innerHTML = '<div class="card"><div class="card-content">Carregando questões...</div></div>';
+    
+    // Buscar todas as questões
+    db.collection('questions')
+        .orderBy('createdAt', 'desc')
+        .get()
+        .then(querySnapshot => {
+            questionsList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                questionsList.innerHTML = '<div class="card"><div class="card-content">Nenhuma questão criada ainda.</div></div>';
+                return;
+            }
+            
+            querySnapshot.forEach(doc => {
+                const question = { id: doc.id, ...doc.data() };
+                const questionCard = createAdminQuestionCard(question);
+                questionsList.appendChild(questionCard);
+            });
+        })
+        .catch(error => {
+            questionsList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar questões.</div></div>';
+            console.error('Erro ao carregar questões:', error);
+        });
+}
+
+// Criar card de questão para administrador
+function createAdminQuestionCard(question) {
+    const card = document.createElement('div');
+    card.className = 'card question-card';
+    
+    card.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${question.text.substring(0, 80)}${question.text.length > 80 ? '...' : ''}</h3>
+            <div>
+                <span class="card-badge">${question.category || 'Geral'}</span>
+                <button class="btn btn-icon toggle-options">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+        </div>
+        <div class="question-options hidden">
+            <div class="options-grid">
+                <div class="option-item ${question.correctAnswer === 'a' ? 'correct-option' : ''}">
+                    <strong>A:</strong> ${question.options?.a || 'N/A'}
+                </div>
+                <div class="option-item ${question.correctAnswer === 'b' ? 'correct-option' : ''}">
+                    <strong>B:</strong> ${question.options?.b || 'N/A'}
+                </div>
+                <div class="option-item ${question.correctAnswer === 'c' ? 'correct-option' : ''}">
+                    <strong>C:</strong> ${question.options?.c || 'N/A'}
+                </div>
+                <div class="option-item ${question.correctAnswer === 'd' ? 'correct-option' : ''}">
+                    <strong>D:</strong> ${question.options?.d || 'N/A'}
+                </div>
+            </div>
+            <p><strong>Resposta correta:</strong> <span class="correct-answer">${question.correctAnswer?.toUpperCase() || 'N/A'}</span></p>
+            <p><strong>Criada em:</strong> ${question.createdAt ? question.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
+        </div>
+        <div class="card-actions">
+            <button class="btn btn-primary edit-question" data-question-id="${question.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-danger delete-question" data-question-id="${question.id}">
+                <i class="fas fa-trash"></i>
+                <span class="btn-text">Excluir</span>
+            </button>
+        </div>
+    `;
+    
+    // Adicionar event listeners aos botões
+    card.querySelector('.edit-question').addEventListener('click', () => {
+        openQuestionModal(question.id);
+    });
+    
+    card.querySelector('.delete-question').addEventListener('click', () => {
+        deleteQuestion(question.id);
+    });
+    
+    // Toggle para mostrar/recolher opções
+    card.querySelector('.toggle-options').addEventListener('click', function() {
+        const optionsContainer = card.querySelector('.question-options');
+        const icon = this.querySelector('i');
+        
+        optionsContainer.classList.toggle('hidden');
+        icon.classList.toggle('fa-chevron-down');
+        icon.classList.toggle('fa-chevron-up');
+    });
+    
+    return card;
+}
+
+// Abrir modal da questão
+function openQuestionModal(questionId = null) {
+    editingQuestionId = questionId;
+    const modal = document.getElementById('question-modal');
+    const title = document.getElementById('question-modal-title');
+    
+    if (questionId) {
+        // Modo edição
+        title.textContent = 'Editar Questão';
+        
+        // Carregar dados da questão
+        db.collection('questions').doc(questionId).get()
+            .then(doc => {
+                if (doc.exists) {
+                    const question = doc.data();
+                    document.getElementById('question-text').value = question.text;
+                    document.getElementById('question-category').value = question.category || '';
+                    document.getElementById('option-a').value = question.options?.a || '';
+                    document.getElementById('option-b').value = question.options?.b || '';
+                    document.getElementById('option-c').value = question.options?.c || '';
+                    document.getElementById('option-d').value = question.options?.d || '';
+                    document.getElementById('correct-answer').value = question.correctAnswer || 'a';
+                }
+            });
+    } else {
+        // Modo criação
+        title.textContent = 'Adicionar Nova Questão';
+        // Limpar campos
+        document.getElementById('question-text').value = '';
+        document.getElementById('question-category').value = '';
+        document.getElementById('option-a').value = '';
+        document.getElementById('option-b').value = '';
+        document.getElementById('option-c').value = '';
+        document.getElementById('option-d').value = '';
+        document.getElementById('correct-answer').value = 'a';
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+// Fechar modal da questão
+function closeQuestionModal() {
+    document.getElementById('question-modal').classList.add('hidden');
+    editingQuestionId = null;
+}
+
+// Salvar questão
+function saveQuestion() {
+    const text = document.getElementById('question-text').value;
+    const category = document.getElementById('question-category').value;
+    const optionA = document.getElementById('option-a').value;
+    const optionB = document.getElementById('option-b').value;
+    const optionC = document.getElementById('option-c').value;
+    const optionD = document.getElementById('option-d').value;
+    const correctAnswer = document.getElementById('correct-answer').value;
+    
+    if (!text || !optionA || !optionB || !optionC || !optionD || !correctAnswer) {
+        alert('Por favor, preencha todos os campos.');
+        return;
+    }
+    
+    const questionData = {
+        text: text,
+        category: category || 'Geral',
+        options: {
+            a: optionA,
+            b: optionB,
+            c: optionC,
+            d: optionD
+        },
+        correctAnswer: correctAnswer,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    if (editingQuestionId) {
+        // Atualizar questão existente
+        db.collection('questions').doc(editingQuestionId).update(questionData)
+            .then(() => {
+                alert('Questão atualizada com sucesso!');
+                closeQuestionModal();
+                loadAdminQuestions();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar questão: ' + error.message);
+            });
+    } else {
+        // Criar nova questão
+        questionData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        
+        db.collection('questions').add(questionData)
+            .then(() => {
+                alert('Questão criada com sucesso!');
+                closeQuestionModal();
+                loadAdminQuestions();
+            })
+            .catch(error => {
+                alert('Erro ao criar questão: ' + error.message);
+            });
+    }
+}
+
+// Excluir questão
+function deleteQuestion(questionId) {
+    if (confirm('Tem certeza que deseja excluir esta questão? Esta ação não pode ser desfeita.')) {
+        db.collection('questions').doc(questionId).delete()
+        .then(() => {
+            alert('Questão excluída com sucesso!');
+            loadAdminQuestions();
+        })
+        .catch(error => {
+            alert('Erro ao excluir questão: ' + error.message);
+        });
+    }
+}
+
+// Abrir modal de importação
+function openImportModal() {
+    document.getElementById('import-modal').classList.remove('hidden');
+}
+
+// Fechar modal de importação
+function closeImportModal() {
+    document.getElementById('import-modal').classList.add('hidden');
+}
+
+// Importar questões de JSON
+function importQuestions() {
+    const jsonData = document.getElementById('json-data').value;
+    
+    if (!jsonData) {
+        alert('Por favor, cole o JSON com as questões.');
         return;
     }
     
     try {
-        await db.collection('users').doc(userId).delete();
-        showNotification("Sucesso", "Usuário excluído com sucesso!", "success");
-        await loadUsers();
+        const questions = JSON.parse(jsonData);
+        
+        if (!Array.isArray(questions)) {
+            alert('O JSON deve ser um array de questões.');
+            return;
+        }
+        
+        let importedCount = 0;
+        let errorCount = 0;
+        
+        // Importar cada questão
+        questions.forEach(question => {
+            if (question.text && question.options && question.correctAnswer) {
+                const questionData = {
+                    text: question.text,
+                    options: question.options,
+                    correctAnswer: question.correctAnswer.toLowerCase(),
+                    category: question.category || 'Geral',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                db.collection('questions').add(questionData)
+                    .then(() => {
+                        importedCount++;
+                    })
+                    .catch(error => {
+                        errorCount++;
+                        console.error('Erro ao importar questão:', error);
+                    });
+            } else {
+                errorCount++;
+            }
+        });
+        
+        // Aguardar um pouco para processar todas as importações
+        setTimeout(() => {
+            alert(`Importação concluída!\nQuestões importadas: ${importedCount}\nErros: ${errorCount}`);
+            closeImportModal();
+            loadAdminQuestions();
+        }, 2000);
+        
     } catch (error) {
-        console.error("Erro ao excluir usuário:", error);
-        showNotification("Erro", "Não foi possível excluir o usuário.", "error");
+        alert('Erro ao processar JSON: ' + error.message);
     }
 }
 
-// Mostrar notificação
-function showNotification(title, message, type = 'info') {
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
+// Carregar usuários para administrador
+function loadAdminUsers() {
+    const usersList = document.getElementById('admin-users-list');
+    usersList.innerHTML = '<div class="card"><div class="card-content">Carregando usuários...</div></div>';
     
-    let icon = 'fas fa-info-circle';
-    if (type === 'success') icon = 'fas fa-check-circle';
-    if (type === 'error') icon = 'fas fa-exclamation-circle';
-    if (type === 'warning') icon = 'fas fa-exclamation-triangle';
+    // Buscar todos os usuários
+    db.collection('users')
+        .orderBy('createdAt', 'desc')
+        .get()
+        .then(querySnapshot => {
+            usersList.innerHTML = '';
+            
+            if (querySnapshot.empty) {
+                usersList.innerHTML = '<div class="card"><div class="card-content">Nenhum usuário cadastrado.</div></div>';
+                return;
+            }
+            
+            querySnapshot.forEach(doc => {
+                const user = { id: doc.id, ...doc.data() };
+                const userCard = createAdminUserCard(user);
+                usersList.appendChild(userCard);
+            });
+        })
+        .catch(error => {
+            usersList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar usuários.</div></div>';
+            console.error('Erro ao carregar usuários:', error);
+        });
+}
+
+// Criar card de usuário para administrador
+function createAdminUserCard(user) {
+    const card = document.createElement('div');
+    card.className = 'card';
     
-    notification.innerHTML = `
-        <div class="notification-icon">
-            <i class="${icon}"></i>
+    const statusBadge = user.status === 'active' ? 
+        '<span class="card-badge success">Ativo</span>' : 
+        '<span class="card-badge danger">Inativo</span>';
+    
+    card.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${user.name}</h3>
+            <div>
+                ${statusBadge}
+                <span class="card-badge ${user.userType === 'admin' ? '' : 'card-badge-secondary'}">${user.userType === 'admin' ? 'Administrador' : 'Aluno'}</span>
+            </div>
         </div>
-        <div class="notification-content">
-            <div class="notification-title">${title}</div>
-            <div class="notification-message">${message}</div>
+        <div class="card-content">
+            <p><strong>E-mail:</strong> ${user.email}</p>
+            <p><strong>Tipo:</strong> ${user.userType}</p>
+            <p><strong>Status:</strong> ${user.status === 'active' ? 'Ativo' : 'Inativo'}</p>
+            <p><strong>Cadastrado em:</strong> ${user.createdAt ? user.createdAt.toDate().toLocaleDateString('pt-BR') : 'N/A'}</p>
         </div>
-        <button class="notification-close">
-            <i class="fas fa-times"></i>
-        </button>
+        <div class="card-actions">
+            <button class="btn btn-primary edit-user" data-user-id="${user.id}">
+                <i class="fas fa-edit"></i>
+                <span class="btn-text">Editar</span>
+            </button>
+            <button class="btn btn-secondary toggle-user" data-user-id="${user.id}" data-status="${user.status}">
+                <i class="fas fa-power-off"></i>
+                <span class="btn-text">${user.status === 'active' ? 'Desativar' : 'Ativar'}</span>
+            </button>
+            <button class="btn btn-danger delete-user" data-user-id="${user.id}">
+                <i class="fas fa-trash"></i>
+                <span class="btn-text">Excluir</span>
+            </button>
+        </div>
     `;
     
-    notificationContainer.appendChild(notification);
-    
-    // Configurar botão de fechar
-    const closeBtn = notification.querySelector('.notification-close');
-    closeBtn.addEventListener('click', () => {
-        notification.remove();
+    // Adicionar event listeners aos botões
+    card.querySelector('.edit-user').addEventListener('click', () => {
+        openUserModal(user.id);
     });
     
-    // Remover automaticamente após 5 segundos
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.remove();
-        }
-    }, 5000);
+    card.querySelector('.toggle-user').addEventListener('click', () => {
+        toggleUserStatus(user.id, user.status === 'active' ? 'inactive' : 'active');
+    });
+    
+    card.querySelector('.delete-user').addEventListener('click', () => {
+        deleteUser(user.id);
+    });
+    
+    return card;
 }
 
-// Funções para atualizar progresso (exemplo)
-async function updateProgress(operation, isCorrect) {
-    if (!currentUser || !userData) return;
+// Abrir modal do usuário
+function openUserModal(userId = null) {
+    editingUserId = userId;
+    const modal = document.getElementById('user-modal');
+    const title = document.getElementById('user-modal-title');
     
-    // Atualizar dados locais
-    progressData.exercisesCompleted++;
-    progressData.totalAnswers++;
-    
-    if (isCorrect) {
-        progressData.correctAnswers++;
+    if (userId) {
+        // Modo edição
+        title.textContent = 'Editar Usuário';
+        
+        // Carregar dados do usuário
+        db.collection('users').doc(userId).get()
+            .then(doc => {
+                if (doc.exists) {
+                    const user = doc.data();
+                    document.getElementById('user-name').value = user.name;
+                    document.getElementById('user-email').value = user.email;
+                    document.getElementById('user-type').value = user.userType;
+                    document.getElementById('user-status').value = user.status || 'active';
+                }
+            });
     }
     
-    progressData[operation].total++;
-    if (isCorrect) {
-        progressData[operation].correct++;
+    modal.classList.remove('hidden');
+}
+
+// Fechar modal do usuário
+function closeUserModal() {
+    document.getElementById('user-modal').classList.add('hidden');
+    editingUserId = null;
+}
+
+// Salvar usuário
+function saveUser() {
+    const name = document.getElementById('user-name').value;
+    const email = document.getElementById('user-email').value;
+    const userType = document.getElementById('user-type').value;
+    const status = document.getElementById('user-status').value;
+    
+    if (!name || !email) {
+        alert('Por favor, preencha todos os campos obrigatórios.');
+        return;
     }
     
-    // Calcular nível baseado em exercícios completados
-    progressData.level = Math.floor(progressData.exercisesCompleted / 10) + 1;
+    const userData = {
+        name: name,
+        email: email,
+        userType: userType,
+        status: status,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
     
-    // Atualizar UI
-    updateProgressUI();
-    
-    // Salvar no Firestore
-    try {
-        await db.collection('users').doc(currentUser.uid).update({
-            'progress': progressData,
-            'updatedAt': firebase.firestore.FieldValue.serverTimestamp()
+    if (editingUserId) {
+        // Atualizar usuário existente
+        db.collection('users').doc(editingUserId).update(userData)
+            .then(() => {
+                alert('Usuário atualizado com sucesso!');
+                closeUserModal();
+                loadAdminUsers();
+            })
+            .catch(error => {
+                alert('Erro ao atualizar usuário: ' + error.message);
+            });
+    }
+}
+
+// Alternar status do usuário
+function toggleUserStatus(userId, newStatus) {
+    db.collection('users').doc(userId).update({
+        status: newStatus,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+        alert('Status do usuário atualizado com sucesso!');
+        loadAdminUsers();
+    })
+    .catch(error => {
+        alert('Erro ao atualizar status do usuário: ' + error.message);
+    });
+}
+
+// Excluir usuário
+function deleteUser(userId) {
+    if (confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) {
+        // Excluir do Firestore
+        db.collection('users').doc(userId).delete()
+        .then(() => {
+            alert('Usuário excluído com sucesso!');
+            loadAdminUsers();
+        })
+        .catch(error => {
+            alert('Erro ao excluir usuário: ' + error.message);
         });
-    } catch (error) {
-        console.error("Erro ao salvar progresso:", error);
     }
 }
 
-// Inicializar analytics
-if (analytics) {
-    analytics.logEvent('app_loaded');
+// Carregar relatórios para administrador
+function loadAdminReports() {
+    const reportsContent = document.getElementById('admin-reports-content');
+    reportsContent.innerHTML = '<div class="card"><div class="card-content">Carregando relatórios...</div></div>';
+    
+    // Buscar estatísticas
+    Promise.all([
+        db.collection('users').get(),
+        db.collection('quizzes').get(),
+        db.collection('questions').get(),
+        db.collection('userQuizzes')
+            .where('status', '==', 'completed')
+            .get(),
+        db.collection('users')
+            .where('userType', '==', 'aluno')
+            .get()
+    ]).then(([usersSnapshot, quizzesSnapshot, questionsSnapshot, userQuizzesSnapshot, alunosSnapshot]) => {
+        
+        const totalUsers = usersSnapshot.size;
+        const totalQuizzes = quizzesSnapshot.size;
+        const totalQuestions = questionsSnapshot.size;
+        const totalAttempts = userQuizzesSnapshot.size;
+        const totalAlunos = alunosSnapshot.size;
+        
+        // Calcular média de pontuação
+        let totalScore = 0;
+        let totalPossibleScore = 0;
+        userQuizzesSnapshot.forEach(doc => {
+            const userQuiz = doc.data();
+            totalScore += userQuiz.score || 0;
+            totalPossibleScore += userQuiz.score ? (userQuiz.score / userQuiz.percentage * 100) : 0;
+        });
+        
+        const averageScore = totalAttempts > 0 ? (totalScore / totalPossibleScore * 100).toFixed(1) : 0;
+        
+        reportsContent.innerHTML = `
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Estatísticas Gerais</h3>
+                </div>
+                <div class="card-content">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value">${totalUsers}</div>
+                            <div class="stat-label">Total de Usuários</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${totalAlunos}</div>
+                            <div class="stat-label">Alunos</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${totalQuizzes}</div>
+                            <div class="stat-label">Quizzes</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${totalQuestions}</div>
+                            <div class="stat-label">Questões</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${totalAttempts}</div>
+                            <div class="stat-label">Tentativas</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">${averageScore}%</div>
+                            <div class="stat-label">Pontuação Média</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Distribuição de Desempenho</h3>
+                </div>
+                <div class="card-content">
+                    <canvas id="performanceChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Quizzes Mais Populares</h3>
+                </div>
+                <div class="card-content">
+                    <div id="popular-quizzes" class="popular-list">
+                        Carregando...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Top 5 Melhores Jogadores</h3>
+                </div>
+                <div class="card-content">
+                    <div id="top-players" class="ranking-list">
+                        Carregando...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Ranking Geral Completo</h3>
+                </div>
+                <div class="card-content">
+                    <div id="full-ranking" class="ranking-list">
+                        Carregando...
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        loadPerformanceChart();
+        loadPopularQuizzes();
+        loadTopPlayers();
+        loadFullRanking();
+        
+    }).catch(error => {
+        reportsContent.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar relatórios.</div></div>';
+        console.error('Erro ao carregar relatórios:', error);
+    });
 }
 
-// Expor funções globais necessárias
-window.startOperation = startOperation;
-window.startGame = startGame;
-window.editUser = editUser;
-window.deleteUser = deleteUser;
+// Carregar gráfico de desempenho
+function loadPerformanceChart() {
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const performanceRanges = {
+                '0-20': 0,
+                '21-40': 0,
+                '41-60': 0,
+                '61-80': 0,
+                '81-100': 0
+            };
+            
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const percentage = userQuiz.percentage || 0;
+                
+                if (percentage <= 20) performanceRanges['0-20']++;
+                else if (percentage <= 40) performanceRanges['21-40']++;
+                else if (percentage <= 60) performanceRanges['41-60']++;
+                else if (percentage <= 80) performanceRanges['61-80']++;
+                else performanceRanges['81-100']++;
+            });
+            
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['0-20%', '21-40%', '41-60%', '61-80%', '81-100%'],
+                    datasets: [{
+                        label: 'Número de Tentativas',
+                        data: [
+                            performanceRanges['0-20'],
+                            performanceRanges['21-40'],
+                            performanceRanges['41-60'],
+                            performanceRanges['61-80'],
+                            performanceRanges['81-100']
+                        ],
+                        backgroundColor: [
+                            '#dc3545',
+                            '#ffc107',
+                            '#17a2b8',
+                            '#28a745',
+                            '#007bff'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Número de Tentativas'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Faixa de Pontuação'
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Erro ao carregar gráfico:', error);
+        });
+}
+
+// Carregar quizzes populares
+function loadPopularQuizzes() {
+    const popularQuizzesElement = document.getElementById('popular-quizzes');
+    
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(userQuizzesSnapshot => {
+            const quizAttempts = {};
+            
+            // Contar tentativas por quiz
+            userQuizzesSnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const quizId = userQuiz.quizId;
+                
+                if (!quizAttempts[quizId]) {
+                    quizAttempts[quizId] = {
+                        attempts: 0,
+                        totalScore: 0,
+                        quizId: quizId
+                    };
+                }
+                
+                quizAttempts[quizId].attempts++;
+                quizAttempts[quizId].totalScore += userQuiz.score || 0;
+            });
+            
+            // Buscar informações dos quizzes
+            const quizIds = Object.keys(quizAttempts);
+            
+            if (quizIds.length === 0) {
+                popularQuizzesElement.innerHTML = '<p>Nenhum quiz foi realizado ainda.</p>';
+                return;
+            }
+            
+            db.collection('quizzes')
+                .where(firebase.firestore.FieldPath.documentId(), 'in', quizIds)
+                .get()
+                .then(quizzesSnapshot => {
+                    const quizzesMap = {};
+                    quizzesSnapshot.forEach(doc => {
+                        quizzesMap[doc.id] = doc.data();
+                    });
+                    
+                    // Criar lista ordenada por tentativas
+                    const popularList = Object.values(quizAttempts)
+                        .sort((a, b) => b.attempts - a.attempts)
+                        .slice(0, 5);
+                    
+                    let html = '';
+                    popularList.forEach((item, index) => {
+                        const quiz = quizzesMap[item.quizId];
+                        if (quiz) {
+                            const avgScore = item.attempts > 0 ? (item.totalScore / item.attempts).toFixed(1) : 0;
+                            html += `
+                                <div class="popular-item">
+                                    <div class="popular-rank">${index + 1}</div>
+                                    <div class="popular-info">
+                                        <div class="popular-name">${quiz.title}</div>
+                                        <div class="popular-details">
+                                            ${item.attempts} tentativas • Média: ${avgScore} pts
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    popularQuizzesElement.innerHTML = html || '<p>Nenhum dado disponível.</p>';
+                });
+        })
+        .catch(error => {
+            popularQuizzesElement.innerHTML = '<p>Erro ao carregar dados.</p>';
+            console.error('Erro ao carregar quizzes populares:', error);
+        });
+}
+
+// Carregar melhores jogadores
+function loadTopPlayers() {
+    const topPlayersElement = document.getElementById('top-players');
+    
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(userQuizzesSnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            userQuizzesSnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter para array e ordenar
+            const topPlayers = Object.values(userScores)
+                .sort((a, b) => b.totalScore - a.totalScore)
+                .slice(0, 5);
+            
+            // Buscar informações dos usuários
+            const userIds = topPlayers.map(player => player.userId);
+            
+            if (userIds.length === 0) {
+                topPlayersElement.innerHTML = '<p>Nenhum jogador com pontuação ainda.</p>';
+                return;
+            }
+            
+            // CORREÇÃO: Usar a função corrigida para carregar usuários
+            loadUsersInBatches(userIds, topPlayers, topPlayersElement, true);
+        })
+        .catch(error => {
+            topPlayersElement.innerHTML = '<p>Erro ao carregar dados.</p>';
+            console.error('Erro ao carregar melhores jogadores:', error);
+        });
+}
+
+// CORREÇÃO: Função loadFullRanking completamente reescrita
+function loadFullRanking() {
+    const fullRankingElement = document.getElementById('full-ranking');
+    fullRankingElement.innerHTML = '<div class="ranking-list">Carregando ranking completo...</div>';
+    
+    console.log('🔄 Iniciando carregamento do ranking completo...');
+    
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(userQuizzesSnapshot => {
+            console.log('✅ Quizzes completados encontrados:', userQuizzesSnapshot.size);
+            
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            userQuizzesSnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter para array e ordenar
+            const fullRanking = Object.values(userScores)
+                .sort((a, b) => b.totalScore - a.totalScore);
+            
+            console.log('👥 Usuários no ranking:', fullRanking.length);
+            
+            // Buscar informações dos usuários
+            const userIds = fullRanking.map(player => player.userId);
+            
+            if (userIds.length === 0) {
+                fullRankingElement.innerHTML = '<p>Nenhum jogador com pontuação ainda.</p>';
+                return;
+            }
+            
+            // CORREÇÃO: Usar a função corrigida para carregar usuários em lotes
+            loadUsersInBatchesForFullRanking(userIds, fullRanking, fullRankingElement);
+        })
+        .catch(error => {
+            console.error('❌ Erro ao carregar ranking completo:', error);
+            fullRankingElement.innerHTML = '<p>Erro ao carregar dados do ranking.</p>';
+        });
+}
+
+// CORREÇÃO: Nova função para carregar usuários em lotes para o ranking completo
+function loadUsersInBatchesForFullRanking(userIds, fullRanking, fullRankingElement) {
+    const batchSize = 10;
+    const userBatches = [];
+    
+    // Dividir usuários em lotes de 10
+    for (let i = 0; i < userIds.length; i += batchSize) {
+        userBatches.push(userIds.slice(i, i + batchSize));
+    }
+    
+    const usersMap = {};
+    let batchesProcessed = 0;
+    const totalBatches = userBatches.length;
+    
+    console.log(`📦 Processando ${totalBatches} lotes de usuários...`);
+    
+    // Processar cada lote
+    userBatches.forEach((batch, batchIndex) => {
+        db.collection('users')
+            .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+            .get()
+            .then(usersSnapshot => {
+                usersSnapshot.forEach(doc => {
+                    usersMap[doc.id] = doc.data();
+                });
+                
+                batchesProcessed++;
+                console.log(`✅ Lote ${batchIndex + 1}/${totalBatches} processado`);
+                
+                // Atualizar progresso
+                const progress = Math.round((batchesProcessed / totalBatches) * 100);
+                fullRankingElement.innerHTML = `<div class="ranking-list">Carregando ranking... ${progress}%</div>`;
+                
+                // Quando todos os lotes forem processados, exibir o ranking completo
+                if (batchesProcessed === totalBatches) {
+                    console.log('🎉 Todos os lotes processados, exibindo ranking...');
+                    displayFullRanking(fullRanking, usersMap, fullRankingElement);
+                }
+            })
+            .catch(error => {
+                console.error(`❌ Erro ao buscar lote ${batchIndex + 1} de usuários:`, error);
+                batchesProcessed++;
+                
+                if (batchesProcessed === totalBatches) {
+                    displayFullRanking(fullRanking, usersMap, fullRankingElement);
+                }
+            });
+    });
+}
+
+// CORREÇÃO: Exibir ranking completo
+function displayFullRanking(fullRanking, usersMap, fullRankingElement) {
+    let html = '';
+    
+    fullRanking.forEach((player, index) => {
+        const user = usersMap[player.userId];
+        if (user) {
+            const avgScore = player.totalQuizzes > 0 ? (player.totalScore / player.totalQuizzes).toFixed(1) : 0;
+            
+            // Destacar usuário atual
+            const isCurrentUser = player.userId === currentUser.uid;
+            const highlightClass = isCurrentUser ? 'ranking-item-highlight' : '';
+            
+            html += `
+                <div class="ranking-item ${highlightClass}">
+                    <div class="ranking-position">${index + 1}</div>
+                    <div class="ranking-info">
+                        <div class="ranking-name">${user.name} ${isCurrentUser ? '(Você)' : ''}</div>
+                        <div class="ranking-details">
+                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts
+                        </div>
+                    </div>
+                    <div class="ranking-score">${player.totalScore} pts</div>
+                </div>
+            `;
+        }
+    });
+    
+    if (html === '') {
+        html = '<p>Nenhum dado disponível para exibir.</p>';
+    }
+    
+    fullRankingElement.innerHTML = html;
+    
+    console.log('✅ Ranking completo carregado com sucesso!');
+}
