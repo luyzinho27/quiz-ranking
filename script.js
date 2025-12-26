@@ -1,11 +1,11 @@
 // Configuração do Firebase
 const firebaseConfig = {
-    apiKey: "AIzaSyD3e5rXGWsaeHHHx5YO3lwKz5poIwZbLiM",
-    authDomain: "quiz-informatica-2025.firebaseapp.com",
-    projectId: "quiz-informatica-2025",
-    storageBucket: "quiz-informatica-2025.firebasestorage.app",
-    messagingSenderId: "1006125147967",
-    appId: "1:1006125147967:web:539b201776164523e5558a"
+  apiKey: "AIzaSyBwK58We6awwwCMuHThYZA8iXXji5MuVeI",
+  authDomain: "mathkids-de4a0.firebaseapp.com",
+  projectId: "mathkids-de4a0",
+  storageBucket: "mathkids-de4a0.firebasestorage.app",
+  messagingSenderId: "463966125316",
+  appId: "1:463966125316:web:6656af016d1c5a44da6451"
 };
 
 // Inicializar Firebase
@@ -3317,3 +3317,4 @@ function displayFullRanking(fullRanking, usersMap, fullRankingElement) {
     
     console.log('✅ Ranking completo carregado com sucesso!');
 }
+
