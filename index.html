@@ -3,606 +3,898 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MathMaster - Plataforma de Aprendizado de Matemática</title>
+    <title>QuizMaster - Sistema de Quiz Educacional</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+    <!-- Firebase App (core) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- Ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
 </head>
 <body>
-    <!-- Overlay de Carregamento -->
-    <div id="loadingOverlay" class="loading-overlay active">
-        <div class="loading-content">
-            <div class="loading-spinner">
-                <div class="spinner"></div>
-            </div>
-            <p>Carregando MathMaster...</p>
-        </div>
-    </div>
-
     <!-- Tela de Login/Cadastro -->
-    <div id="authScreen" class="auth-screen active">
-        <div class="auth-container">
+    <div id="auth-container" class="container">
+        <div class="auth-wrapper">
             <div class="auth-header">
-                <div class="auth-logo">
+                <div class="logo">
                     <i class="fas fa-brain"></i>
-                    <h1>Math<span>Master</span></h1>
+                    <h1>QuizMaster</h1>
                 </div>
-                <p class="auth-subtitle">Domine a matemática de forma divertida e interativa</p>
+                <p>Teste seus conhecimentos e entre no ranking!</p>
             </div>
-
-            <div class="auth-tabs">
-                <button class="auth-tab active" data-tab="login">Entrar</button>
-                <button class="auth-tab" data-tab="register">Cadastrar</button>
-                <button class="auth-tab" data-tab="recover">Recuperar Senha</button>
-            </div>
-
-            <!-- Formulário de Login -->
-            <div id="loginForm" class="auth-form active">
-                <div class="form-group">
-                    <label for="loginEmail">
-                        <i class="fas fa-envelope"></i> Email
-                    </label>
-                    <input type="email" id="loginEmail" placeholder="seu@email.com" required>
+            
+            <div class="auth-box">
+                <div class="tabs">
+                    <button id="login-tab" class="tab active">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Login
+                    </button>
+                    <button id="register-tab" class="tab">
+                        <i class="fas fa-user-plus"></i>
+                        Cadastro
+                    </button>
                 </div>
                 
-                <div class="form-group">
-                    <label for="loginPassword">
-                        <i class="fas fa-lock"></i> Senha
-                    </label>
-                    <div class="password-input">
-                        <input type="password" id="loginPassword" placeholder="Sua senha" required>
-                        <button type="button" class="toggle-password" data-target="loginPassword">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                <!-- Formulário de Login -->
+                <form id="login-form" class="form active">
+                    <h2>Entre na sua conta</h2>
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="login-email" placeholder="E-mail" required>
                     </div>
-                </div>
-
-                <div class="form-options">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="rememberMe">
-                        <span>Lembrar de mim</span>
-                    </label>
-                    <a href="#" class="forgot-password" data-tab="recover">Esqueceu a senha?</a>
-                </div>
-
-                <button id="loginBtn" class="btn-auth btn-primary">
-                    <i class="fas fa-sign-in-alt"></i> Entrar
-                </button>
-
-                <div class="auth-divider">
-                    <span>ou entre com</span>
-                </div>
-
-                <button id="googleLoginBtn" class="btn-auth btn-google">
-                    <i class="fab fa-google"></i> Google
-                </button>
-
-                <div class="auth-footer">
-                    <p>Não tem uma conta? <a href="#" class="switch-tab" data-tab="register">Cadastre-se</a></p>
-                </div>
-            </div>
-
-            <!-- Formulário de Cadastro -->
-            <div id="registerForm" class="auth-form">
-                <div class="form-group">
-                    <label for="registerName">
-                        <i class="fas fa-user"></i> Nome Completo
-                    </label>
-                    <input type="text" id="registerName" placeholder="Seu nome completo" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="registerEmail">
-                        <i class="fas fa-envelope"></i> Email
-                    </label>
-                    <input type="email" id="registerEmail" placeholder="seu@email.com" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="registerPassword">
-                        <i class="fas fa-lock"></i> Senha
-                    </label>
-                    <div class="password-input">
-                        <input type="password" id="registerPassword" placeholder="Mínimo 6 caracteres" required>
-                        <button type="button" class="toggle-password" data-target="registerPassword">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                    <div class="input-group password-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="login-password" placeholder="Senha" required>
+                        <i class="toggle-password fas fa-eye-slash" id="toggle-login-password"></i>
                     </div>
-                    <small class="password-hint">A senha deve ter pelo menos 6 caracteres</small>
-                </div>
-
-                <div class="form-group">
-                    <label for="registerConfirmPassword">
-                        <i class="fas fa-lock"></i> Confirmar Senha
-                    </label>
-                    <div class="password-input">
-                        <input type="password" id="registerConfirmPassword" placeholder="Confirme sua senha" required>
-                        <button type="button" class="toggle-password" data-target="registerConfirmPassword">
-                            <i class="fas fa-eye"></i>
-                        </button>
+                    <button type="submit" id="login-btn" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Entrar
+                    </button>
+                    <div class="auth-links">
+                        <a href="#" id="forgot-password">Esqueci minha senha</a>
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="userType">
-                        <i class="fas fa-user-tag"></i> Tipo de Usuário
-                    </label>
-                    <select id="userType" required>
-                        <option value="" disabled selected>Selecione o tipo de usuário</option>
-                        <option value="student">Aluno</option>
-                        <option value="admin" id="adminOption" disabled>Administrador</option>
-                    </select>
-                    <small class="admin-hint" id="adminHint">O cadastro de administrador está disponível apenas para administradores existentes</small>
-                </div>
-
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="acceptTerms" required>
-                        <span>Eu concordo com os <a href="#" class="terms-link">Termos de Serviço</a> e <a href="#" class="terms-link">Política de Privacidade</a></span>
-                    </label>
-                </div>
-
-                <button id="registerBtn" class="btn-auth btn-primary">
-                    <i class="fas fa-user-plus"></i> Criar Conta
-                </button>
-
-                <div class="auth-footer">
-                    <p>Já tem uma conta? <a href="#" class="switch-tab" data-tab="login">Faça login</a></p>
-                </div>
+                    <p id="login-error" class="error-message"></p>
+                </form>
+                
+                <!-- Formulário de Cadastro -->
+                <form id="register-form" class="form">
+                    <h2>Crie sua conta</h2>
+                    <div class="input-group">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="register-name" placeholder="Nome completo" required>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="register-email" placeholder="E-mail" required>
+                    </div>
+                    <div class="input-group password-group">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="register-password" placeholder="Senha" required>
+                        <i class="toggle-password fas fa-eye-slash" id="toggle-register-password"></i>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-users"></i>
+                        <select id="register-type">
+                            <option value="aluno">Aluno</option>
+                            <option value="admin" id="admin-option">Administrador</option>
+                        </select>
+                    </div>
+                    <button type="submit" id="register-btn" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i>
+                        Cadastrar
+                    </button>
+                    <p id="register-error" class="error-message"></p>
+                </form>
             </div>
-
-            <!-- Formulário de Recuperação de Senha -->
-            <div id="recoverForm" class="auth-form">
-                <div class="recover-icon">
-                    <i class="fas fa-key"></i>
-                </div>
-                <h3>Recuperar Senha</h3>
-                <p class="recover-text">Digite seu email para receber um link de recuperação de senha</p>
-
-                <div class="form-group">
-                    <label for="recoverEmail">
-                        <i class="fas fa-envelope"></i> Email
-                    </label>
-                    <input type="email" id="recoverEmail" placeholder="seu@email.com" required>
-                </div>
-
-                <button id="recoverBtn" class="btn-auth btn-primary">
-                    <i class="fas fa-paper-plane"></i> Enviar Link de Recuperação
-                </button>
-
-                <div class="auth-footer">
-                    <p>Lembrou sua senha? <a href="#" class="switch-tab" data-tab="login">Faça login</a></p>
-                </div>
-            </div>
-        </div>
-
-        <div class="auth-features">
-            <div class="feature-card">
-                <i class="fas fa-gamepad"></i>
-                <h3>Jogos Educativos</h3>
-                <p>Aprenda matemática enquanto se diverte com nossos jogos interativos</p>
-            </div>
-            <div class="feature-card">
-                <i class="fas fa-chart-line"></i>
-                <h3>Acompanhamento Personalizado</h3>
-                <p>Monitore seu progresso com gráficos e relatórios detalhados</p>
-            </div>
-            <div class="feature-card">
-                <i class="fas fa-trophy"></i>
-                <h3>Desafios e Conquistas</h3>
-                <p>Supere desafios e desbloqueie conquistas enquanto aprende</p>
+            
+            <div class="auth-footer">
+                <p>&copy; 2025 QuizMaster. Todos os direitos reservados.</p>
             </div>
         </div>
     </div>
 
-    <!-- Aplicação Principal (após login) -->
-    <div id="mainApp" class="main-app">
-        <!-- Cabeçalho -->
-        <header class="app-header">
-            <div class="header-container">
-                <div class="header-left">
-                    <button class="menu-toggle" id="menuToggle">
-                        <i class="fas fa-bars"></i>
+    <!-- Dashboard do Aluno -->
+    <div id="student-dashboard" class="container hidden">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <a href="#" id="auth-links-1" onclick="window.location.reload(); return false;">
+				    <div class="logo">
+				        <i class="fas fa-brain"></i>
+				        <h1>QuizMaster</h1> </div>
+				</a>
+                <nav class="tabs">
+                    <button id="quizzes-tab" class="tab active">
+                        <i class="fas fa-list-alt"></i>
+                        <span class="tab-text">Quizzes</span>
                     </button>
-                    <div class="app-logo">
-                        <i class="fas fa-brain"></i>
-                        <h1>Math<span>Master</span></h1>
+                    <button id="ranking-tab" class="tab">
+                        <i class="fas fa-trophy"></i>
+                        <span class="tab-text">Ranking</span>
+                    </button>
+                    <button id="history-tab" class="tab">
+                        <i class="fas fa-history"></i>
+                        <span class="tab-text">Histórico</span>
+                    </button>
+                    <button id="about-tab" class="tab">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="tab-text">Sobre</span>
+                    </button>
+                </nav>
+            </div>
+            <div class="user-info">
+                <div class="user-details">
+                    <span id="student-name" class="user-name"></span>
+                    <span class="user-role">Aluno</span>
+                </div>
+                <button id="student-logout" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="btn-text">Sair</span>
+                </button>
+            </div>
+        </header>
+        
+        <main class="dashboard-content">
+            <!-- Lista de Quizzes -->
+            <div id="quizzes-section" class="section active">
+                <div class="section-header">
+                    <h2>Quizzes Disponíveis</h2>
+                    <p>Teste seus conhecimentos e suba no ranking!</p>
+                </div>
+                <div id="quizzes-list" class="cards-container"></div>
+            </div>
+            
+            <!-- Ranking -->
+            <div id="ranking-section" class="section">
+                <div class="section-header">
+                    <h2>Ranking Geral</h2>
+                    <p>Veja os melhores colocados</p>
+                </div>
+                <div id="ranking-list" class="ranking-container"></div>
+            </div>
+
+            <!-- Histórico -->
+            <div id="history-section" class="section">
+                <div class="section-header">
+                    <h2>Meu Histórico</h2>
+                    <p>Veja seu desempenho nos quizzes</p>
+                </div>
+                <div id="history-list" class="cards-container"></div>
+            </div>
+
+            <!-- Sobre o QuizMaster -->
+            <div id="about-section" class="section">
+                <div class="about-container">
+                    <div class="about-header">
+                        <h1>Sobre o QuizMaster</h1>
+                        <p>Uma plataforma educacional inovadora para testar e expandir seus conhecimentos</p>
+                    </div>
+
+                    <div class="about-content">
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-rocket"></i> Sobre a Aplicação</h2>
+                            <p>
+                                O <strong>QuizMaster</strong> é uma plataforma web desenvolvida para proporcionar uma experiência 
+                                educacional interativa e envolvente através de quizzes dinâmicos. Nossa missão é transformar 
+                                o aprendizado em uma jornada divertida e desafiadora, permitindo que estudantes testem seus 
+                                conhecimentos, acompanhem seu progresso e compitam de forma saudável com colegas.
+                            </p>
+                            
+                            <div class="features-grid">
+                                <div class="feature-card">
+                                    <i class="fas fa-brain"></i>
+                                    <h3>Quizzes Dinâmicos</h3>
+                                    <p>Questões aleatórias selecionadas de um banco de dados diversificado</p>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-trophy"></i>
+                                    <h3>Sistema de Ranking</h3>
+                                    <p>Classificação em tempo real baseada no desempenho dos usuários</p>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-chart-line"></i>
+                                    <h3>Análise de Desempenho</h3>
+                                    <p>Relatórios detalhados e histórico completo de tentativas</p>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-users-cog"></i>
+                                    <h3>Painel Administrativo</h3>
+                                    <p>Ferramentas completas para gerenciar quizzes, questões e usuários</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-code"></i> Tecnologias Utilizadas</h2>
+                            <div class="tech-stack">
+                                <div class="tech-item">
+                                    <i class="fab fa-html5"></i>
+                                    <span>HTML5</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fab fa-css3-alt"></i>
+                                    <span>CSS3</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fab fa-js-square"></i>
+                                    <span>JavaScript</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fas fa-database"></i>
+                                    <span>Firebase</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fab fa-google"></i>
+                                    <span>Firestore</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-user-tie"></i> Sobre o Desenvolvedor</h2>
+                            <div class="developer-info">
+                                <div class="developer-card">
+                                    <div class="developer-avatar">
+									    <img src="images/foto-perfil.jpg" alt="Luiz Sérgio Garcia Carvalho" class="avatar-image">
+									</div>
+                                    <div class="developer-details">
+                                        <h3>Desenvolvedor Full Stack</h3>
+                                        <p>
+                                            Luiz Sérgio Garcia Carvalho, professor de Matemática e também Bacharel em Sistemas de Informações.
+                                            Profissional apaixonado por tecnologia e educação, com experiência em sala de aula e novo no 
+                                            desenvolvimento de aplicações web modernas e responsivas. Comprometido em criar soluções que realmente 
+                                            façam a diferença na vida dos usuários.
+                                        </p>
+                                        <div class="tech-item">
+											<h3>Habilidades Técnicas:</h3>
+											<i class="fab fa-js-square"></i>
+											<span>JavaScript</span>
+										</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-envelope"></i> Contato & Suporte</h2>
+                            <div class="contact-grid">
+                                <div class="contact-card">
+									<i class="fab fa-whatsapp"></i>
+									<h3>Celular/WhatsApp</h3>
+                                    <p>(91)99306-4354</p>
+                                    <i class="fas fa-envelope"></i>
+                                    <h3>Email</h3>
+                                    <p>luizynho27@email.com</p>
+                                    <a href="mailto:luizynho27@email.com" class="contact-link">Enviar Email</a>
+                                </div>
+                                <div class="contact-card">
+                                    <i class="fab fa-github"></i>
+                                    <h3>GitHub</h3>
+                                    <p>/luyzinho27</p>
+                                    <a href="https://github.com/luyzinho27" target="_blank" class="contact-link">Visitar Perfil</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-heart"></i> Agradecimentos</h2>
+                            <p>
+                                Agradeço a todos os usuários que utilizam o QuizMaster e contribuem para o crescimento 
+                                desta plataforma. Seu feedback é essencial para continuarmos melhorando e oferecendo 
+                                a melhor experiência possível.
+                            </p>
+                            <p class="version-info">
+                                <strong>Versão:</strong> 1.0.1 | <strong>Última atualização:</strong> dezembro de 2025
+                            </p>
+                        </div>
                     </div>
                 </div>
+            </div>
+        </main>
+    </div>
 
-                <div class="header-center">
-                    <nav class="main-nav">
-                        <ul>
-                            <li><a href="#dashboard" class="nav-link active"><i class="fas fa-home"></i> Início</a></li>
-                            <li><a href="#learn" class="nav-link"><i class="fas fa-book-open"></i> Aprender</a></li>
-                            <li><a href="#games" class="nav-link"><i class="fas fa-gamepad"></i> Jogos</a></li>
-                            <li><a href="#progress" class="nav-link"><i class="fas fa-chart-line"></i> Progresso</a></li>
-                            <li id="adminNav" style="display: none;"><a href="#admin" class="nav-link"><i class="fas fa-cog"></i> Admin</a></li>
-                        </ul>
-                    </nav>
+    <!-- Dashboard do Administrador -->
+    <div id="admin-dashboard" class="container hidden">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <a href="#" id="auth-links-1" onclick="window.location.reload(); return false;">
+				    <div class="logo">
+				        <i class="fas fa-brain"></i>
+				        <h1>QuizMaster</h1> </div>
+				</a>
+                <nav class="tabs">
+                    <button id="admin-quizzes-tab" class="tab active">
+                        <i class="fas fa-list-alt"></i>
+                        <span class="tab-text">Gerenciar Quizzes</span>
+                    </button>
+                    <button id="admin-questions-tab" class="tab">
+                        <i class="fas fa-question-circle"></i>
+                        <span class="tab-text">Questões</span>
+                    </button>
+                    <button id="admin-users-tab" class="tab">
+                        <i class="fas fa-users"></i>
+                        <span class="tab-text">Usuários</span>
+                    </button>
+                    <button id="admin-reports-tab" class="tab">
+                        <i class="fas fa-chart-bar"></i>
+                        <span class="tab-text">Relatórios</span>
+                    </button>
+                    <button id="admin-about-tab" class="tab">
+                        <i class="fas fa-info-circle"></i>
+                        <span class="tab-text">Sobre</span>
+                    </button>
+                </nav>
+            </div>
+            <div class="user-info">
+                <div class="user-details">
+                    <span id="admin-name" class="user-name"></span>
+                    <span class="user-role">Administrador</span>
                 </div>
-
-                <div class="header-right">
-                    <div class="user-menu">
-                        <button class="user-btn" id="userBtn">
-                            <div class="user-avatar">
-                                <i class="fas fa-user"></i>
-                            </div>
-                            <span class="user-name" id="userName">Usuário</span>
-                            <i class="fas fa-chevron-down"></i>
+                <button id="admin-logout" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="btn-text">Sair</span>
+                </button>
+            </div>
+        </header>
+        
+        <main class="dashboard-content">
+            <!-- Gerenciar Quizzes -->
+            <div id="admin-quizzes-section" class="section active">
+                <div class="section-header">
+                    <h2>Gerenciar Quizzes</h2>
+                    <p>Crie e edite quizzes disponíveis para os alunos</p>
+                    <button id="create-quiz-btn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        <span class="btn-text">Criar Novo Quiz</span>
+                    </button>
+                </div>
+                <div id="admin-quizzes-list" class="cards-container"></div>
+            </div>
+            
+            <!-- Gerenciar Questões -->
+            <div id="admin-questions-section" class="section">
+                <div class="section-header">
+                    <h2>Gerenciar Questões</h2>
+                    <p>Adicione e edite questões para os quizzes</p>
+                    <div class="section-actions">
+                        <button id="create-question-btn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            <span class="btn-text">Adicionar Questão</span>
                         </button>
-                        <div class="user-dropdown" id="userDropdown">
-                            <div class="dropdown-header">
-                                <div class="dropdown-avatar">
-                                    <i class="fas fa-user"></i>
+                        <button id="import-questions-btn" class="btn btn-secondary">
+                            <i class="fas fa-file-import"></i>
+                            <span class="btn-text">Importar JSON</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="admin-questions-list" class="cards-container"></div>
+            </div>
+
+            <!-- Gerenciar Usuários -->
+            <div id="admin-users-section" class="section">
+                <div class="section-header">
+                    <h2>Gerenciar Usuários</h2>
+                    <p>Visualize e gerencie usuários do sistema</p>
+                </div>
+                <div id="admin-users-list" class="cards-container"></div>
+            </div>
+
+            <!-- Relatórios -->
+            <div id="admin-reports-section" class="section">
+                <div class="section-header">
+                    <h2>Relatórios</h2>
+                    <p>Visualize estatísticas e desempenho dos alunos</p>
+                </div>
+                <div id="admin-reports-content" class="cards-container"></div>
+            </div>
+
+            <!-- Sobre o QuizMaster -->
+            <div id="admin-about-section" class="section">
+                <div class="about-container">
+                    <div class="about-header">
+                        <h1>Sobre o QuizMaster</h1>
+                        <p>Uma plataforma educacional inovadora para testar e expandir seus conhecimentos</p>
+                    </div>
+
+                    <div class="about-content">
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-rocket"></i> Sobre a Aplicação</h2>
+                            <p>
+                                O <strong>QuizMaster</strong> é uma plataforma web desenvolvida para proporcionar uma experiência 
+                                educacional interativa e envolvente através de quizzes dinâmicos. Nossa missão é transformar 
+                                o aprendizado em uma jornada divertida e desafiadora, permitindo que estudantes testem seus 
+                                conhecimentos, acompanhem seu progresso e compitam de forma saudável com colegas.
+                            </p>
+                            
+                            <div class="features-grid">
+                                <div class="feature-card">
+                                    <i class="fas fa-brain"></i>
+                                    <h3>Quizzes Dinâmicos</h3>
+                                    <p>Questões aleatórias selecionadas de um banco de dados diversificado</p>
                                 </div>
-                                <div class="dropdown-user-info">
-                                    <h4 id="dropdownUserName">Usuário</h4>
-                                    <span class="user-role" id="dropdownUserRole">Aluno</span>
+                                <div class="feature-card">
+                                    <i class="fas fa-trophy"></i>
+                                    <h3>Sistema de Ranking</h3>
+                                    <p>Classificação em tempo real baseada no desempenho dos usuários</p>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-chart-line"></i>
+                                    <h3>Análise de Desempenho</h3>
+                                    <p>Relatórios detalhados e histórico completo de tentativas</p>
+                                </div>
+                                <div class="feature-card">
+                                    <i class="fas fa-users-cog"></i>
+                                    <h3>Painel Administrativo</h3>
+                                    <p>Ferramentas completas para gerenciar quizzes, questões e usuários</p>
                                 </div>
                             </div>
-                            <div class="dropdown-divider"></div>
-                            <a href="#profile" class="dropdown-item">
-                                <i class="fas fa-user-edit"></i> Meu Perfil
-                            </a>
-                            <a href="#settings" class="dropdown-item">
-                                <i class="fas fa-cog"></i> Configurações
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <button id="logoutBtn" class="dropdown-item logout">
-                                <i class="fas fa-sign-out-alt"></i> Sair
-                            </button>
                         </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-code"></i> Tecnologias Utilizadas</h2>
+                            <div class="tech-stack">
+                                <div class="tech-item">
+                                    <i class="fab fa-html5"></i>
+                                    <span>HTML5</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fab fa-css3-alt"></i>
+                                    <span>CSS3</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fab fa-js-square"></i>
+                                    <span>JavaScript</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fas fa-database"></i>
+                                    <span>Firebase</span>
+                                </div>
+                                <div class="tech-item">
+                                    <i class="fab fa-google"></i>
+                                    <span>Firestore</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-user-tie"></i> Sobre o Desenvolvedor</h2>
+                            <div class="developer-info">
+                                <div class="developer-card">
+                                    <div class="developer-avatar">
+									    <img src="images/foto-perfil.jpg" alt="Luiz Sérgio Garcia Carvalho" class="avatar-image">
+									</div>
+                                    <div class="developer-details">
+                                        <h3>Desenvolvedor Full Stack</h3>
+                                        <p>
+                                            Luiz Sérgio Garcia Carvalho, professor de Matemática e também Bacharel em Sistemas de Informações.
+                                            Profissional apaixonado por tecnologia e educação, com experiência em sala de aula e novo no 
+                                            desenvolvimento de aplicações web modernas e responsivas. Comprometido em criar soluções que realmente 
+                                            façam a diferença na vida dos usuários.
+                                        </p>
+                                        <div class="tech-item">
+											<h3>Habilidades Técnicas:</h3>
+											<i class="fab fa-js-square"></i>
+											<span>JavaScript</span>
+										</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-envelope"></i> Contato & Suporte</h2>
+                            <div class="contact-grid">
+                                <div class="contact-card">
+									<i class="fab fa-whatsapp"></i>
+									<h3>Celular/WhatsApp</h3>
+                                    <p>(91)99306-4354</p>
+                                    <i class="fas fa-envelope"></i>
+                                    <h3>Email</h3>
+                                    <p>luizynho27@email.com</p>
+                                    <a href="mailto:luizynho27@email.com" class="contact-link">Enviar Email</a>
+                                </div>
+                                <div class="contact-card">
+                                    <i class="fab fa-github"></i>
+                                    <h3>GitHub</h3>
+                                    <p>/luyzinho27</p>
+                                    <a href="https://github.com/luyzinho27" target="_blank" class="contact-link">Visitar Perfil</a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="about-section-content">
+                            <h2><i class="fas fa-heart"></i> Agradecimentos</h2>
+                            <p>
+                                Agradeço a todos os usuários que utilizam o QuizMaster e contribuem para o crescimento 
+                                desta plataforma. Seu feedback é essencial para continuarmos melhorando e oferecendo 
+                                a melhor experiência possível.
+                            </p>
+                            <p class="version-info">
+                                <strong>Versão:</strong> 1.0.1 | <strong>Última atualização:</strong> dezembro de 2025
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Tela do Quiz -->
+    <div id="quiz-container" class="container hidden">
+        <header class="quiz-header">
+            <div class="quiz-info">
+                <h1 id="quiz-title-display"></h1>
+                <p id="quiz-description-display"></p>
+            </div>
+            <div class="quiz-controls-top">
+                <button id="exit-quiz-btn" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span class="btn-text">Sair do Quiz</span>
+                </button>
+                <div class="quiz-timer">
+                    <div class="timer-circle">
+                        <svg width="60" height="60">
+                            <circle cx="30" cy="30" r="28" stroke="#e0e0e0" stroke-width="3" fill="none"></circle>
+                            <circle id="timer-progress" cx="30" cy="30" r="28" stroke="#4a6cf7" stroke-width="3" fill="none" 
+                                    stroke-dasharray="175" stroke-dashoffset="0" transform="rotate(-90 30 30)"></circle>
+                        </svg>
+                        <span id="quiz-timer">00:00</span>
                     </div>
                 </div>
             </div>
         </header>
-
-        <!-- Menu Lateral -->
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-user">
-                    <div class="sidebar-avatar">
-                        <i class="fas fa-user"></i>
+        
+        <main class="quiz-content">
+            <div class="quiz-progress">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <span id="quiz-progress-text">Questão 0/0</span>
+            </div>
+            
+            <div id="question-container" class="question-container">
+                <div class="question-text-container">
+                    <h2 id="question-text">Carregando questão...</h2>
+                </div>
+                <div id="options-container" class="options-container">
+                    <div class="option" data-value="a">
+                        <div class="option-content">
+                            <span class="option-letter">A</span>
+                            <span id="option-a-text" class="option-text">Carregando opção A...</span>
+                        </div>
                     </div>
-                    <div class="sidebar-user-info">
-                        <h4 id="sidebarUserName">Usuário</h4>
-                        <span class="sidebar-user-role" id="sidebarUserRole">Aluno</span>
+                    <div class="option" data-value="b">
+                        <div class="option-content">
+                            <span class="option-letter">B</span>
+                            <span id="option-b-text" class="option-text">Carregando opção B...</span>
+                        </div>
+                    </div>
+                    <div class="option" data-value="c">
+                        <div class="option-content">
+                            <span class="option-letter">C</span>
+                            <span id="option-c-text" class="option-text">Carregando opção C...</span>
+                        </div>
+                    </div>
+                    <div class="option" data-value="d">
+                        <div class="option-content">
+                            <span class="option-letter">D</span>
+                            <span id="option-d-text" class="option-text">Carregando opção D...</span>
+                        </div>
                     </div>
                 </div>
-                <button class="sidebar-close" id="sidebarClose">
+            </div>
+            
+            <div class="quiz-controls">
+                <button id="prev-question" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    <span class="btn-text">Anterior</span>
+                </button>
+                <div class="quiz-nav">
+                    <span id="current-question">1</span> de <span id="total-questions">0</span>
+                </div>
+                <button id="next-question" class="btn btn-primary">
+                    <span class="btn-text">Próxima</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <button id="finish-quiz" class="btn btn-success hidden">
+                    <i class="fas fa-flag-checkered"></i>
+                    <span class="btn-text">Finalizar Quiz</span>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Resultado do Quiz -->
+    <div id="quiz-result" class="container hidden">
+        <div class="result-container">
+            <div class="result-header">
+                <div class="result-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <h2>Quiz Concluído!</h2>
+                <p id="result-subtitle">Veja como você foi</p>
+            </div>
+            
+            <div class="result-content">
+                <div class="score-circle">
+                    <div class="circle-background"></div>
+                    <div class="circle-progress" id="circle-progress"></div>
+                    <div class="score-text">
+                        <span id="score-percentage">0%</span>
+                        <span id="score-fraction">0/0</span>
+                    </div>
+                </div>
+                
+                <div class="result-details">
+                    <div class="detail-item">
+                        <span class="detail-label">Acertos</span>
+                        <span id="correct-answers" class="detail-value correct">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Erros</span>
+                        <span id="wrong-answers" class="detail-value wrong">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Tempo</span>
+                        <span id="time-taken" class="detail-value">00:00</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Posição no Ranking</span>
+                        <span id="ranking-position" class="detail-value">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="result-actions">
+                <button id="review-quiz" class="btn btn-secondary">
+                    <i class="fas fa-redo"></i>
+                    <span class="btn-text">Revisar Respostas</span>
+                </button>
+                <button id="back-to-dashboard" class="btn btn-primary">
+                    <i class="fas fa-home"></i>
+                    <span class="btn-text">Voltar ao Dashboard</span>
+                </button>
+                <button id="new-quiz" class="btn btn-success">
+                    <i class="fas fa-play"></i>
+                    <span class="btn-text">Fazer Outro Quiz</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>Carregando...</p>
+    </div>
+
+    <!-- Modal para criar/editar quiz - MODIFICADO -->
+<div id="quiz-modal" class="modal hidden">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="quiz-modal-title">Criar Novo Quiz</h3>
+            <button id="close-quiz-modal" class="btn btn-icon">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="input-group">
+                <label for="quiz-title">Título do Quiz <span style="color: var(--danger-color)">*</span></label>
+                <input type="text" id="quiz-title" placeholder="Digite o título do quiz" required>
+            </div>
+            <div class="input-group">
+                <label for="quiz-description">Descrição</label>
+                <textarea id="quiz-description" placeholder="Digite a descrição do quiz" rows="3"></textarea>
+            </div>
+            <div class="input-group">
+                <label for="quiz-category">Categoria <span style="color: var(--danger-color)">*</span></label>
+                <select id="quiz-category" required>
+                    <option value="">Carregando categorias...</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="quiz-questions-count">Número de Questões <span style="color: var(--danger-color)">*</span></label>
+                <input type="number" id="quiz-questions-count" placeholder="Número de questões" min="1" max="50" required>
+            </div>
+            <div class="input-group">
+                <label for="quiz-time">Tempo (minutos) <span style="color: var(--danger-color)">*</span></label>
+                <input type="number" id="quiz-time" placeholder="Tempo em minutos" min="1" max="180" required>
+            </div>
+            
+            <!-- NOVO: Status do Quiz -->
+            <div class="input-group">
+                <label for="quiz-status">Status do Quiz <span style="color: var(--danger-color)">*</span></label>
+                <select id="quiz-status" required>
+                    <option value="active" selected>Ativo</option>
+                    <option value="inactive">Inativo</option>
+                </select>
+            </div>
+            
+            <!-- NOVO: Visibilidade do Quiz -->
+            <div class="input-group">
+                <label for="quiz-visibility">Visibilidade do Quiz <span style="color: var(--danger-color)">*</span></label>
+                <select id="quiz-visibility" required>
+                    <option value="all">Todos os Alunos</option>
+                    <option value="specific">Alunos Específicos</option>
+                </select>
+            </div>
+            
+            <!-- NOVO: Container para selecionar alunos específicos (inicialmente oculto) -->
+            <div id="specific-students-container" class="hidden">
+                <div class="input-group">
+                    <label>Selecionar Alunos <span style="color: var(--danger-color)">*</span></label>
+                    <div id="students-search-container">
+                        <input type="text" id="student-search" placeholder="Buscar aluno por nome..." style="margin-bottom: 0.5rem;">
+                        <div id="available-students-list" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 0.5rem;">
+                            <p>Carregando alunos...</p>
+                        </div>
+                    </div>
+                    <div id="selected-students" class="selected-students-list">
+                        <p>Nenhum aluno selecionado</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- NOVO: Opção para revisão de respostas -->
+            <div class="input-group">
+                <div class="checkbox-row">
+                    <input type="checkbox" id="allow-review" checked>
+                    <label for="allow-review">Permitir revisão de respostas após finalizar o quiz</label>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--secondary-color); margin-top: 0.25rem;">
+                    Quando desabilitado, o botão "Revisar Respostas" não será exibido para os alunos.
+                </p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="cancel-quiz" class="btn btn-secondary">Cancelar</button>
+            <button id="save-quiz" class="btn btn-primary">Salvar Quiz</button>
+        </div>
+    </div>
+</div>
+
+    <!-- Modal para criar/editar questão -->
+    <div id="question-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="question-modal-title">Adicionar Nova Questão</h3>
+                <button id="close-question-modal" class="btn btn-icon">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
-
-            <nav class="sidebar-nav">
-                <a href="#dashboard" class="sidebar-link active">
-                    <i class="fas fa-home"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="#learn" class="sidebar-link">
-                    <i class="fas fa-book-open"></i>
-                    <span>Aprender</span>
-                </a>
-                <a href="#games" class="sidebar-link">
-                    <i class="fas fa-gamepad"></i>
-                    <span>Jogos</span>
-                </a>
-                <a href="#progress" class="sidebar-link">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Progresso</span>
-                </a>
-                <a href="#challenges" class="sidebar-link">
-                    <i class="fas fa-trophy"></i>
-                    <span>Desafios</span>
-                </a>
-                <div id="adminSidebar" style="display: none;">
-                    <div class="sidebar-section">
-                        <h4>Administração</h4>
-                        <a href="#admin/users" class="sidebar-link">
-                            <i class="fas fa-users"></i>
-                            <span>Gerenciar Usuários</span>
-                        </a>
-                        <a href="#admin/reports" class="sidebar-link">
-                            <i class="fas fa-chart-bar"></i>
-                            <span>Relatórios</span>
-                        </a>
-                        <a href="#admin/settings" class="sidebar-link">
-                            <i class="fas fa-cogs"></i>
-                            <span>Configurações do Sistema</span>
-                        </a>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="question-text">Enunciado da Questão</label>
+                    <textarea id="question-text" placeholder="Digite o enunciado da questão" rows="3"></textarea>
+                </div>
+                <div class="input-group">
+                    <label for="question-category">Categoria</label>
+                    <input type="text" id="question-category" placeholder="Ex: Informática, Matemática, História">
+                </div>
+                <div class="options-group">
+                    <label>Opções de Resposta</label>
+                    <div class="input-group">
+                        <span class="option-label">A)</span>
+                        <input type="text" id="option-a" placeholder="Opção A">
+                    </div>
+                    <div class="input-group">
+                        <span class="option-label">B)</span>
+                        <input type="text" id="option-b" placeholder="Opção B">
+                    </div>
+                    <div class="input-group">
+                        <span class="option-label">C)</span>
+                        <input type="text" id="option-c" placeholder="Opção C">
+                    </div>
+                    <div class="input-group">
+                        <span class="option-label">D)</span>
+                        <input type="text" id="option-d" placeholder="Opção D">
                     </div>
                 </div>
-                <div class="sidebar-section">
-                    <h4>Recursos</h4>
-                    <a href="#help" class="sidebar-link">
-                        <i class="fas fa-question-circle"></i>
-                        <span>Ajuda</span>
-                    </a>
-                    <a href="#about" class="sidebar-link">
-                        <i class="fas fa-info-circle"></i>
-                        <span>Sobre</span>
-                    </a>
-                </div>
-            </nav>
-
-            <div class="sidebar-footer">
-                <div class="sidebar-progress">
-                    <div class="progress-label">
-                        <span>Nível atual</span>
-                        <span id="sidebarLevel">Iniciante</span>
-                    </div>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="sidebarProgress" style="width: 25%"></div>
-                    </div>
+                <div class="input-group">
+                    <label for="correct-answer">Resposta Correta</label>
+                    <select id="correct-answer">
+                        <option value="a">Opção A</option>
+                        <option value="b">Opção B</option>
+                        <option value="c">Opção C</option>
+                        <option value="d">Opção D</option>
+                    </select>
                 </div>
             </div>
-        </div>
-
-        <!-- Conteúdo Principal -->
-        <main class="app-content" id="appContent">
-            <!-- Dashboard -->
-            <section id="dashboard" class="app-section active">
-                <div class="section-header">
-                    <h2>Dashboard</h2>
-                    <p class="section-subtitle">Bem-vindo de volta, <span id="dashboardUserName">Usuário</span>!</p>
-                </div>
-
-                <div class="dashboard-grid">
-                    <div class="dashboard-card welcome-card">
-                        <div class="card-content">
-                            <h3>Continue de onde parou</h3>
-                            <p>Você está evoluindo bem em multiplicação! Continue praticando para subir de nível.</p>
-                            <button class="btn-continue">
-                                <i class="fas fa-play"></i> Continuar Praticando
-                            </button>
-                        </div>
-                        <div class="card-icon">
-                            <i class="fas fa-rocket"></i>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-card stats-card">
-                        <h3>Seu Progresso</h3>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-value" id="statExercises">0</span>
-                                    <span class="stat-label">Exercícios</span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-percentage"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-value" id="statAccuracy">0%</span>
-                                    <span class="stat-label">Precisão</span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-value" id="statTime">0min</span>
-                                    <span class="stat-label">Tempo</span>
-                                </div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-icon">
-                                    <i class="fas fa-trophy"></i>
-                                </div>
-                                <div class="stat-info">
-                                    <span class="stat-value" id="statLevel">1</span>
-                                    <span class="stat-label">Nível</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-card activity-card">
-                        <h3>Atividade Recente</h3>
-                        <div class="activity-list" id="activityList">
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-plus-circle"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <p>Você completou 10 exercícios de adição</p>
-                                    <span class="activity-time">Há 2 horas</span>
-                                </div>
-                            </div>
-                            <div class="activity-item">
-                                <div class="activity-icon">
-                                    <i class="fas fa-gamepad"></i>
-                                </div>
-                                <div class="activity-content">
-                                    <p>Concluiu o nível 3 do Desafio Relâmpago</p>
-                                    <span class="activity-time">Hoje cedo</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-card quick-actions">
-                        <h3>Ações Rápidas</h3>
-                        <div class="actions-grid">
-                            <button class="action-btn" data-action="practice">
-                                <i class="fas fa-calculator"></i>
-                                <span>Praticar</span>
-                            </button>
-                            <button class="action-btn" data-action="games">
-                                <i class="fas fa-gamepad"></i>
-                                <span>Jogar</span>
-                            </button>
-                            <button class="action-btn" data-action="challenges">
-                                <i class="fas fa-trophy"></i>
-                                <span>Desafios</span>
-                            </button>
-                            <button class="action-btn" data-action="progress">
-                                <i class="fas fa-chart-line"></i>
-                                <span>Progresso</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Seção Aprender -->
-            <section id="learn" class="app-section">
-                <div class="section-header">
-                    <h2>Aprender Matemática</h2>
-                    <p class="section-subtitle">Escolha uma operação para aprender e praticar</p>
-                </div>
-
-                <div class="operations-grid">
-                    <!-- Operações serão carregadas via JavaScript -->
-                </div>
-            </section>
-
-            <!-- Seção Jogos -->
-            <section id="games" class="app-section">
-                <div class="section-header">
-                    <h2>Jogos Educativos</h2>
-                    <p class="section-subtitle">Aprenda matemática enquanto se diverte!</p>
-                </div>
-
-                <div class="games-grid">
-                    <!-- Jogos serão carregados via JavaScript -->
-                </div>
-            </section>
-
-            <!-- Seção Progresso -->
-            <section id="progress" class="app-section">
-                <div class="section-header">
-                    <h2>Seu Progresso</h2>
-                    <p class="section-subtitle">Acompanhe sua evolução no aprendizado</p>
-                </div>
-
-                <div class="progress-container">
-                    <div class="progress-stats">
-                        <div class="progress-chart-container">
-                            <canvas id="progressChart"></canvas>
-                        </div>
-                        <div class="progress-details">
-                            <h3>Desempenho por Operação</h3>
-                            <div class="operation-performance" id="operationPerformance">
-                                <!-- Dados carregados via JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Seção Admin (visível apenas para administradores) -->
-            <section id="admin" class="app-section">
-                <div class="section-header">
-                    <h2>Painel Administrativo</h2>
-                    <p class="section-subtitle">Gerencie usuários e visualize relatórios do sistema</p>
-                </div>
-
-                <div class="admin-tabs">
-                    <button class="admin-tab active" data-tab="users">Usuários</button>
-                    <button class="admin-tab" data-tab="reports">Relatórios</button>
-                    <button class="admin-tab" data-tab="settings">Configurações</button>
-                </div>
-
-                <div class="admin-content">
-                    <div id="adminUsers" class="admin-tab-content active">
-                        <div class="admin-header">
-                            <h3>Gerenciar Usuários</h3>
-                            <button id="addUserBtn" class="btn-admin">
-                                <i class="fas fa-user-plus"></i> Adicionar Usuário
-                            </button>
-                        </div>
-                        <div class="users-table-container">
-                            <table class="users-table">
-                                <thead>
-                                    <tr>
-                                        <th>Nome</th>
-                                        <th>Email</th>
-                                        <th>Tipo</th>
-                                        <th>Cadastro</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="usersTableBody">
-                                    <!-- Usuários carregados via JavaScript -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div id="adminReports" class="admin-tab-content">
-                        <h3>Relatórios do Sistema</h3>
-                        <div class="reports-grid">
-                            <!-- Relatórios serão gerados via JavaScript -->
-                        </div>
-                    </div>
-
-                    <div id="adminSettings" class="admin-tab-content">
-                        <h3>Configurações do Sistema</h3>
-                        <!-- Configurações administrativas -->
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <!-- Modal para Gerenciar Usuário -->
-        <div id="userModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="modalTitle">Editar Usuário</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <form id="userForm">
-                        <div class="form-group">
-                            <label for="modalUserName">Nome</label>
-                            <input type="text" id="modalUserName" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="modalUserEmail">Email</label>
-                            <input type="email" id="modalUserEmail" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="modalUserType">Tipo de Usuário</label>
-                            <select id="modalUserType" required>
-                                <option value="student">Aluno</option>
-                                <option value="admin">Administrador</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="modalUserStatus">Status</label>
-                            <select id="modalUserStatus" required>
-                                <option value="active">Ativo</option>
-                                <option value="inactive">Inativo</option>
-                                <option value="blocked">Bloqueado</option>
-                            </select>
-                        </div>
-                        <div class="modal-actions">
-                            <button type="button" class="btn-secondary modal-close">Cancelar</button>
-                            <button type="submit" class="btn-primary">Salvar Alterações</button>
-                        </div>
-                    </form>
-                </div>
+            <div class="modal-footer">
+                <button id="cancel-question" class="btn btn-secondary">Cancelar</button>
+                <button id="save-question" class="btn btn-primary">Salvar Questão</button>
             </div>
         </div>
-
-        <!-- Notificações -->
-        <div id="notificationContainer" class="notification-container"></div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Modal para editar usuário -->
+    <div id="user-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="user-modal-title">Editar Usuário</h3>
+                <button id="close-user-modal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="user-name">Nome</label>
+                    <input type="text" id="user-name" placeholder="Nome completo">
+                </div>
+                <div class="input-group">
+                    <label for="user-email">E-mail</label>
+                    <input type="email" id="user-email" placeholder="E-mail">
+                </div>
+                <div class="input-group">
+                    <label for="user-type">Tipo de Usuário</label>
+                    <select id="user-type">
+                        <option value="aluno">Aluno</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="user-status">Status</label>
+                    <select id="user-status">
+                        <option value="active">Ativo</option>
+                        <option value="inactive">Inativo</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-user" class="btn btn-secondary">Cancelar</button>
+                <button id="save-user" class="btn btn-primary">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para importar questões -->
+    <div id="import-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Importar Questões em JSON</h3>
+                <button id="close-import-modal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="json-data">Cole o JSON com as questões</label>
+                    <textarea id="json-data" placeholder='[{"text": "Pergunta?", "options": {"a": "Opção A", "b": "Opção B", "c": "Opção C", "d": "Opção D"}, "correctAnswer": "a", "category": "Geral"}]' rows="10"></textarea>
+                </div>
+                <div class="info-text">
+                    <p><strong>Formato esperado:</strong> Array de objetos com as propriedades: text, options (objeto com a, b, c, d), correctAnswer (a, b, c ou d) e category.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-import" class="btn btn-secondary">Cancelar</button>
+                <button id="import-questions" class="btn btn-primary">Importar Questões</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para revisão de respostas -->
+    <div id="review-modal" class="modal hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Revisão de Respostas</h3>
+                <button id="close-review-modal" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="review-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="close-review" class="btn btn-primary">Fechar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
