@@ -457,6 +457,54 @@ body {
     margin-top: 1rem;
 }
 
+.input-select {
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    background: white;
+    color: var(--dark-color);
+    min-width: 250px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.input-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+}
+
+.search-container {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    margin-top: 1rem;
+}
+
+.search-container input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 2.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.search-container input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.1);
+}
+
+.search-container i {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--secondary-color);
+}
+
 /* Cards */
 .cards-container {
     display: grid;
@@ -1114,19 +1162,25 @@ body {
 .stat-value {
     font-size: 2rem;
     font-weight: 700;
-    color: var(#07080d);
+    color: var(--dark-color);
     margin-bottom: 0.5rem;
 }
 
 .stat-label {
     font-size: 0.9rem;
-    color: var(#181919);
+    color: var(--secondary-color);
 }
 
 .popular-list, .ranking-list {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+#full-ranking {
+    max-height: 500px; /* Adjust as needed */
+    overflow-y: auto;
+    padding-right: 10px; /* Add some padding for the scrollbar */
 }
 
 .popular-item {
@@ -1195,13 +1249,24 @@ body {
 }
 
 .info-text {
-    color: var(--info-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    margin: 1rem 0;
-    padding: 0.75rem;
-    background: rgba(23, 162, 184, 0.1);
-    border-radius: var(--border-radius);
-    border-left: 4px solid var(--info-color);
+    padding: 3rem 2rem;
+    color: var(--secondary-color);
+}
+
+.info-text i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--info-color);
+}
+
+.info-text p {
+    max-width: 400px;
+    line-height: 1.5;
 }
 
 /* Estilos específicos para a página Sobre */
@@ -1348,7 +1413,7 @@ body {
     color: white;
     font-size: 2.5rem;
     flex-shrink: 0;
-    overflow: hidden; /* Importante para a imagem ficar redonda */
+    overflow: hidden;
 }
 
 .avatar-image {
@@ -1642,6 +1707,10 @@ body {
     .tech-item i {
         font-size: 1.5rem;
     }
+    
+    .input-select {
+        min-width: 100%;
+    }
 }
 
 /* Animações */
@@ -1672,7 +1741,6 @@ body {
         padding: 0.75rem;
     }
 }
-/* Adicione estas regras ao arquivo style.css existente */
 
 /* Estilos para cards de questões recolhíveis */
 .question-card .question-options {
@@ -1704,20 +1772,6 @@ body {
 .toggle-options:hover {
     background: var(--light-color);
     color: var(--primary-color);
-}
-
-/* Badges de status */
-.card-badge.success {
-    background: var(--success-color);
-}
-
-.card-badge.warning {
-    background: var(--warning-color);
-    color: var(--dark-color);
-}
-
-.card-badge.danger {
-    background: var(--danger-color);
 }
 
 /* Gráficos */
@@ -2079,21 +2133,21 @@ body {
 }
 
 #auth-links-1 {
-    /* 1. Remove o sublinhado do próprio elemento <a> */
     text-decoration: none;
-    /* 2. Garante que a fonte do link seja normal, caso haja herança */
     font-weight: normal; 
-    /* 3. Garante que a cor do link seja a cor padrão ou herdada (opcional) */
     color: inherit;
 }
 
 #auth-links-1 h1 {
-    /* 4. Remove o sublinhado especificamente do título H1,
-          que é onde o texto "QuizMaster" está. */
     text-decoration: none;
-    /* 5. Garante que o H1 também tenha peso de fonte normal,
-          se a regra que está causando o sublinhado também estiver causando negrito. */
     font-weight: bold; 
-    /* 6. Garante que o H1 use a cor do link pai ou outra cor (opcional) */
     color: inherit;
+}
+
+/* Medalhas para ranking */
+.ranking-position {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
 }
