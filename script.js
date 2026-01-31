@@ -34,8 +34,18 @@ let editingQuestionId = null;
 let editingUserId = null;
 let exitCount = 0;
 let quizStartTime = 0;
-let availableStudents = []; // Nova variável para armazenar alunos disponíveis
-let selectedStudents = []; // Nova variável para alunos selecionados
+let availableStudents = [];
+let selectedStudents = [];
+
+// Cache para dados de ranking (para permitir pesquisa)
+let cachedRankingData = {
+    student: { ranking: [], usersMap: {} },
+    admin: { ranking: [], usersMap: {} }
+};
+let cachedQuizRankingData = {
+    student: { quiz: null, results: [], usersMap: {} },
+    admin: { quiz: null, results: [], usersMap: {} }
+};
 
 // Elementos da DOM
 const authContainer = document.getElementById('auth-container');
@@ -374,6 +384,20 @@ function initEventListeners() {
     if (document.getElementById('about-section')) {
         initAboutPage();
     }
+
+    // Inicializar listeners de pesquisa
+    initSearchListeners();
+}
+
+// Inicializar listeners de pesquisa
+function initSearchListeners() {
+    // Pesquisa no Ranking Geral
+    document.getElementById('ranking-search')?.addEventListener('input', (e) => filterRanking(e.target.value, 'student'));
+    document.getElementById('admin-ranking-search')?.addEventListener('input', (e) => filterRanking(e.target.value, 'admin'));
+
+    // Pesquisa no Ranking por Quiz
+    document.getElementById('quiz-ranking-search')?.addEventListener('input', (e) => filterQuizRanking(e.target.value, 'student'));
+    document.getElementById('admin-quiz-ranking-search')?.addEventListener('input', (e) => filterQuizRanking(e.target.value, 'admin'));
 }
 
 // Inicializar navegação por abas
@@ -387,6 +411,11 @@ function initTabNavigation() {
     document.getElementById('ranking-tab').addEventListener('click', () => {
         switchTab('ranking-tab', 'ranking-section');
         loadRanking();
+    });
+    
+    document.getElementById('quiz-rankings-tab').addEventListener('click', () => {
+        switchTab('quiz-rankings-tab', 'quiz-rankings-section');
+        loadQuizRankings();
     });
     
     document.getElementById('history-tab').addEventListener('click', () => {
@@ -412,6 +441,16 @@ function initTabNavigation() {
     document.getElementById('admin-users-tab').addEventListener('click', () => {
         switchAdminTab('admin-users-tab', 'admin-users-section');
         loadAdminUsers();
+    });
+    
+    document.getElementById('admin-ranking-tab').addEventListener('click', () => {
+        switchAdminTab('admin-ranking-tab', 'admin-ranking-section');
+        loadAdminRanking();
+    });
+    
+    document.getElementById('admin-quiz-rankings-tab').addEventListener('click', () => {
+        switchAdminTab('admin-quiz-rankings-tab', 'admin-quiz-rankings-section');
+        loadAdminQuizRankings();
     });
     
     document.getElementById('admin-reports-tab').addEventListener('click', () => {
@@ -443,7 +482,6 @@ function initQuizControls() {
         }
     });
     
-    // CORREÇÃO: Adicionar event listener corretamente para o botão "Finalizar Quiz"
     document.getElementById('finish-quiz').addEventListener('click', () => {
         finishQuiz();
     });
@@ -492,7 +530,7 @@ function initModals() {
         });
     });
     
-    // NOVO: Event listeners para a visibilidade do quiz
+    // Event listeners para a visibilidade do quiz
     document.getElementById('quiz-visibility').addEventListener('change', function() {
         const specificStudentsContainer = document.getElementById('specific-students-container');
         if (this.value === 'specific') {
@@ -505,15 +543,23 @@ function initModals() {
         }
     });
     
-    // NOVO: Event listener para busca de alunos
+    // Event listener para busca de alunos
     document.getElementById('student-search')?.addEventListener('input', function() {
         filterAvailableStudents(this.value);
+    });
+    
+    // Event listener para seleção de quiz no ranking
+    document.getElementById('quiz-ranking-select')?.addEventListener('change', function() {
+        loadSpecificQuizRanking(this.value);
+    });
+    
+    document.getElementById('admin-quiz-ranking-select')?.addEventListener('change', function() {
+        loadAdminSpecificQuizRanking(this.value);
     });
 }
 
 // Inicializar página sobre
 function initAboutPage() {
-    // Adicionar event listener para o botão de reportar bug
     const reportBugBtn = document.getElementById('report-bug');
     if (reportBugBtn) {
         reportBugBtn.addEventListener('click', function(e) {
@@ -686,7 +732,7 @@ function loadQuizzes() {
         });
 }
 
-// NOVA FUNÇÃO: Verificar se o quiz é visível para o aluno
+// Verificar se o quiz é visível para o aluno
 function checkQuizVisibility(quiz, userId) {
     return new Promise((resolve) => {
         // Se o quiz for para todos os alunos, é visível
@@ -1053,7 +1099,7 @@ function updateUserQuizProgress() {
     });
 }
 
-// Confirmar saída do quiz - MODIFICADO
+// Confirmar saída do quiz
 function confirmExitQuiz() {
     if (exitCount >= 1) {
         // Segunda saída - finalizar quiz automaticamente e voltar para aba de Quizzes
@@ -1087,7 +1133,7 @@ function confirmExitQuiz() {
     }
 }
 
-// CORREÇÃO: Função finishQuiz completamente reescrita
+// Função finishQuiz
 function finishQuiz(forced = false) {
     console.log('Finalizando quiz...', { forced, userQuizId, currentQuestions, userAnswers });
     
@@ -1147,7 +1193,7 @@ function finishQuiz(forced = false) {
     });
 }
 
-// Mostrar resultado do quiz - MODIFICADA
+// Mostrar resultado do quiz
 function showQuizResult(quizId, score = null, percentage = null, timeTaken = null, forced = false) {
     console.log('Mostrando resultado:', { quizId, score, percentage, timeTaken, forced });
     
@@ -1159,7 +1205,7 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
         
         document.getElementById('score-percentage').textContent = `${percentage.toFixed(1)}%`;
         
-        // CORREÇÃO: Calcular answeredQuestions corretamente
+        // Calcular answeredQuestions corretamente
         let answeredQuestions = 0;
         if (userAnswers) {
             answeredQuestions = userAnswers.filter(answer => answer !== null).length;
@@ -1189,7 +1235,7 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
         // Calcular posição no ranking
         calculateRankingPosition(quizId, percentage);
         
-        // NOVO: Verificar se a revisão de respostas está permitida
+        // Verificar se a revisão de respostas está permitida
         const reviewButton = document.getElementById('review-quiz');
         if (currentQuiz && currentQuiz.allowReview === false) {
             // Desabilitar botão de revisão
@@ -1237,7 +1283,7 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
                     // Calcular posição no ranking
                     calculateRankingPosition(quizId, userQuiz.percentage);
                     
-                    // NOVO: Verificar se a revisão de respostas está permitida
+                    // Verificar se a revisão de respostas está permitida
                     const reviewButton = document.getElementById('review-quiz');
                     if (currentQuiz && currentQuiz.allowReview === false) {
                         // Desabilitar botão de revisão
@@ -1346,17 +1392,16 @@ function closeReviewModal() {
 }
 
 // ===============================
-// HISTÓRICO - CORRIGIDO
+// HISTÓRICO
 // ===============================
 
-// Carregar histórico do usuário - VERSÃO CORRIGIDA
+// Carregar histórico do usuário
 function loadUserHistory() {
     const historyList = document.getElementById('history-list');
     historyList.innerHTML = '<div class="card"><div class="card-content">Carregando histórico...</div></div>';
     
     console.log('🔍 Iniciando carregamento do histórico...');
     
-    // CONSULTA CORRIGIDA: Removendo a ordenação por completedAt que causava o erro
     db.collection('userQuizzes')
         .where('userId', '==', currentUser.uid)
         .where('status', '==', 'completed')
@@ -1478,7 +1523,7 @@ function loadUserHistory() {
         });
 }
 
-// Criar card de histórico individual - MODIFICADA
+// Criar card de histórico individual
 function createHistoryCard(container, userQuiz, quiz) {
     const historyCard = document.createElement('div');
     historyCard.className = 'card';
@@ -1812,10 +1857,10 @@ function loadReviewData(userQuizId, quizId) {
 // RANKING E RELATÓRIOS
 // ===============================
 
-// Carregar ranking
+// Carregar ranking geral
 function loadRanking() {
     const rankingList = document.getElementById('ranking-list');
-    rankingList.innerHTML = '<div class="card"><div class="card-content">Carregando ranking...</div></div>';
+    rankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Carregando ranking...</p></div></div></div>';
     
     // Buscar todos os quizzes completados
     db.collection('userQuizzes')
@@ -1833,11 +1878,13 @@ function loadRanking() {
                     userScores[userId] = {
                         totalScore: 0,
                         totalQuizzes: 0,
+                        totalPercentage: 0,
                         userId: userId
                     };
                 }
                 
                 userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalPercentage += userQuiz.percentage || 0;
                 userScores[userId].totalQuizzes += 1;
             });
             
@@ -1848,21 +1895,72 @@ function loadRanking() {
             const userIds = ranking.map(item => item.userId);
             
             if (userIds.length === 0) {
-                rankingList.innerHTML = '<div class="card"><div class="card-content">Nenhum resultado disponível no ranking.</div></div>';
+                rankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Nenhum resultado disponível no ranking.</p></div></div></div>';
                 return;
             }
             
-            // CORREÇÃO: Buscar usuários em lotes para evitar limite de 10
-            loadUsersInBatches(userIds, ranking, rankingList);
+            // Buscar usuários em lotes para evitar limite de 10
+            loadUsersInBatches(userIds, ranking, rankingList, false);
         })
         .catch(error => {
-            rankingList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar ranking.</div></div>';
+            rankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Erro ao carregar ranking.</p></div></div></div>';
             console.error('Erro ao carregar ranking:', error);
         });
 }
 
-// CORREÇÃO: Função para carregar usuários em lotes
-function loadUsersInBatches(userIds, ranking, rankingList) {
+// Carregar ranking geral para admin
+function loadAdminRanking() {
+    const rankingList = document.getElementById('admin-ranking-list');
+    rankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Carregando ranking...</p></div></div></div>';
+    
+    // Buscar todos os quizzes completados
+    db.collection('userQuizzes')
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            const userScores = {};
+            
+            // Calcular pontuação total por usuário
+            querySnapshot.forEach(doc => {
+                const userQuiz = doc.data();
+                const userId = userQuiz.userId;
+                
+                if (!userScores[userId]) {
+                    userScores[userId] = {
+                        totalScore: 0,
+                        totalQuizzes: 0,
+                        totalPercentage: 0,
+                        userId: userId
+                    };
+                }
+                
+                userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalPercentage += userQuiz.percentage || 0;
+                userScores[userId].totalQuizzes += 1;
+            });
+            
+            // Converter objeto em array e ordenar por pontuação
+            const ranking = Object.values(userScores).sort((a, b) => b.totalScore - a.totalScore);
+            
+            // Buscar informações dos usuários
+            const userIds = ranking.map(item => item.userId);
+            
+            if (userIds.length === 0) {
+                rankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Nenhum resultado disponível no ranking.</p></div></div></div>';
+                return;
+            }
+            
+            // Buscar usuários em lotes
+            loadUsersInBatches(userIds, ranking, rankingList, true);
+        })
+        .catch(error => {
+            rankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Erro ao carregar ranking.</p></div></div></div>';
+            console.error('Erro ao carregar ranking:', error);
+        });
+}
+
+// Função para carregar usuários em lotes
+function loadUsersInBatches(userIds, ranking, rankingList, isAdmin = false) {
     const batchSize = 10;
     const userBatches = [];
     
@@ -1888,7 +1986,7 @@ function loadUsersInBatches(userIds, ranking, rankingList) {
                 
                 // Quando todos os lotes forem processados, exibir o ranking
                 if (batchesProcessed === userBatches.length) {
-                    displayRanking(ranking, usersMap, rankingList);
+                    displayRanking(ranking, usersMap, rankingList, isAdmin);
                 }
             })
             .catch(error => {
@@ -1896,20 +1994,47 @@ function loadUsersInBatches(userIds, ranking, rankingList) {
                 batchesProcessed++;
                 
                 if (batchesProcessed === userBatches.length) {
-                    displayRanking(ranking, usersMap, rankingList);
+                    displayRanking(ranking, usersMap, rankingList, isAdmin);
                 }
             });
     });
 }
 
 // Exibir ranking
-function displayRanking(ranking, usersMap, rankingList) {
+function displayRanking(ranking, usersMap, rankingList, isAdmin = false) {
+    // Armazenar dados em cache se for uma das listas principais
+    if (rankingList.id === 'ranking-list') {
+        cachedRankingData.student = { ranking, usersMap };
+    } else if (rankingList.id === 'admin-ranking-list') {
+        cachedRankingData.admin = { ranking, usersMap };
+    }
+
+    // Verificar se há termo de pesquisa ativo
+    let filterTerm = '';
+    if (rankingList.id === 'ranking-list') {
+        filterTerm = document.getElementById('ranking-search').value;
+    } else if (rankingList.id === 'admin-ranking-list') {
+        filterTerm = document.getElementById('admin-ranking-search').value;
+    }
+
+    renderRankingList(ranking, usersMap, rankingList, isAdmin, filterTerm);
+}
+
+// Renderizar lista de ranking (com filtro opcional)
+function renderRankingList(ranking, usersMap, rankingList, isAdmin, filterTerm = '') {
     rankingList.innerHTML = '';
+    let visibleCount = 0;
     
     ranking.forEach((item, index) => {
         const user = usersMap[item.userId];
         if (!user) return;
         
+        // Aplicar filtro se houver
+        if (filterTerm && !user.name.toLowerCase().includes(filterTerm.toLowerCase())) {
+            return;
+        }
+        visibleCount++;
+
         const rankingItem = document.createElement('div');
         rankingItem.className = 'ranking-item';
         
@@ -1920,18 +2045,448 @@ function displayRanking(ranking, usersMap, rankingList) {
         }
         
         const avgScore = item.totalQuizzes > 0 ? (item.totalScore / item.totalQuizzes).toFixed(1) : 0;
+        const avgPercentage = item.totalQuizzes > 0 ? (item.totalPercentage / item.totalQuizzes).toFixed(1) : 0;
         
         rankingItem.innerHTML = `
             <div class="ranking-position">${index + 1}</div>
             <div class="ranking-info">
                 <div class="ranking-name">${user.name} ${item.userId === currentUser.uid ? '(Você)' : ''}</div>
-                <div class="ranking-details">${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts</div>
+                <div class="ranking-details">
+                    ${item.totalQuizzes} quiz(s) • Média: ${avgScore} pts (${avgPercentage}%)
+                    ${isAdmin ? `<br><span style="font-size: 0.8rem; color: var(--secondary-color);">${user.email}</span>` : ''}
+                </div>
             </div>
             <div class="ranking-score">${item.totalScore} pts</div>
         `;
         
         rankingList.appendChild(rankingItem);
     });
+
+    if (visibleCount === 0) {
+        rankingList.innerHTML = '<div class="ranking-item"><div class="ranking-info"><p>Nenhum usuário encontrado.</p></div></div>';
+    }
+}
+
+// Filtrar ranking geral
+function filterRanking(term, type) {
+    const data = cachedRankingData[type];
+    if (!data.ranking.length) return;
+
+    const listId = type === 'admin' ? 'admin-ranking-list' : 'ranking-list';
+    const listElement = document.getElementById(listId);
+    const isAdmin = type === 'admin';
+
+    renderRankingList(data.ranking, data.usersMap, listElement, isAdmin, term);
+}
+
+// ===============================
+// NOVO: RANKING POR QUIZ
+// ===============================
+
+// Carregar ranking por quiz para aluno
+function loadQuizRankings() {
+    const quizRankingList = document.getElementById('quiz-ranking-list');
+    const quizSelect = document.getElementById('quiz-ranking-select');
+    
+    quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Carregando quizzes...</p></div>';
+    quizSelect.innerHTML = '<option value="">Carregando quizzes...</option>';
+    
+    // Buscar todos os quizzes ativos
+    db.collection('quizzes')
+        .where('status', '==', 'active')
+        .get()
+        .then(querySnapshot => {
+            quizSelect.innerHTML = '<option value="">Selecione um quiz...</option>';
+            
+            if (querySnapshot.empty) {
+                quizSelect.innerHTML = '<option value="">Nenhum quiz disponível</option>';
+                quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Nenhum quiz disponível para ver ranking.</p></div>';
+                return;
+            }
+            
+            const quizzes = [];
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                quizzes.push(quiz);
+                quizSelect.innerHTML += `<option value="${quiz.id}">${quiz.title}</option>`;
+            });
+            
+            quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Selecione um quiz para ver o ranking específico</p></div>';
+        })
+        .catch(error => {
+            console.error('Erro ao carregar quizzes para ranking:', error);
+            quizSelect.innerHTML = '<option value="">Erro ao carregar quizzes</option>';
+            quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Erro ao carregar quizzes. Tente novamente.</p></div>';
+        });
+}
+
+// Carregar ranking por quiz para admin
+function loadAdminQuizRankings() {
+    const quizRankingList = document.getElementById('admin-quiz-ranking-list');
+    const quizSelect = document.getElementById('admin-quiz-ranking-select');
+    
+    quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Carregando quizzes...</p></div>';
+    quizSelect.innerHTML = '<option value="">Carregando quizzes...</option>';
+    
+    // Buscar todos os quizzes
+    db.collection('quizzes')
+        .get()
+        .then(querySnapshot => {
+            quizSelect.innerHTML = '<option value="">Selecione um quiz...</option>';
+            
+            if (querySnapshot.empty) {
+                quizSelect.innerHTML = '<option value="">Nenhum quiz disponível</option>';
+                quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Nenhum quiz disponível para ver ranking.</p></div>';
+                return;
+            }
+            
+            const quizzes = [];
+            querySnapshot.forEach(doc => {
+                const quiz = { id: doc.id, ...doc.data() };
+                quizzes.push(quiz);
+                const statusBadge = quiz.status === 'active' ? '✅' : '⛔';
+                quizSelect.innerHTML += `<option value="${quiz.id}">${statusBadge} ${quiz.title}</option>`;
+            });
+            
+            quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Selecione um quiz para ver o ranking específico</p></div>';
+        })
+        .catch(error => {
+            console.error('Erro ao carregar quizzes para ranking:', error);
+            quizSelect.innerHTML = '<option value="">Erro ao carregar quizzes</option>';
+            quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-info-circle"></i><p>Erro ao carregar quizzes. Tente novamente.</p></div>';
+        });
+}
+
+// Carregar ranking específico de um quiz para aluno
+function loadSpecificQuizRanking(quizId) {
+    if (!quizId) return;
+    
+    const quizRankingList = document.getElementById('quiz-ranking-list');
+    quizRankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Carregando ranking do quiz...</p></div></div></div>';
+    
+    // Buscar o quiz
+    db.collection('quizzes').doc(quizId).get()
+        .then(quizDoc => {
+            if (!quizDoc.exists) {
+                quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-exclamation-circle"></i><p>Quiz não encontrado.</p></div>';
+                return;
+            }
+            
+            const quiz = quizDoc.data();
+            
+            // Buscar todos os resultados deste quiz
+            db.collection('userQuizzes')
+                .where('quizId', '==', quizId)
+                .where('status', '==', 'completed')
+                .get()
+                .then(querySnapshot => {
+                    const quizResults = [];
+                    
+                    querySnapshot.forEach(doc => {
+                        const result = doc.data();
+                        quizResults.push({
+                            userId: result.userId,
+                            score: result.score || 0,
+                            percentage: result.percentage || 0,
+                            timeTaken: result.timeTaken || 0,
+                            completedAt: result.completedAt || result.updatedAt
+                        });
+                    });
+                    
+                    // Ordenar por porcentagem (decrescente)
+                    quizResults.sort((a, b) => b.percentage - a.percentage);
+                    
+                    // Buscar informações dos usuários
+                    const userIds = quizResults.map(result => result.userId);
+                    
+                    if (userIds.length === 0) {
+                        quizRankingList.innerHTML = `
+                            <div class="info-text">
+                                <i class="fas fa-info-circle"></i>
+                                <p>Nenhum aluno completou este quiz ainda.</p>
+                                <p style="font-size: 0.9rem; margin-top: 0.5rem;">Seja o primeiro a fazer o quiz "${quiz.title}"!</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Buscar usuários em lotes
+                    const batchSize = 10;
+                    const userBatches = [];
+                    
+                    for (let i = 0; i < userIds.length; i += batchSize) {
+                        userBatches.push(userIds.slice(i, i + batchSize));
+                    }
+                    
+                    const usersMap = {};
+                    let batchesProcessed = 0;
+                    
+                    // Processar cada lote
+                    userBatches.forEach(batch => {
+                        db.collection('users')
+                            .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                            .get()
+                            .then(usersSnapshot => {
+                                usersSnapshot.forEach(doc => {
+                                    usersMap[doc.id] = doc.data();
+                                });
+                                
+                                batchesProcessed++;
+                                
+                                // Quando todos os lotes forem processados, exibir o ranking
+                                if (batchesProcessed === userBatches.length) {
+                                    displayQuizRanking(quiz, quizResults, usersMap, quizRankingList, false);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro ao buscar lote de usuários:', error);
+                                batchesProcessed++;
+                                
+                                if (batchesProcessed === userBatches.length) {
+                                    displayQuizRanking(quiz, quizResults, usersMap, quizRankingList, false);
+                                }
+                            });
+                    });
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar resultados do quiz:', error);
+                    quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-exclamation-circle"></i><p>Erro ao carregar resultados do quiz.</p></div>';
+                });
+        })
+        .catch(error => {
+            console.error('Erro ao buscar quiz:', error);
+            quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-exclamation-circle"></i><p>Erro ao carregar informações do quiz.</p></div>';
+        });
+}
+
+// Carregar ranking específico de um quiz para admin
+function loadAdminSpecificQuizRanking(quizId) {
+    if (!quizId) return;
+    
+    const quizRankingList = document.getElementById('admin-quiz-ranking-list');
+    quizRankingList.innerHTML = '<div class="ranking-container"><div class="ranking-item"><div class="ranking-info"><p>Carregando ranking do quiz...</p></div></div></div>';
+    
+    // Buscar o quiz
+    db.collection('quizzes').doc(quizId).get()
+        .then(quizDoc => {
+            if (!quizDoc.exists) {
+                quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-exclamation-circle"></i><p>Quiz não encontrado.</p></div>';
+                return;
+            }
+            
+            const quiz = quizDoc.data();
+            
+            // Buscar todos os resultados deste quiz
+            db.collection('userQuizzes')
+                .where('quizId', '==', quizId)
+                .where('status', '==', 'completed')
+                .get()
+                .then(querySnapshot => {
+                    const quizResults = [];
+                    
+                    querySnapshot.forEach(doc => {
+                        const result = doc.data();
+                        quizResults.push({
+                            userId: result.userId,
+                            score: result.score || 0,
+                            percentage: result.percentage || 0,
+                            timeTaken: result.timeTaken || 0,
+                            completedAt: result.completedAt || result.updatedAt
+                        });
+                    });
+                    
+                    // Ordenar por porcentagem (decrescente)
+                    quizResults.sort((a, b) => b.percentage - a.percentage);
+                    
+                    // Buscar informações dos usuários
+                    const userIds = quizResults.map(result => result.userId);
+                    
+                    if (userIds.length === 0) {
+                        quizRankingList.innerHTML = `
+                            <div class="info-text">
+                                <i class="fas fa-info-circle"></i>
+                                <p>Nenhum aluno completou este quiz ainda.</p>
+                                <p style="font-size: 0.9rem; margin-top: 0.5rem;">Quiz: "${quiz.title}"</p>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    // Buscar usuários em lotes
+                    const batchSize = 10;
+                    const userBatches = [];
+                    
+                    for (let i = 0; i < userIds.length; i += batchSize) {
+                        userBatches.push(userIds.slice(i, i + batchSize));
+                    }
+                    
+                    const usersMap = {};
+                    let batchesProcessed = 0;
+                    
+                    // Processar cada lote
+                    userBatches.forEach(batch => {
+                        db.collection('users')
+                            .where(firebase.firestore.FieldPath.documentId(), 'in', batch)
+                            .get()
+                            .then(usersSnapshot => {
+                                usersSnapshot.forEach(doc => {
+                                    usersMap[doc.id] = doc.data();
+                                });
+                                
+                                batchesProcessed++;
+                                
+                                // Quando todos os lotes forem processados, exibir o ranking
+                                if (batchesProcessed === userBatches.length) {
+                                    displayQuizRanking(quiz, quizResults, usersMap, quizRankingList, true);
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Erro ao buscar lote de usuários:', error);
+                                batchesProcessed++;
+                                
+                                if (batchesProcessed === userBatches.length) {
+                                    displayQuizRanking(quiz, quizResults, usersMap, quizRankingList, true);
+                                }
+                            });
+                    });
+                })
+                .catch(error => {
+                    console.error('Erro ao buscar resultados do quiz:', error);
+                    quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-exclamation-circle"></i><p>Erro ao carregar resultados do quiz.</p></div>';
+                });
+        })
+        .catch(error => {
+            console.error('Erro ao buscar quiz:', error);
+            quizRankingList.innerHTML = '<div class="info-text"><i class="fas fa-exclamation-circle"></i><p>Erro ao carregar informações do quiz.</p></div>';
+        });
+}
+
+// Exibir ranking do quiz
+function displayQuizRanking(quiz, quizResults, usersMap, rankingList, isAdmin = false) {
+    // Armazenar dados em cache
+    if (rankingList.id === 'quiz-ranking-list') {
+        cachedQuizRankingData.student = { quiz, results: quizResults, usersMap };
+    } else if (rankingList.id === 'admin-quiz-ranking-list') {
+        cachedQuizRankingData.admin = { quiz, results: quizResults, usersMap };
+    }
+
+    // Verificar filtro
+    let filterTerm = '';
+    if (rankingList.id === 'quiz-ranking-list') {
+        filterTerm = document.getElementById('quiz-ranking-search').value;
+    } else if (rankingList.id === 'admin-quiz-ranking-list') {
+        filterTerm = document.getElementById('admin-quiz-ranking-search').value;
+    }
+
+    renderQuizRankingList(quiz, quizResults, usersMap, rankingList, isAdmin, filterTerm);
+}
+
+function renderQuizRankingList(quiz, quizResults, usersMap, rankingList, isAdmin, filterTerm = '') {
+    rankingList.innerHTML = '';
+    
+    // Adicionar cabeçalho do quiz
+    const quizHeader = document.createElement('div');
+    quizHeader.className = 'card';
+    quizHeader.innerHTML = `
+        <div class="card-header">
+            <h3 class="card-title">${quiz.title}</h3>
+            <div>
+                <span class="card-badge">${quizResults.length} participantes</span>
+                <span class="card-badge card-badge-secondary">${quiz.category || 'Geral'}</span>
+            </div>
+        </div>
+        <div class="card-content">
+            <p>${quiz.description || 'Sem descrição'}</p>
+            <div class="card-meta">
+                <span><i class="fas fa-clock"></i> ${quiz.time} min</span>
+                <span><i class="fas fa-question-circle"></i> ${quiz.questionsCount} questões</span>
+            </div>
+        </div>
+    `;
+    rankingList.appendChild(quizHeader);
+    
+    // Adicionar itens do ranking
+    const rankingContainer = document.createElement('div');
+    rankingContainer.className = 'ranking-container';
+    rankingContainer.style.marginTop = '1.5rem';
+    let visibleCount = 0;
+    
+    quizResults.forEach((result, index) => {
+        const user = usersMap[result.userId];
+        if (!user) return;
+
+        // Aplicar filtro
+        if (filterTerm && !user.name.toLowerCase().includes(filterTerm.toLowerCase())) {
+            return;
+        }
+        visibleCount++;
+        
+        const rankingItem = document.createElement('div');
+        rankingItem.className = 'ranking-item';
+        
+        // Destacar usuário atual
+        if (result.userId === currentUser.uid) {
+            rankingItem.style.background = 'rgba(74, 108, 247, 0.1)';
+            rankingItem.style.borderLeft = '4px solid var(--primary-color)';
+        }
+        
+        // Determinar medalha
+        let medal = '';
+        if (index === 0) medal = '🥇';
+        else if (index === 1) medal = '🥈';
+        else if (index === 2) medal = '🥉';
+        
+        // Calcular tempo
+        const minutes = Math.floor(result.timeTaken / 60);
+        const seconds = result.timeTaken % 60;
+        const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        
+        // Formatar data
+        let dateText = '';
+        if (result.completedAt) {
+            try {
+                const date = result.completedAt.toDate ? result.completedAt.toDate() : new Date(result.completedAt);
+                dateText = date.toLocaleDateString('pt-BR');
+            } catch (e) {
+                dateText = 'Data inválida';
+            }
+        }
+        
+        rankingItem.innerHTML = `
+            <div class="ranking-position">
+                ${medal} ${index + 1}
+            </div>
+            <div class="ranking-info">
+                <div class="ranking-name">${user.name} ${result.userId === currentUser.uid ? '(Você)' : ''}</div>
+                <div class="ranking-details">
+                    ${result.score}/${quiz.questionsCount} questões • ${result.percentage.toFixed(1)}% • ${timeText}
+                    ${isAdmin ? `<br><span style="font-size: 0.8rem; color: var(--secondary-color);">${user.email} • ${dateText}</span>` : ''}
+                    ${!isAdmin && dateText ? `<br><span style="font-size: 0.8rem; color: var(--secondary-color);">${dateText}</span>` : ''}
+                </div>
+            </div>
+            <div class="ranking-score">${result.percentage.toFixed(1)}%</div>
+        `;
+        
+        rankingContainer.appendChild(rankingItem);
+    });
+    
+    if (visibleCount === 0) {
+        rankingContainer.innerHTML = '<div class="ranking-item"><div class="ranking-info"><p>Nenhum usuário encontrado.</p></div></div>';
+    }
+
+    rankingList.appendChild(rankingContainer);
+}
+
+// Filtrar ranking por quiz
+function filterQuizRanking(term, type) {
+    const data = cachedQuizRankingData[type];
+    if (!data.results.length) return;
+
+    const listId = type === 'admin' ? 'admin-quiz-ranking-list' : 'quiz-ranking-list';
+    const listElement = document.getElementById(listId);
+    const isAdmin = type === 'admin';
+
+    renderQuizRankingList(data.quiz, data.results, data.usersMap, listElement, isAdmin, term);
 }
 
 // ===============================
@@ -1954,7 +2509,7 @@ function loadQuestionCategories() {
         });
 }
 
-// NOVA FUNÇÃO: Carregar alunos disponíveis
+// Carregar alunos disponíveis
 function loadAvailableStudents() {
     const availableStudentsList = document.getElementById('available-students-list');
     availableStudentsList.innerHTML = '<p>Carregando alunos...</p>';
@@ -2011,7 +2566,7 @@ function loadAvailableStudents() {
         });
 }
 
-// NOVA FUNÇÃO: Filtrar alunos disponíveis
+// Filtrar alunos disponíveis
 function filterAvailableStudents(searchTerm) {
     const filteredStudents = availableStudents.filter(student => 
         student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -2055,7 +2610,7 @@ function filterAvailableStudents(searchTerm) {
     });
 }
 
-// NOVA FUNÇÃO: Adicionar aluno à seleção
+// Adicionar aluno à seleção
 function addStudentToSelection(studentId, studentName) {
     // Verificar se o aluno já está selecionado
     if (!selectedStudents.some(student => student.id === studentId)) {
@@ -2064,13 +2619,13 @@ function addStudentToSelection(studentId, studentName) {
     }
 }
 
-// NOVA FUNÇÃO: Remover aluno da seleção
+// Remover aluno da seleção
 function removeStudentFromSelection(studentId) {
     selectedStudents = selectedStudents.filter(student => student.id !== studentId);
     updateSelectedStudentsDisplay();
 }
 
-// NOVA FUNÇÃO: Atualizar display dos alunos selecionados
+// Atualizar display dos alunos selecionados
 function updateSelectedStudentsDisplay() {
     const selectedStudentsContainer = document.getElementById('selected-students');
     
@@ -2135,7 +2690,7 @@ function loadAdminQuizzes() {
         });
 }
 
-// Criar card de quiz para administrador - MODIFICADA
+// Criar card de quiz para administrador
 function createAdminQuizCard(quiz) {
     const card = document.createElement('div');
     card.className = 'card';
@@ -2207,7 +2762,7 @@ function createAdminQuizCard(quiz) {
     return card;
 }
 
-// Abrir modal do quiz - MODIFICADA
+// Abrir modal do quiz
 function openQuizModal(quizId = null) {
     editingQuizId = quizId;
     const modal = document.getElementById('quiz-modal');
@@ -2297,7 +2852,7 @@ function closeQuizModal() {
     selectedStudents = [];
 }
 
-// Salvar quiz - MODIFICADA
+// Salvar quiz
 function saveQuiz() {
     const title = document.getElementById('quiz-title').value;
     const description = document.getElementById('quiz-description').value;
@@ -3146,11 +3701,13 @@ function loadTopPlayers() {
                     userScores[userId] = {
                         totalScore: 0,
                         totalQuizzes: 0,
+                        totalPercentage: 0,
                         userId: userId
                     };
                 }
                 
                 userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalPercentage += userQuiz.percentage || 0;
                 userScores[userId].totalQuizzes += 1;
             });
             
@@ -3167,7 +3724,6 @@ function loadTopPlayers() {
                 return;
             }
             
-            // CORREÇÃO: Usar a função corrigida para carregar usuários
             loadUsersInBatches(userIds, topPlayers, topPlayersElement, true);
         })
         .catch(error => {
@@ -3176,7 +3732,7 @@ function loadTopPlayers() {
         });
 }
 
-// CORREÇÃO: Função loadFullRanking completamente reescrita
+// Carregar ranking completo
 function loadFullRanking() {
     const fullRankingElement = document.getElementById('full-ranking');
     fullRankingElement.innerHTML = '<div class="ranking-list">Carregando ranking completo...</div>';
@@ -3200,11 +3756,13 @@ function loadFullRanking() {
                     userScores[userId] = {
                         totalScore: 0,
                         totalQuizzes: 0,
+                        totalPercentage: 0,
                         userId: userId
                     };
                 }
                 
                 userScores[userId].totalScore += userQuiz.score || 0;
+                userScores[userId].totalPercentage += userQuiz.percentage || 0;
                 userScores[userId].totalQuizzes += 1;
             });
             
@@ -3222,7 +3780,6 @@ function loadFullRanking() {
                 return;
             }
             
-            // CORREÇÃO: Usar a função corrigida para carregar usuários em lotes
             loadUsersInBatchesForFullRanking(userIds, fullRanking, fullRankingElement);
         })
         .catch(error => {
@@ -3231,7 +3788,7 @@ function loadFullRanking() {
         });
 }
 
-// CORREÇÃO: Nova função para carregar usuários em lotes para o ranking completo
+// Nova função para carregar usuários em lotes para o ranking completo
 function loadUsersInBatchesForFullRanking(userIds, fullRanking, fullRankingElement) {
     const batchSize = 10;
     const userBatches = [];
@@ -3281,7 +3838,7 @@ function loadUsersInBatchesForFullRanking(userIds, fullRanking, fullRankingEleme
     });
 }
 
-// CORREÇÃO: Exibir ranking completo
+// Exibir ranking completo
 function displayFullRanking(fullRanking, usersMap, fullRankingElement) {
     let html = '';
     
@@ -3289,6 +3846,7 @@ function displayFullRanking(fullRanking, usersMap, fullRankingElement) {
         const user = usersMap[player.userId];
         if (user) {
             const avgScore = player.totalQuizzes > 0 ? (player.totalScore / player.totalQuizzes).toFixed(1) : 0;
+            const avgPercentage = player.totalQuizzes > 0 ? (player.totalPercentage / player.totalQuizzes).toFixed(1) : 0;
             
             // Destacar usuário atual
             const isCurrentUser = player.userId === currentUser.uid;
@@ -3300,7 +3858,8 @@ function displayFullRanking(fullRanking, usersMap, fullRankingElement) {
                     <div class="ranking-info">
                         <div class="ranking-name">${user.name} ${isCurrentUser ? '(Você)' : ''}</div>
                         <div class="ranking-details">
-                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts
+                            ${player.totalQuizzes} quiz(s) • Média: ${avgScore} pts (${avgPercentage}%)
+                            <br><span style="font-size: 0.8rem; color: var(--secondary-color);">${user.email}</span>
                         </div>
                     </div>
                     <div class="ranking-score">${player.totalScore} pts</div>
