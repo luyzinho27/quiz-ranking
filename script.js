@@ -89,6 +89,35 @@ document.addEventListener('DOMContentLoaded', function() {
             showAuth();
         }
     });
+    // Tratar resultado de redirect (fallback quando popup for bloqueado)
+    auth.getRedirectResult()
+        .then((result) => {
+            if (result && result.user) {
+                // Garantir documento do usuário para login social via redirect
+                ensureUserDocument(result.user)
+                    .then(userData => {
+                        if (userData && userData.status === 'inactive' && userData.userType === 'aluno') {
+                            return auth.signOut().then(() => {
+                                hideLoading();
+                                showError('login-error', 'Sua conta foi desativada. Entre em contato com o administrador.');
+                            });
+                        }
+
+                        document.getElementById('login-error').textContent = '';
+                        hideLoading();
+                    })
+                    .catch(err => {
+                        console.error('Erro ao garantir documento do usuário (redirect):', err);
+                        hideLoading();
+                    });
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao processar getRedirectResult:', error);
+            // Mostrar erro amigável
+            hideLoading();
+            showError('login-error', getAuthErrorMessage(error.code));
+        });
 });
 
 // Funções de loading
@@ -374,7 +403,7 @@ function signInWithGoogle() {
     auth.signInWithPopup(provider)
         .then((result) => ensureUserDocument(result.user))
         .then(userData => {
-            if (userData.status === 'inactive' && userData.userType === 'aluno') {
+            if (userData && userData.status === 'inactive' && userData.userType === 'aluno') {
                 return auth.signOut().then(() => {
                     hideLoading();
                     showError('login-error', 'Sua conta foi desativada. Entre em contato com o administrador.');
@@ -385,6 +414,23 @@ function signInWithGoogle() {
             hideLoading();
         })
         .catch((error) => {
+            console.error('Erro no login com Google:', error);
+
+            // Erro comum: provedor Google não habilitado no Firebase (operation-not-allowed)
+            if (error && error.code === 'auth/operation-not-allowed') {
+                hideLoading();
+                showError('login-error', 'Login com Google não habilitado no projeto Firebase. Habilite o provedor Google em Firebase Console > Authentication > Sign-in method e adicione o domínio (ex: localhost).');
+                return;
+            }
+
+            // Popup bloqueado ou similar: tentar fallback para redirect
+            if (error && (error.code === 'auth/popup-blocked' || error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request')) {
+                console.warn('Popup bloqueado ou fechado. Tentando fallback com redirect...');
+                // Não chamamos hideLoading() aqui porque será tratado no redirect flow
+                auth.signInWithRedirect(provider);
+                return;
+            }
+
             hideLoading();
             showError('login-error', getAuthErrorMessage(error.code));
         });
