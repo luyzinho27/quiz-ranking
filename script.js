@@ -107,6 +107,7 @@ function initAuth() {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const forgotPasswordLink = document.getElementById('forgot-password');
+    const googleLoginBtn = document.getElementById('google-login-btn');
     
     // Alternar entre login e cadastro
     loginTab.addEventListener('click', () => {
@@ -204,6 +205,13 @@ function initAuth() {
             });
     });
     
+    // Login com Google
+    if (googleLoginBtn) {
+        googleLoginBtn.addEventListener('click', () => {
+            signInWithGoogle();
+        });
+    }
+
     // Toggle password visibility
     document.getElementById('toggle-login-password').addEventListener('click', function() {
         togglePasswordVisibility('login-password', this);
@@ -335,6 +343,53 @@ function registerUser(name, email, password, userType) {
 }
 
 // Obter dados do usuário
+// Garantir documento do usuario para login social
+function ensureUserDocument(user) {
+    return db.collection('users').doc(user.uid).get()
+        .then(doc => {
+            if (doc.exists) {
+                return doc.data();
+            }
+
+            const fallbackName = user.displayName || (user.email ? user.email.split('@')[0] : 'Aluno');
+            const userData = {
+                name: fallbackName,
+                email: user.email || '',
+                userType: 'aluno',
+                status: 'active',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            return db.collection('users').doc(user.uid).set(userData).then(() => userData);
+        });
+}
+
+// Login com Google
+function signInWithGoogle() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    showLoading();
+    auth.signInWithPopup(provider)
+        .then((result) => ensureUserDocument(result.user))
+        .then(userData => {
+            if (userData.status === 'inactive' && userData.userType === 'aluno') {
+                return auth.signOut().then(() => {
+                    hideLoading();
+                    showError('login-error', 'Sua conta foi desativada. Entre em contato com o administrador.');
+                });
+            }
+
+            document.getElementById('login-error').textContent = '';
+            hideLoading();
+        })
+        .catch((error) => {
+            hideLoading();
+            showError('login-error', getAuthErrorMessage(error.code));
+        });
+}
+
 function getUserData(uid) {
     return db.collection('users').doc(uid).get()
         .then(doc => {
@@ -668,6 +723,10 @@ function getAuthErrorMessage(errorCode) {
         'auth/email-already-in-use': 'Este e-mail já está em uso.',
         'auth/weak-password': 'A senha é muito fraca.',
         'auth/operation-not-allowed': 'Operação não permitida.',
+        'auth/popup-closed-by-user': 'Login cancelado. Tente novamente.',
+        'auth/cancelled-popup-request': 'Outra janela de login ja esta aberta.',
+        'auth/popup-blocked': 'Pop-up bloqueado pelo navegador. Libere o pop-up e tente novamente.',
+        'auth/account-exists-with-different-credential': 'Ja existe uma conta com este e-mail. Entre com e-mail e senha e vincule o Google nas configuracoes.',
         'auth/too-many-requests': 'Muitas tentativas. Tente novamente mais tarde.'
     };
     
