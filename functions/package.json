@@ -1,0 +1,18 @@
+{
+  "name": "quiz-ranking-functions",
+  "version": "1.0.0",
+  "description": "Cloud Functions for quiz-ranking (adminUpdateUser)",
+  "main": "index.js",
+  "scripts": {
+    "lint": "eslint . || true",
+    "start": "firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions:adminUpdateUser"
+  },
+  "engines": {
+    "node": "16"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.10.1",
+    "firebase-functions": "^4.4.0"
+  }
+}
