@@ -13,7 +13,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <!-- Firebase Firestore -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <!-- Firebase Functions -->
+    <!-- Firebase Functions (callable functions) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-functions.js"></script>
     <!-- Ícones -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -149,6 +149,31 @@
                     <span class="user-role">Aluno</span>
                 </div>
                 <button id="student-logout" class="btn btn-secondary">
+
+            <!-- Modal para notificar usuário sobre alterações pendentes solicitadas pelo admin -->
+            <div id="pending-auth-modal" class="modal hidden">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Alterações pendentes</h3>
+                        <button id="close-pending-modal" class="btn btn-icon"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="modal-body">
+                        <p id="pending-auth-message">Seu administrador solicitou alterações na sua conta.</p>
+                        <div id="reauth-container" class="hidden">
+                            <p>Por segurança, insira sua senha atual para confirmar as alterações:</p>
+                            <div class="input-group password-group">
+                                <i class="fas fa-lock"></i>
+                                <input type="password" id="reauth-password" placeholder="Senha atual">
+                                <i class="toggle-password fas fa-eye-slash" id="toggle-reauth-password" style="cursor: pointer;"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="reject-pending" class="btn btn-secondary">Recusar</button>
+                        <button id="accept-pending" class="btn btn-primary">Aceitar Alterações</button>
+                    </div>
+                </div>
+            </div>
                     <i class="fas fa-sign-out-alt"></i>
                     <span class="btn-text">Sair</span>
                 </button>
@@ -914,9 +939,10 @@
                     <label for="user-email">E-mail</label>
                     <input type="email" id="user-email" placeholder="E-mail">
                 </div>
-                <div class="input-group">
-                    <label for="user-password">Senha (novo)</label>
-                    <input type="password" id="user-password" placeholder="Deixe em branco para não alterar">
+                <div class="input-group password-group">
+                    <label for="user-password">Senha (deixe em branco para manter a atual)</label>
+                    <input type="password" id="user-password" placeholder="Nova senha (mínimo 6 caracteres)">
+                    <i class="toggle-password fas fa-eye-slash" id="toggle-user-password"></i>
                 </div>
                 <div class="input-group">
                     <label for="user-type">Tipo de Usuário</label>
