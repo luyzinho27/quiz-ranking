@@ -12,8 +12,6 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
-// Inicializa functions se disponível
-const functions = firebase.functions ? firebase.functions() : null;
 
 // Configurar persistência de sessão
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
@@ -34,7 +32,6 @@ let userQuizId = null;
 let editingQuizId = null;
 let editingQuestionId = null;
 let editingUserId = null;
-let editingUserOriginalEmail = null;
 let exitCount = 0;
 let quizStartTime = 0;
 let availableStudents = [];
@@ -79,15 +76,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 currentUser = { ...user, ...userData };
-                // Após carregar os dados do usuário, verificar se há atualizações pendentes para Authentication
-                checkAndApplyPendingAuthUpdates(user.uid).then(() => {
-                    hideLoading();
-                    showDashboard();
-                }).catch(err => {
-                    console.error('Erro ao aplicar atualizações pendentes:', err);
-                    hideLoading();
-                    showDashboard();
-                });
+                hideLoading();
+                showDashboard();
             }).catch(error => {
                 hideLoading();
                 console.error('Erro ao carregar dados do usuário:', error);
@@ -667,32 +657,6 @@ function initModals() {
     document.getElementById('admin-quiz-ranking-select')?.addEventListener('change', function() {
         loadAdminSpecificQuizRanking(this.value);
     });
-
-    // Toggle do campo de senha do modal de usuário
-    const toggleUserPwd = document.getElementById('toggle-user-password');
-    if (toggleUserPwd) {
-        toggleUserPwd.addEventListener('click', function() {
-            const pwd = document.getElementById('user-password');
-            if (!pwd) return;
-            const t = pwd.getAttribute('type') === 'password' ? 'text' : 'password';
-            pwd.setAttribute('type', t);
-            this.classList.toggle('fa-eye');
-            this.classList.toggle('fa-eye-slash');
-        });
-    }
-
-    // Toggle para reauth password no modal de pending
-    const toggleReauth = document.getElementById('toggle-reauth-password');
-    if (toggleReauth) {
-        toggleReauth.addEventListener('click', function() {
-            const pwd = document.getElementById('reauth-password');
-            if (!pwd) return;
-            const t = pwd.getAttribute('type') === 'password' ? 'text' : 'password';
-            pwd.setAttribute('type', t);
-            this.classList.toggle('fa-eye');
-            this.classList.toggle('fa-eye-slash');
-        });
-    }
 }
 
 // Inicializar página sobre
@@ -3470,13 +3434,8 @@ function openUserModal(userId = null) {
                     const user = doc.data();
                     document.getElementById('user-name').value = user.name;
                     document.getElementById('user-email').value = user.email;
-                    // armazenar email original para detectar mudanças
-                    editingUserOriginalEmail = user.email || null;
                     document.getElementById('user-type').value = user.userType;
                     document.getElementById('user-status').value = user.status || 'active';
-                    // limpar campo de senha
-                    const pwd = document.getElementById('user-password');
-                    if (pwd) pwd.value = '';
                 }
             });
     }
@@ -3488,9 +3447,6 @@ function openUserModal(userId = null) {
 function closeUserModal() {
     document.getElementById('user-modal').classList.add('hidden');
     editingUserId = null;
-    editingUserOriginalEmail = null;
-    const pwd = document.getElementById('user-password');
-    if (pwd) pwd.value = '';
 }
 
 // Salvar usuário
@@ -3499,7 +3455,6 @@ function saveUser() {
     const email = document.getElementById('user-email').value;
     const userType = document.getElementById('user-type').value;
     const status = document.getElementById('user-status').value;
-    const newPassword = document.getElementById('user-password') ? document.getElementById('user-password').value : '';
     
     if (!name || !email) {
         alert('Por favor, preencha todos os campos obrigatórios.');
@@ -3518,142 +3473,14 @@ function saveUser() {
         // Atualizar usuário existente
         db.collection('users').doc(editingUserId).update(userData)
             .then(() => {
-                // Se o email mudou ou senha foi informada, criar um documento pendingAuthUpdates/{uid}
-                const emailChanged = editingUserOriginalEmail && (editingUserOriginalEmail !== email);
-                const shouldCreatePending = emailChanged || (newPassword && newPassword.length >= 6);
-
-                if (shouldCreatePending) {
-                    const pendingRef = db.collection('pendingAuthUpdates').doc(editingUserId);
-                    const pendingData = {
-                        requestedBy: currentUser ? currentUser.uid : null,
-                        requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        newEmail: emailChanged ? email : null,
-                        newPassword: (newPassword && newPassword.length >= 6) ? newPassword : null
-                    };
-
-                    // Salvar (merge) as atualizações pendentes
-                    pendingRef.set(pendingData, { merge: true })
-                        .then(() => {
-                            alert('Usuário atualizado no Firestore. Atualizações de autenticação foram agendadas e o usuário deverá confirmar no próximo login.');
-                            closeUserModal();
-                            loadAdminUsers();
-                        })
-                        .catch(err => {
-                            console.error('Erro ao criar pendingAuthUpdates:', err);
-                            alert('Usuário atualizado no Firestore, porém falha ao agendar atualização de autenticação: ' + (err.message || err));
-                            closeUserModal();
-                            loadAdminUsers();
-                        });
-                } else {
-                    alert('Usuário atualizado com sucesso!');
-                    closeUserModal();
-                    loadAdminUsers();
-                }
+                alert('Usuário atualizado com sucesso!');
+                closeUserModal();
+                loadAdminUsers();
             })
             .catch(error => {
                 alert('Erro ao atualizar usuário: ' + error.message);
             });
     }
-}
-
-// Verifica e aplica atualizações pendentes de Authentication para o usuário que acabou de logar
-function checkAndApplyPendingAuthUpdates(uid) {
-    const pendingRef = db.collection('pendingAuthUpdates').doc(uid);
-    return pendingRef.get().then(doc => {
-        if (!doc.exists) return Promise.resolve();
-
-        const data = doc.data();
-        const newEmail = data.newEmail || null;
-        const newPassword = data.newPassword || null;
-
-        if (!newEmail && !newPassword) {
-            // limpeza do documento
-            return pendingRef.delete();
-        }
-
-        // Mostrar modal para o usuário confirmar a aplicação (reautenticação)
-        return new Promise((resolve, reject) => {
-            const pendingModal = document.getElementById('pending-auth-modal');
-            const msg = document.getElementById('pending-auth-message');
-            const reauthContainer = document.getElementById('reauth-container');
-            const acceptBtn = document.getElementById('accept-pending');
-            const rejectBtn = document.getElementById('reject-pending');
-            const closeBtn = document.getElementById('close-pending-modal');
-
-            msg.textContent = 'O administrador solicitou alterações na sua conta.';
-            if (newEmail) msg.textContent += '\nNovo e-mail proposto: ' + newEmail;
-            if (newPassword) msg.textContent += '\nUma nova senha também foi proposta.';
-
-            // Exibir campo de reautenticação
-            reauthContainer.classList.remove('hidden');
-            pendingModal.classList.remove('hidden');
-
-            function cleanup() {
-                pendingModal.classList.add('hidden');
-                reauthContainer.classList.add('hidden');
-                document.getElementById('reauth-password').value = '';
-                acceptBtn.removeEventListener('click', onAccept);
-                rejectBtn.removeEventListener('click', onReject);
-                closeBtn.removeEventListener('click', onReject);
-            }
-
-            function onReject() {
-                // Apenas remover o documento de pending (ou marcar como rejeitado)
-                pendingRef.delete().then(() => {
-                    cleanup();
-                    resolve();
-                }).catch(err => {
-                    cleanup();
-                    reject(err);
-                });
-            }
-
-            async function onAccept() {
-                const currentPwd = document.getElementById('reauth-password').value;
-                if (!currentPwd) {
-                    alert('Por favor, insira sua senha atual para confirmar.');
-                    return;
-                }
-
-                // Reautenticar o usuário para permitir updateEmail/updatePassword
-                const credential = firebase.auth.EmailAuthProvider.credential(auth.currentUser.email, currentPwd);
-                try {
-                    await auth.currentUser.reauthenticateWithCredential(credential);
-
-                    // Aplicar as mudanças no Authentication via client SDK
-                    if (newEmail) {
-                        await auth.currentUser.updateEmail(newEmail);
-                    }
-                    if (newPassword) {
-                        await auth.currentUser.updatePassword(newPassword);
-                    }
-
-                    // Atualizar também o documento do usuário no Firestore para garantir consistência
-                    const userDocRef = db.collection('users').doc(uid);
-                    const updatePayload = {};
-                    if (newEmail) updatePayload.email = newEmail;
-                    updatePayload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-                    await userDocRef.update(updatePayload);
-
-                    // Remover pending
-                    await pendingRef.delete();
-
-                    alert('Alterações de autenticação aplicadas com sucesso.');
-                    cleanup();
-                    resolve();
-                } catch (err) {
-                    console.error('Erro ao aplicar atualizações pendentes:', err);
-                    alert('Falha ao aplicar alterações: ' + (err.message || err));
-                    cleanup();
-                    reject(err);
-                }
-            }
-
-            acceptBtn.addEventListener('click', onAccept);
-            rejectBtn.addEventListener('click', onReject);
-            closeBtn.addEventListener('click', onReject);
-        });
-    });
 }
 
 // Alternar status do usuário
