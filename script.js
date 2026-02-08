@@ -12,6 +12,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const functions = firebase.functions();
 
 // Configurar persistência de sessão
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
@@ -3453,6 +3454,7 @@ function closeUserModal() {
 function saveUser() {
     const name = document.getElementById('user-name').value;
     const email = document.getElementById('user-email').value;
+    const password = document.getElementById('user-password')?.value || '';
     const userType = document.getElementById('user-type').value;
     const status = document.getElementById('user-status').value;
     
@@ -3470,8 +3472,41 @@ function saveUser() {
     };
     
     if (editingUserId) {
-        // Atualizar usuário existente
-        db.collection('users').doc(editingUserId).update(userData)
+        // Se o usuário atual for admin e houve alteração de email/senha, usar função callable para atualizar Auth + Firestore
+        const isAdmin = currentUser && currentUser.userType === 'admin';
+
+        const needsAuthUpdate = isAdmin && (password.trim() !== '' || email !== undefined);
+
+        if (needsAuthUpdate) {
+            // Chamar função cloud para atualizar Auth (email/senha) e Firestore
+            const adminUpdateUser = functions.httpsCallable('adminUpdateUser');
+            showLoading();
+            adminUpdateUser({
+                targetUid: editingUserId,
+                email: email,
+                password: password.trim() || null,
+                name: name,
+                userType: userType,
+                status: status
+            })
+            .then(result => {
+                hideLoading();
+                if (result.data && result.data.success) {
+                    alert('Usuário atualizado com sucesso!');
+                    closeUserModal();
+                    loadAdminUsers();
+                } else {
+                    alert('Erro ao atualizar usuário: ' + (result.data && result.data.message ? result.data.message : 'Erro desconhecido'));
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Erro ao chamar adminUpdateUser:', error);
+                alert('Erro ao atualizar usuário: ' + (error.message || error));
+            });
+        } else {
+            // Apenas atualizar Firestore (sem tocar no Auth)
+            db.collection('users').doc(editingUserId).update(userData)
             .then(() => {
                 alert('Usuário atualizado com sucesso!');
                 closeUserModal();
@@ -3480,6 +3515,7 @@ function saveUser() {
             .catch(error => {
                 alert('Erro ao atualizar usuário: ' + error.message);
             });
+        }
     }
 }
 
