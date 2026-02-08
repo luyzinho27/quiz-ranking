@@ -3502,7 +3502,27 @@ function saveUser() {
             .catch(error => {
                 hideLoading();
                 console.error('Erro ao chamar adminUpdateUser:', error);
-                alert('Erro ao atualizar usuário: ' + (error.message || error));
+
+                // firebase functions errors often come with code and message
+                let userMessage = 'Erro ao atualizar usuário.';
+                if (error && error.code) {
+                    // Map common codes to friendly text
+                    if (error.code === 'permission-denied') {
+                        userMessage = 'Permissão negada. Você precisa ser administrador para esta operação.';
+                    } else if (error.code === 'unauthenticated') {
+                        userMessage = 'Sessão expirada. Faça login novamente.';
+                    } else if (error.code === 'invalid-argument') {
+                        userMessage = error.message || 'Dados inválidos fornecidos.';
+                    } else if (error.code === 'internal') {
+                        userMessage = error.message || 'Erro interno no servidor. Verifique os logs.';
+                    } else {
+                        userMessage = error.message || userMessage;
+                    }
+                } else if (error && error.message) {
+                    userMessage = error.message;
+                }
+
+                alert('Erro ao atualizar usuário: ' + userMessage);
             });
         } else {
             // Apenas atualizar Firestore (sem tocar no Auth)
