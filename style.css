@@ -575,6 +575,23 @@ body {
     width: 100%;
 }
 
+/* Área de usuários do admin: limitar altura e permitir rolagem */
+#admin-users-list {
+    max-height: 60vh; /* ocupa até 60% da altura da viewport */
+    overflow-y: auto;
+    padding-right: 0.5rem; /* para evitar conteúdo cortado por scrollbar */
+}
+
+/* Tornar os cards em lista mais legível no admin (uma coluna em telas menores) */
+@media (max-width: 900px) {
+    #admin-users-list {
+        max-height: 50vh;
+    }
+    .cards-container {
+        grid-template-columns: 1fr;
+    }
+}
+
 .card {
     background: white;
     border-radius: var(--border-radius);
