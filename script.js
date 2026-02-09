@@ -499,6 +499,9 @@ function initSearchListeners() {
     // Pesquisa no Ranking por Quiz
     document.getElementById('quiz-ranking-search')?.addEventListener('input', (e) => filterQuizRanking(e.target.value, 'student'));
     document.getElementById('admin-quiz-ranking-search')?.addEventListener('input', (e) => filterQuizRanking(e.target.value, 'admin'));
+
+    // Pesquisa na lista de usuários do admin
+    document.getElementById('admin-users-search')?.addEventListener('input', (e) => filterAdminUsers(e.target.value));
 }
 
 // Inicializar navegação por abas
@@ -3337,29 +3340,80 @@ function importQuestions() {
 function loadAdminUsers() {
     const usersList = document.getElementById('admin-users-list');
     usersList.innerHTML = '<div class="card"><div class="card-content">Carregando usuários...</div></div>';
-    
-    // Buscar todos os usuários
+
+    // Buscar todos os usuários e armazenar em cache para ordenação/filtragem
     db.collection('users')
-        .orderBy('createdAt', 'desc')
         .get()
         .then(querySnapshot => {
             usersList.innerHTML = '';
-            
+
             if (querySnapshot.empty) {
                 usersList.innerHTML = '<div class="card"><div class="card-content">Nenhum usuário cadastrado.</div></div>';
+                window.cachedAdminUsers = [];
                 return;
             }
-            
+
+            const users = [];
             querySnapshot.forEach(doc => {
-                const user = { id: doc.id, ...doc.data() };
-                const userCard = createAdminUserCard(user);
-                usersList.appendChild(userCard);
+                users.push({ id: doc.id, ...doc.data() });
             });
+
+            // Ordenar alfabeticamente por nome (case-insensitive)
+            users.sort((a, b) => {
+                const nameA = (a.name || '').toLowerCase();
+                const nameB = (b.name || '').toLowerCase();
+                if (nameA < nameB) return -1;
+                if (nameA > nameB) return 1;
+                return 0;
+            });
+
+            // Salvar em cache global para filtragem
+            window.cachedAdminUsers = users;
+
+            // Reaplicar filtro atual (se houver) ou renderizar todos
+            const currentQuery = document.getElementById('admin-users-search')?.value || '';
+            if (currentQuery.trim()) {
+                filterAdminUsers(currentQuery);
+            } else {
+                renderAdminUsers(users);
+            }
         })
         .catch(error => {
             usersList.innerHTML = '<div class="card"><div class="card-content">Erro ao carregar usuários.</div></div>';
             console.error('Erro ao carregar usuários:', error);
+            window.cachedAdminUsers = [];
         });
+}
+
+// Renderiza array de usuários na lista do admin
+function renderAdminUsers(users) {
+    const usersList = document.getElementById('admin-users-list');
+    usersList.innerHTML = '';
+
+    if (!users || users.length === 0) {
+        usersList.innerHTML = '<div class="card"><div class="card-content">Nenhum usuário encontrado.</div></div>';
+        return;
+    }
+
+    // Para uma lista longa, preferimos exibir como coluna — cards permanecem, grid cuidará responsivo
+    users.forEach(user => {
+        const userCard = createAdminUserCard(user);
+        usersList.appendChild(userCard);
+    });
+}
+
+// Filtra usuários do admin por nome (input)
+function filterAdminUsers(query) {
+    const q = (query || '').trim().toLowerCase();
+    const users = window.cachedAdminUsers || [];
+
+    if (!q) {
+        renderAdminUsers(users);
+        return;
+    }
+
+    const filtered = users.filter(u => (u.name || '').toLowerCase().includes(q));
+    renderAdminUsers(filtered);
 }
 
 // Criar card de usuário para administrador
