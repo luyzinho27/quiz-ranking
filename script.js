@@ -36,6 +36,12 @@ let exitCount = 0;
 let quizStartTime = 0;
 let availableStudents = [];
 let selectedStudents = [];
+let quizActive = false;
+let quizProtectionEnabled = false;
+let lastProgressSyncAt = 0;
+
+const QUIZ_STATE_PREFIX = 'quizState:';
+const QUIZ_PROGRESS_SYNC_MS = 15000;
 
 // Cache para dados de ranking (para permitir pesquisa)
 let cachedRankingData = {
@@ -54,6 +60,248 @@ const adminDashboard = document.getElementById('admin-dashboard');
 const quizContainer = document.getElementById('quiz-container');
 const quizResult = document.getElementById('quiz-result');
 const loading = document.getElementById('loading');
+
+function getQuizStateKey(userId, quizId) {
+    return `${QUIZ_STATE_PREFIX}${userId}:${quizId}`;
+}
+
+function getTimestampMs(value) {
+    if (!value) return null;
+    if (typeof value === 'number') return value;
+    if (value.toDate) return value.toDate().getTime();
+    const parsed = new Date(value);
+    const ms = parsed.getTime();
+    return Number.isNaN(ms) ? null : ms;
+}
+
+function computeRemainingFromSaved(timeValue, savedAtMs) {
+    if (typeof timeValue !== 'number') return 0;
+    if (!savedAtMs) return Math.max(0, timeValue);
+    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - savedAtMs) / 1000));
+    return Math.max(0, timeValue - elapsedSeconds);
+}
+
+function normalizeAnswers(answers, length) {
+    const normalized = Array.isArray(answers) ? answers.slice(0, length) : [];
+    while (normalized.length < length) {
+        normalized.push(null);
+    }
+    return normalized;
+}
+
+function saveQuizStateLocal(options = {}) {
+    if (!currentUser || !currentQuiz || !userQuizId) return;
+    const state = {
+        userId: currentUser.uid,
+        quizId: currentQuiz.id,
+        userQuizId: userQuizId,
+        answers: Array.isArray(userAnswers) ? userAnswers : [],
+        currentQuestionIndex: typeof currentQuestionIndex === 'number' ? currentQuestionIndex : 0,
+        timeRemaining: typeof timeRemaining === 'number' ? timeRemaining : 0,
+        exitCount: typeof exitCount === 'number' ? exitCount : 0,
+        questionIds: Array.isArray(currentQuestions) ? currentQuestions.map(question => question.id).filter(Boolean) : [],
+        savedAt: Date.now(),
+        active: typeof options.active === 'boolean' ? options.active : quizActive
+    };
+
+    try {
+        localStorage.setItem(getQuizStateKey(currentUser.uid, currentQuiz.id), JSON.stringify(state));
+    } catch (error) {
+        console.warn('Nao foi possivel salvar o estado do quiz localmente:', error);
+    }
+}
+
+function getActiveQuizStateForUser(userId) {
+    try {
+        let latestState = null;
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || !key.startsWith(`${QUIZ_STATE_PREFIX}${userId}:`)) continue;
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const parsed = JSON.parse(raw);
+            if (!parsed || parsed.userId !== userId || !parsed.active) continue;
+            if (!latestState || (parsed.savedAt && parsed.savedAt > latestState.savedAt)) {
+                latestState = parsed;
+            }
+        }
+        return latestState;
+    } catch (error) {
+        console.warn('Nao foi possivel ler o estado do quiz localmente:', error);
+        return null;
+    }
+}
+
+function getQuizStateForUser(userId, quizId) {
+    if (!userId || !quizId) return null;
+    try {
+        const raw = localStorage.getItem(getQuizStateKey(userId, quizId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!parsed || parsed.userId !== userId || parsed.quizId !== quizId) return null;
+        return parsed;
+    } catch (error) {
+        console.warn('Nao foi possivel ler o estado do quiz localmente:', error);
+        return null;
+    }
+}
+
+function clearQuizStateLocal(userId, quizId) {
+    if (!userId || !quizId) return;
+    try {
+        localStorage.removeItem(getQuizStateKey(userId, quizId));
+    } catch (error) {
+        console.warn('Nao foi possivel limpar o estado do quiz localmente:', error);
+    }
+}
+
+function syncQuizProgress(force = false) {
+    const now = Date.now();
+    if (!force && now - lastProgressSyncAt < QUIZ_PROGRESS_SYNC_MS) return;
+    lastProgressSyncAt = now;
+    updateUserQuizProgress();
+}
+
+function handleQuizGuardedEvent(event) {
+    if (!quizActive) return;
+    event.preventDefault();
+    event.stopPropagation();
+}
+
+function handleQuizKeydown(event) {
+    if (!quizActive) return;
+    const key = (event.key || '').toLowerCase();
+    const isModifierBlocked = (event.ctrlKey || event.metaKey) && ['a', 'c', 'x', 's', 'p'].includes(key);
+    const isPrintScreen = event.key === 'PrintScreen';
+    if (isModifierBlocked || isPrintScreen) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+}
+
+function enableQuizProtection() {
+    if (quizProtectionEnabled) return;
+    quizProtectionEnabled = true;
+    document.addEventListener('copy', handleQuizGuardedEvent, true);
+    document.addEventListener('cut', handleQuizGuardedEvent, true);
+    document.addEventListener('paste', handleQuizGuardedEvent, true);
+    document.addEventListener('contextmenu', handleQuizGuardedEvent, true);
+    document.addEventListener('selectstart', handleQuizGuardedEvent, true);
+    document.addEventListener('dragstart', handleQuizGuardedEvent, true);
+    document.addEventListener('keydown', handleQuizKeydown, true);
+}
+
+function disableQuizProtection() {
+    if (!quizProtectionEnabled) return;
+    quizProtectionEnabled = false;
+    document.removeEventListener('copy', handleQuizGuardedEvent, true);
+    document.removeEventListener('cut', handleQuizGuardedEvent, true);
+    document.removeEventListener('paste', handleQuizGuardedEvent, true);
+    document.removeEventListener('contextmenu', handleQuizGuardedEvent, true);
+    document.removeEventListener('selectstart', handleQuizGuardedEvent, true);
+    document.removeEventListener('dragstart', handleQuizGuardedEvent, true);
+    document.removeEventListener('keydown', handleQuizKeydown, true);
+}
+
+function setQuizActive(active, options = {}) {
+    quizActive = !!active;
+    if (quizActive) {
+        quizContainer.classList.add('quiz-protected');
+        document.body.classList.add('quiz-print-blocked');
+        enableQuizProtection();
+        saveQuizStateLocal({ active: true });
+        return;
+    }
+
+    quizContainer.classList.remove('quiz-protected');
+    document.body.classList.remove('quiz-print-blocked');
+    disableQuizProtection();
+
+    if (options.clearLocal && currentUser && currentQuiz) {
+        clearQuizStateLocal(currentUser.uid, currentQuiz.id);
+    } else if (options.persist !== false) {
+        saveQuizStateLocal({ active: false });
+    }
+}
+
+function handleQuizBeforeUnload() {
+    if (!quizActive) return;
+    saveQuizStateLocal({ active: true });
+    syncQuizProgress(true);
+}
+
+function resumeQuizFromState(quiz, localState) {
+    if (!localState || !localState.userQuizId) return Promise.resolve(false);
+    currentQuiz = quiz;
+
+    return db.collection('userQuizzes').doc(localState.userQuizId).get()
+        .then(doc => {
+            if (!doc.exists) {
+                clearQuizStateLocal(localState.userId, localState.quizId);
+                return false;
+            }
+
+            const userQuiz = doc.data();
+            if (userQuiz.status !== 'in-progress') {
+                clearQuizStateLocal(localState.userId, localState.quizId);
+                return false;
+            }
+
+            const serverUpdatedAt = getTimestampMs(userQuiz.updatedAt) || getTimestampMs(userQuiz.startTime) || 0;
+            const localSavedAt = localState.savedAt || 0;
+            const preferLocal = localSavedAt >= serverUpdatedAt;
+            const base = preferLocal ? localState : userQuiz;
+            const fallback = preferLocal ? userQuiz : localState;
+
+            const rawTime = typeof base.timeRemaining === 'number'
+                ? base.timeRemaining
+                : (typeof fallback.timeRemaining === 'number' ? fallback.timeRemaining : (quiz.time * 60));
+            const baseSavedAt = preferLocal ? localSavedAt : (serverUpdatedAt || localSavedAt);
+
+            timeRemaining = computeRemainingFromSaved(rawTime, baseSavedAt);
+            exitCount = typeof base.exitCount === 'number'
+                ? base.exitCount
+                : (typeof fallback.exitCount === 'number' ? fallback.exitCount : 0);
+            currentQuestionIndex = typeof base.currentQuestionIndex === 'number'
+                ? base.currentQuestionIndex
+                : (typeof fallback.currentQuestionIndex === 'number' ? fallback.currentQuestionIndex : 0);
+            userAnswers = Array.isArray(base.answers) && base.answers.length
+                ? base.answers
+                : (Array.isArray(fallback.answers) ? fallback.answers : []);
+
+            userQuizId = doc.id;
+
+            const questionIds = Array.isArray(base.questionIds) && base.questionIds.length
+                ? base.questionIds
+                : (Array.isArray(fallback.questionIds) ? fallback.questionIds : []);
+
+            return loadQuizQuestions(quiz.id, { questionIds, preserveAnswers: true, resume: true });
+        })
+        .catch(error => {
+            console.error('Erro ao retomar quiz:', error);
+            return false;
+        });
+}
+
+function attemptAutoResumeQuiz() {
+    if (!currentUser || currentUser.userType !== 'aluno') return Promise.resolve(false);
+    const state = getActiveQuizStateForUser(currentUser.uid);
+    if (!state) return Promise.resolve(false);
+
+    return db.collection('quizzes').doc(state.quizId).get()
+        .then(doc => {
+            if (!doc.exists) {
+                clearQuizStateLocal(state.userId, state.quizId);
+                return false;
+            }
+            const quiz = { id: doc.id, ...doc.data() };
+            return resumeQuizFromState(quiz, state);
+        })
+        .catch(error => {
+            console.error('Erro ao tentar retomar quiz automaticamente:', error);
+            return false;
+        });
+}
 
 // Inicializar a aplicação
 document.addEventListener('DOMContentLoaded', function() {
@@ -488,6 +736,9 @@ function initEventListeners() {
 
     // Inicializar listeners de pesquisa
     initSearchListeners();
+
+    window.addEventListener('beforeunload', handleQuizBeforeUnload);
+    window.addEventListener('pagehide', handleQuizBeforeUnload);
 }
 
 // Inicializar listeners de pesquisa
@@ -712,6 +963,7 @@ function switchAdminTab(tabId, sectionId) {
 
 // Mostrar tela de autenticação
 function showAuth() {
+    setQuizActive(false, { persist: false });
     authContainer.classList.remove('hidden');
     studentDashboard.classList.add('hidden');
     adminDashboard.classList.add('hidden');
@@ -734,7 +986,11 @@ function showDashboard() {
         adminDashboard.classList.add('hidden');
         studentDashboard.classList.remove('hidden');
         document.getElementById('student-name').textContent = currentUser.name;
-        loadQuizzes();
+        attemptAutoResumeQuiz().then(resumed => {
+            if (!resumed) {
+                loadQuizzes();
+            }
+        });
     }
 }
 
@@ -955,10 +1211,14 @@ function startQuiz(quiz) {
                 userAnswers = userQuiz.answers || new Array(quiz.questionsCount).fill(null);
                 currentQuestionIndex = userQuiz.currentQuestionIndex || 0;
                 exitCount = userQuiz.exitCount || 0;
-                timeRemaining = userQuiz.timeRemaining || (quiz.time * 60);
+                timeRemaining = typeof userQuiz.timeRemaining === 'number' ? userQuiz.timeRemaining : (quiz.time * 60);
+                const localState = getQuizStateForUser(currentUser.uid, quiz.id);
+                const questionIds = Array.isArray(userQuiz.questionIds) && userQuiz.questionIds.length
+                    ? userQuiz.questionIds
+                    : (localState && Array.isArray(localState.questionIds) ? localState.questionIds : []);
                 
                 // Buscar questões do quiz
-                loadQuizQuestions(quiz.id);
+                loadQuizQuestions(quiz.id, { questionIds, preserveAnswers: true });
             } else {
                 // Criar novo registro do quiz do usuário
                 timeRemaining = quiz.time * 60;
@@ -988,58 +1248,112 @@ function startQuiz(quiz) {
 }
 
 // Carregar questões do quiz
-function loadQuizQuestions(quizId) {
+function applyQuizQuestions(questions, options = {}) {
+    currentQuestions = questions;
+    const questionCount = currentQuestions.length;
+
+    if (options.preserveAnswers) {
+        userAnswers = normalizeAnswers(userAnswers, questionCount);
+    } else {
+        userAnswers = new Array(questionCount).fill(null);
+    }
+
+    if (currentQuestionIndex >= questionCount) {
+        currentQuestionIndex = 0;
+    }
+
+    if (userQuizId && questionCount > 0) {
+        db.collection('userQuizzes').doc(userQuizId).update({
+            questionIds: currentQuestions.map(question => question.id).filter(Boolean),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .catch(error => {
+            console.error('Erro ao salvar questoes do quiz:', error);
+        });
+    }
+
+    showQuiz();
+}
+
+function loadQuizQuestions(quizId, options = {}) {
     showLoading();
-    
-    // Buscar questões baseado na categoria do quiz
+
+    const questionIds = Array.isArray(options.questionIds) ? options.questionIds.filter(Boolean) : [];
+    if (questionIds.length > 0) {
+        const questionFetches = questionIds.map(questionId => db.collection('questions').doc(questionId).get());
+
+        return Promise.all(questionFetches)
+            .then(docs => {
+                hideLoading();
+
+                const questions = docs
+                    .filter(doc => doc.exists)
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(question => question.text);
+
+                if (questions.length == 0) {
+                    alert('Nenhuma questao disponivel para este quiz. Tente selecionar outra categoria.');
+                    return false;
+                }
+
+                applyQuizQuestions(questions, { preserveAnswers: options.preserveAnswers });
+                return true;
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Erro detalhado ao carregar questoes:', error);
+                alert('Erro ao carregar questoes: ' + error.message);
+                return false;
+            });
+    }
+
+    // Buscar questoes baseado na categoria do quiz
     let questionsQuery = db.collection('questions');
-    
-    // Se o quiz tem uma categoria específica, filtrar por ela
+
+    // Se o quiz tem uma categoria especifica, filtrar por ela
     if (currentQuiz.category && currentQuiz.category.trim() !== '') {
         questionsQuery = questionsQuery.where('category', '==', currentQuiz.category);
     }
-    
-    questionsQuery.get()
+
+    return questionsQuery.get()
         .then(querySnapshot => {
             hideLoading();
-            
+
             if (querySnapshot.empty) {
-                alert('Nenhuma questão disponível para este quiz. Tente selecionar outra categoria.');
-                return;
+                alert('Nenhuma questao disponivel para este quiz. Tente selecionar outra categoria.');
+                return false;
             }
-            
+
             const allQuestions = [];
             querySnapshot.forEach(doc => {
                 const question = { id: doc.id, ...doc.data() };
-                // Garantir que a questão tem o campo 'text' (enunciado)
+                // Garantir que a questao tem o campo 'text' (enunciado)
                 if (question.text) {
                     allQuestions.push(question);
                 }
             });
-            
-            // Selecionar questões aleatórias
+
+            // Selecionar questoes aleatorias
             const questionCount = Math.min(currentQuiz.questionsCount, allQuestions.length);
-            
-            // Embaralhar questões usando Fisher-Yates
+
+            // Embaralhar questoes usando Fisher-Yates
             const shuffledQuestions = [...allQuestions];
             for (let i = shuffledQuestions.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
             }
-            
-            // Selecionar as primeiras N questões
-            currentQuestions = shuffledQuestions.slice(0, questionCount);
-            
-            // Garantir que userAnswers tenha o tamanho correto
-            userAnswers = new Array(currentQuestions.length).fill(null);
-            
-            // Iniciar quiz
-            showQuiz();
+
+            // Selecionar as primeiras N questoes
+            const selectedQuestions = shuffledQuestions.slice(0, questionCount);
+
+            applyQuizQuestions(selectedQuestions, { preserveAnswers: options.preserveAnswers });
+            return true;
         })
         .catch(error => {
             hideLoading();
-            console.error('Erro detalhado ao carregar questões:', error);
-            alert('Erro ao carregar questões: ' + error.message);
+            console.error('Erro detalhado ao carregar questoes:', error);
+            alert('Erro ao carregar questoes: ' + error.message);
+            return false;
         });
 }
 
@@ -1050,6 +1364,7 @@ function showQuiz() {
     adminDashboard.classList.add('hidden');
     quizResult.classList.add('hidden');
     quizContainer.classList.remove('hidden');
+    setQuizActive(true);
     
     // Configurar informações do quiz
     document.getElementById('quiz-title-display').textContent = currentQuiz.title;
@@ -1067,11 +1382,23 @@ function showQuiz() {
 function startTimer() {
     updateTimerDisplay();
     quizStartTime = Date.now();
-    
+
+    if (quizTimer) {
+        clearInterval(quizTimer);
+        quizTimer = null;
+    }
+
+    if (timeRemaining <= 0) {
+        finishQuiz();
+        return;
+    }
+
     quizTimer = setInterval(() => {
-        timeRemaining--;
+        timeRemaining = Math.max(0, timeRemaining - 1);
         updateTimerDisplay();
-        
+        saveQuizStateLocal({ active: true });
+        syncQuizProgress();
+
         if (timeRemaining <= 0) {
             finishQuiz();
         }
@@ -1171,6 +1498,8 @@ function displayQuestion() {
     
     // Atualizar estado dos botões de navegação
     updateNavigationButtons();
+    saveQuizStateLocal({ active: true });
+    syncQuizProgress();
 }
 
 // Selecionar opção
@@ -1189,19 +1518,27 @@ function selectOption(value) {
     
     // Atualizar no Firestore
     updateUserQuizProgress();
+    saveQuizStateLocal({ active: true });
 }
 
 // Atualizar progresso do quiz do usuário
 function updateUserQuizProgress() {
     if (!userQuizId) return;
-    
-    db.collection('userQuizzes').doc(userQuizId).update({
+
+    const updateData = {
         answers: userAnswers,
         currentQuestionIndex: currentQuestionIndex,
         timeRemaining: timeRemaining,
         exitCount: exitCount,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    })
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastClientSyncAt: Date.now()
+    };
+
+    if (Array.isArray(currentQuestions) && currentQuestions.length > 0) {
+        updateData.questionIds = currentQuestions.map(question => question.id).filter(Boolean);
+    }
+
+    db.collection('userQuizzes').doc(userQuizId).update(updateData)
     .catch(error => {
         console.error('Erro ao atualizar progresso do quiz:', error);
     });
@@ -1227,6 +1564,8 @@ function confirmExitQuiz() {
         if (confirm('Tem certeza que deseja sair do quiz? Seu progresso será salvo e você poderá continuar depois.')) {
             exitCount++;
             clearInterval(quizTimer);
+            quizTimer = null;
+            setQuizActive(false);
             
             // Atualizar contador de saídas
             db.collection('userQuizzes').doc(userQuizId).update({
@@ -1244,6 +1583,8 @@ function confirmExitQuiz() {
 // Função finishQuiz
 function finishQuiz(forced = false) {
     console.log('Finalizando quiz...', { forced, userQuizId, currentQuestions, userAnswers });
+
+    setQuizActive(false, { clearLocal: true });
     
     // Parar o timer
     if (quizTimer) {
