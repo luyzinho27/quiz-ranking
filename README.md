@@ -1,49 +1,79 @@
-# 🧠 QuizMaster - Sistema de Quiz Educacional
+# QuizMaster - Sistema de Quiz Educacional
 
-<div align="center">
-  
-  ![QuizMaster Banner](https://via.placeholder.com/800x200/4a6cf7/ffffff?text=QuizMaster+-+Domine+o+conhecimento)
-  
-  [![Licença](https://img.shields.io/badge/licença-MIT-blue.svg)](LICENSE)
-  [![Versão](https://img.shields.io/badge/versão-1.0.1-brightgreen.svg)](https://github.com/seu-usuario/quizmaster)
-  [![Firebase](https://img.shields.io/badge/Firebase-Ativo-orange.svg)](https://firebase.google.com)
-  
-  **Transforme aprendizado em uma experiência envolvente e competitiva**
-  
-</div>
+QuizMaster ? uma aplica??o web educacional para cria??o e execu??o de quizzes com foco em aprendizado competitivo. Ela atende dois p?blicos: alunos (que fazem os quizzes e acompanham desempenho) e administradores (que criam conte?dos, gerenciam usu?rios e analisam resultados).
 
-## 🚀 Sobre o Projeto
+## Visao Geral
 
-O **QuizMaster** é uma plataforma web educacional desenvolvida para proporcionar uma experiência interativa de aprendizado através de quizzes dinâmicos. A aplicação permite que professores criem e gerenciem quizzes personalizados, enquanto os alunos podem testar seus conhecimentos, competir no ranking e acompanhar seu progresso.
+A aplica??o oferece uma experiencia completa de quiz com timer, progresso e resultados, al?m de recursos de ranking e relatorios. O sistema foi pensado para ser simples de usar na pr?tica e consistente do ponto de vista tecnico, com dados centralizados no Firebase e uma interface responsiva para uso em desktop e mobile.
 
-### ✨ Funcionalidades Principais
+## Diferenciais e Atualizacoes Recentes
 
-#### 👨‍🎓 Para Alunos:
-- 📝 Realização de quizzes com timer visual
-- 🏆 Sistema de ranking em tempo real
-- 📊 Histórico detalhado de desempenho
-- 🔍 Revisão de respostas após quiz
-- 📱 Interface totalmente responsiva
+- Continuidade do quiz mesmo com recarregamento (F5 ou reload), mantendo questao atual e tempo restante.
+- Persistencia de estado local combinada com Firestore para recuperar progresso com confiabilidade.
+- Controle de saidas do quiz: primeira saida salva progresso, segunda saida finaliza automaticamente.
+- Protecao do conteudo durante o quiz com bloqueio de selecao, copia e impressao (melhor esforco no navegador).
+- Rankings geral e por quiz, com filtros e destaque do proprio usuario.
+- Relatorios administrativos com indicadores do sistema e quizzes mais populares.
 
-#### 👨‍🏫 Para Administradores:
-- 🛠️ Criação e gerenciamento de quizzes
-- 👥 Controle de visibilidade por aluno específico
-- 📚 Banco de questões categorizadas
-- 📈 Relatórios e estatísticas de desempenho
-- 🔄 Importação de questões via JSON
-- 👤 Gestão completa de usuários
+## Funcionalidades Para Alunos
 
-## 🛠️ Tecnologias Utilizadas
+- Lista de quizzes ativos com informacoes de tempo, categoria e quantidade de questoes.
+- Inicio e continuidade de quizzes em andamento.
+- Timer visual e progresso de questoes em tempo real.
+- Historico de desempenho com percentuais, pontuacao e tempo.
+- Ranking geral e ranking por quiz com busca de usuarios.
+- Revisao de respostas quando o quiz permite.
 
-- **Frontend:** HTML5, CSS3, JavaScript Vanilla
-- **Backend:** Firebase Authentication + Firestore
-- **Gráficos:** Chart.js
-- **Ícones:** Font Awesome 6
-- **Hospedagem:** GitHub Pages (estático)
+## Funcionalidades Para Administradores
 
-## 📦 Instalação e Configuração
+- Criacao, edicao e exclusao de quizzes.
+- Ativacao e desativacao de quizzes.
+- Configuracao de visibilidade por todos os alunos ou alunos especificos.
+- Definicao de tempo, categoria e quantidade de questoes.
+- Bloqueio ou liberacao de revisao de respostas.
+- Banco de questoes com cadastro, edicao e exclusao.
+- Importacao de questoes via JSON.
+- Gestao completa de usuarios (editar, ativar, desativar e excluir).
+- Relatorios e estatisticas gerais do sistema.
 
-1. **Clone o repositório:**
-```bash
-git clone https://github.com/seu-usuario/quizmaster.git
-cd quizmaster
+## Fluxo Pratico Do Quiz
+
+1. O aluno escolhe um quiz disponivel na aba Quizzes.
+2. O quiz abre em tela dedicada com timer e navegacao entre questoes.
+3. Ao sair pela primeira vez, o progresso e salvo para continuar depois.
+4. Ao sair pela segunda vez, o quiz e finalizado com as respostas atuais.
+5. Em caso de recarregamento da pagina, o quiz e retomado automaticamente.
+
+## Tecnologias Utilizadas
+
+- Frontend: HTML5, CSS3 e JavaScript puro.
+- Autenticacao: Firebase Authentication (email/senha e Google).
+- Banco de dados: Firestore.
+- Graficos: Chart.js.
+- Icones: Font Awesome.
+- Hospedagem: site estatico (ex: GitHub Pages ou servidor local).
+
+## Estrutura Tecnica (Firestore)
+
+- `users`: dados de usuarios, incluindo `name`, `email`, `userType`, `status`, `createdAt`, `updatedAt`.
+- `quizzes`: metadados do quiz, como `title`, `description`, `category`, `questionsCount`, `time`, `visibility`, `allowedStudents`, `allowReview`, `status`, `createdAt`.
+- `questions`: banco de questoes com `text`, `options`, `correctAnswer`, `category`, `createdAt`.
+- `userQuizzes`: tentativas e progresso, com `userId`, `quizId`, `status`, `answers`, `currentQuestionIndex`, `timeRemaining`, `exitCount`, `questionIds`, `score`, `percentage`, `timeTaken`, `updatedAt`, `completedAt`.
+
+## Seguranca e Limitacoes
+
+- Bloqueios de copia e impressao funcionam no navegador, mas nao impedem capturas de tela em nivel de sistema operacional.
+- O sistema depende de regras do Firestore bem configuradas para controle de acesso aos dados.
+
+## Instalacao e Configuracao
+
+1. Clone o repositorio:
+   `git clone <URL_DO_REPOSITORIO>`
+2. Edite as credenciais do Firebase em `script.js`.
+3. No Firebase Console, habilite os provedores de login usados (Email/Senha e Google).
+4. Configure as regras do Firestore para separar permissoes de alunos e administradores.
+5. Execute localmente usando um servidor estatico (por exemplo, Live Server) ou publique em um host estatico.
+
+## Licenca
+
+Este projeto utiliza a licenca MIT. Consulte o arquivo `LICENSE`.
