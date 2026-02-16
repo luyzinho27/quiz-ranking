@@ -39,6 +39,8 @@ let selectedStudents = [];
 let quizActive = false;
 let quizProtectionEnabled = false;
 let lastProgressSyncAt = 0;
+let reviewDataQuizId = null;
+let reviewDataUserQuizId = null;
 
 const QUIZ_STATE_PREFIX = 'quizState:';
 const QUIZ_PROGRESS_SYNC_MS = 15000;
@@ -722,7 +724,7 @@ function initEventListeners() {
         }, 100);
     });
     
-    document.getElementById('review-quiz').addEventListener('click', showReviewModal);
+    document.getElementById('review-quiz').addEventListener('click', handleReviewClick);
     
     // Botões do admin
     document.getElementById('create-quiz-btn').addEventListener('click', () => openQuizModal());
@@ -1272,6 +1274,9 @@ function applyQuizQuestions(questions, options = {}) {
         });
     }
 
+    reviewDataQuizId = currentQuiz ? currentQuiz.id : null;
+    reviewDataUserQuizId = userQuizId || null;
+
     showQuiz();
 }
 
@@ -1645,61 +1650,61 @@ function finishQuiz(forced = false) {
 // Mostrar resultado do quiz
 function showQuizResult(quizId, score = null, percentage = null, timeTaken = null, forced = false) {
     console.log('Mostrando resultado:', { quizId, score, percentage, timeTaken, forced });
-    
+
     if (score !== null && percentage !== null && timeTaken !== null) {
-        // Exibir resultado recém-calculado
+        // Exibir resultado rec?m-calculado
         const minutes = Math.floor(timeTaken / 60);
         const seconds = timeTaken % 60;
         const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-        
+
         document.getElementById('score-percentage').textContent = `${percentage.toFixed(1)}%`;
-        
+
         // Calcular answeredQuestions corretamente
         let answeredQuestions = 0;
         if (userAnswers) {
             answeredQuestions = userAnswers.filter(answer => answer !== null).length;
         }
-        
+
         if (forced) {
             document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length} (${answeredQuestions} respondidas)`;
-            document.getElementById('result-subtitle').textContent = 'Quiz finalizado - Algumas questões não foram respondidas';
+            document.getElementById('result-subtitle').textContent = 'Quiz finalizado - Algumas quest?es n?o foram respondidas';
         } else {
             document.getElementById('score-fraction').textContent = `${score}/${currentQuestions.length}`;
-            document.getElementById('result-subtitle').textContent = 'Veja como você foi';
+            document.getElementById('result-subtitle').textContent = 'Veja como voc? foi';
         }
-        
+
         document.getElementById('correct-answers').textContent = score;
-        document.getElementById('wrong-answers').textContent = forced ? 
-            (answeredQuestions - score) : 
+        document.getElementById('wrong-answers').textContent = forced ?
+            (answeredQuestions - score) :
             (currentQuestions.length - score);
         document.getElementById('time-taken').textContent = timeText;
-        
-        // Animar o círculo de progresso
+
+        // Animar o c?rculo de progresso
         const circleProgress = document.getElementById('circle-progress');
         const degrees = (percentage / 100) * 360;
         if (circleProgress) {
             circleProgress.style.transform = `rotate(${degrees}deg)`;
         }
 
-        // Calcular posição no ranking
+        // Calcular posi??o no ranking
         calculateRankingPosition(quizId, percentage);
-        
-        // Verificar se a revisão de respostas está permitida
+
+        // Verificar se a revis?o de respostas est? permitida
         const reviewButton = document.getElementById('review-quiz');
         if (currentQuiz && currentQuiz.allowReview === false) {
-            // Desabilitar botão de revisão
+            // Desabilitar bot?o de revis?o
             reviewButton.disabled = true;
             reviewButton.innerHTML = '<i class="fas fa-lock"></i><span class="btn-text">Revisão Bloqueada</span>';
             reviewButton.classList.remove('btn-secondary');
             reviewButton.classList.add('btn-danger');
         } else {
-            // Habilitar botão de revisão
+            // Habilitar bot?o de revis?o
             reviewButton.disabled = false;
             reviewButton.innerHTML = '<i class="fas fa-redo"></i><span class="btn-text">Revisar Respostas</span>';
             reviewButton.classList.remove('btn-danger');
             reviewButton.classList.add('btn-secondary');
         }
-        
+
         quizContainer.classList.add('hidden');
         quizResult.classList.remove('hidden');
     } else {
@@ -1710,47 +1715,75 @@ function showQuizResult(quizId, score = null, percentage = null, timeTaken = nul
             .where('status', '==', 'completed')
             .get()
             .then(querySnapshot => {
-                if (!querySnapshot.empty) {
-                    const userQuiz = querySnapshot.docs[0].data();
-                    const minutes = Math.floor(userQuiz.timeTaken / 60);
-                    const seconds = userQuiz.timeTaken % 60;
-                    const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                    
-                    document.getElementById('score-percentage').textContent = `${userQuiz.percentage.toFixed(1)}%`;
-                    document.getElementById('score-fraction').textContent = `${userQuiz.score}/${currentQuestions.length}`;
-                    document.getElementById('correct-answers').textContent = userQuiz.score;
-                    document.getElementById('wrong-answers').textContent = currentQuestions.length - userQuiz.score;
-                    document.getElementById('time-taken').textContent = timeText;
-                    
-                    // Animar o círculo de progresso
-                    const circleProgress = document.getElementById('circle-progress');
-                    const degrees = (userQuiz.percentage / 100) * 360;
-                    if (circleProgress) {
-                        circleProgress.style.transform = `rotate(${degrees}deg)`;
-                    }
-                    
-                    // Calcular posição no ranking
-                    calculateRankingPosition(quizId, userQuiz.percentage);
-                    
-                    // Verificar se a revisão de respostas está permitida
-                    const reviewButton = document.getElementById('review-quiz');
-                    if (currentQuiz && currentQuiz.allowReview === false) {
-                        // Desabilitar botão de revisão
-                        reviewButton.disabled = true;
-                        reviewButton.innerHTML = '<i class="fas fa-lock"></i><span class="btn-text">Revisão Bloqueada</span>';
-                        reviewButton.classList.remove('btn-secondary');
-                        reviewButton.classList.add('btn-danger');
-                    } else {
-                        // Habilitar botão de revisão
-                        reviewButton.disabled = false;
-                        reviewButton.innerHTML = '<i class="fas fa-redo"></i><span class="btn-text">Revisar Respostas</span>';
-                        reviewButton.classList.remove('btn-danger');
-                        reviewButton.classList.add('btn-secondary');
-                    }
-                    
-                    quizContainer.classList.add('hidden');
-                    quizResult.classList.remove('hidden');
+                if (querySnapshot.empty) {
+                    return;
                 }
+
+                const userQuizDoc = querySnapshot.docs[0];
+                const userQuiz = userQuizDoc.data();
+
+                return db.collection('quizzes').doc(quizId).get()
+                    .then(quizDoc => {
+                        const quizData = quizDoc.exists ? { id: quizDoc.id, ...quizDoc.data() } : { id: quizId };
+                        currentQuiz = quizData;
+                        reviewDataQuizId = quizId;
+                        reviewDataUserQuizId = userQuizDoc.id;
+
+                        const questionIds = Array.isArray(userQuiz.questionIds)
+                            ? userQuiz.questionIds.filter(Boolean)
+                            : [];
+
+                        let totalQuestions = questionIds.length;
+                        if (!totalQuestions) {
+                            if (Array.isArray(userQuiz.answers) && userQuiz.answers.length) {
+                                totalQuestions = userQuiz.answers.length;
+                            } else if (typeof quizData.questionsCount === 'number') {
+                                totalQuestions = quizData.questionsCount;
+                            } else {
+                                totalQuestions = currentQuestions.length || 0;
+                            }
+                        }
+
+                        const safeTimeTaken = typeof userQuiz.timeTaken === 'number' ? userQuiz.timeTaken : 0;
+                        const minutes = Math.floor(safeTimeTaken / 60);
+                        const seconds = safeTimeTaken % 60;
+                        const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+                        document.getElementById('score-percentage').textContent = `${userQuiz.percentage.toFixed(1)}%`;
+                        document.getElementById('score-fraction').textContent = `${userQuiz.score}/${totalQuestions}`;
+                        document.getElementById('correct-answers').textContent = userQuiz.score;
+                        document.getElementById('wrong-answers').textContent = Math.max(totalQuestions - userQuiz.score, 0);
+                        document.getElementById('time-taken').textContent = timeText;
+
+                        // Animar o c?rculo de progresso
+                        const circleProgress = document.getElementById('circle-progress');
+                        const degrees = (userQuiz.percentage / 100) * 360;
+                        if (circleProgress) {
+                            circleProgress.style.transform = `rotate(${degrees}deg)`;
+                        }
+
+                        // Calcular posi??o no ranking
+                        calculateRankingPosition(quizId, userQuiz.percentage);
+
+                        // Verificar se a revis?o de respostas est? permitida
+                        const reviewButton = document.getElementById('review-quiz');
+                        if (quizData && quizData.allowReview === false) {
+                            // Desabilitar bot?o de revis?o
+                            reviewButton.disabled = true;
+                            reviewButton.innerHTML = '<i class="fas fa-lock"></i><span class="btn-text">Revisão Bloqueada</span>';
+                            reviewButton.classList.remove('btn-secondary');
+                            reviewButton.classList.add('btn-danger');
+                        } else {
+                            // Habilitar bot?o de revis?o
+                            reviewButton.disabled = false;
+                            reviewButton.innerHTML = '<i class="fas fa-redo"></i><span class="btn-text">Revisar Respostas</span>';
+                            reviewButton.classList.remove('btn-danger');
+                            reviewButton.classList.add('btn-secondary');
+                        }
+
+                        quizContainer.classList.add('hidden');
+                        quizResult.classList.remove('hidden');
+                    });
             })
             .catch(error => {
                 console.error('Erro ao buscar resultado salvo:', error);
@@ -1789,6 +1822,55 @@ function calculateRankingPosition(quizId, percentage) {
         .catch(error => {
             console.error('Erro ao calcular ranking:', error);
             document.getElementById('ranking-position').textContent = '-';
+        });
+}
+
+// Abrir revisao de respostas (garante dados corretos)
+function handleReviewClick() {
+    const reviewButton = document.getElementById('review-quiz');
+    if (reviewButton && reviewButton.disabled) return;
+
+    if (!currentUser || currentUser.userType !== 'aluno') return;
+    if (!currentQuiz || !currentQuiz.id) {
+        alert('Quiz nao identificado para revisao.');
+        return;
+    }
+
+    if (currentQuiz.allowReview === false) {
+        alert('A revisao de respostas esta bloqueada para este quiz.');
+        return;
+    }
+
+    const quizId = currentQuiz.id;
+
+    if (reviewDataQuizId === quizId && Array.isArray(currentQuestions) && currentQuestions.length > 0) {
+        showReviewModal();
+        return;
+    }
+
+    if (reviewDataQuizId === quizId && reviewDataUserQuizId) {
+        loadReviewData(reviewDataUserQuizId, quizId);
+        return;
+    }
+
+    db.collection('userQuizzes')
+        .where('userId', '==', currentUser.uid)
+        .where('quizId', '==', quizId)
+        .where('status', '==', 'completed')
+        .get()
+        .then(querySnapshot => {
+            if (querySnapshot.empty) {
+                alert('Resultado nao encontrado para revisao.');
+                return;
+            }
+
+            const completedQuizId = querySnapshot.docs[0].id;
+            reviewDataUserQuizId = completedQuizId;
+            loadReviewData(completedQuizId, quizId);
+        })
+        .catch(error => {
+            console.error('Erro ao buscar resultado para revisao:', error);
+            alert('Erro ao carregar dados para revisao.');
         });
 }
 
@@ -2252,49 +2334,77 @@ function calculateTotalTime(userQuizzes) {
 
 // Carregar dados para revisão
 function loadReviewData(userQuizId, quizId) {
-    console.log('🔄 Carregando dados para revisão...');
+    console.log('?? Carregando dados para revis?o...');
     showLoading();
-    
+
     Promise.all([
         db.collection('userQuizzes').doc(userQuizId).get(),
         db.collection('quizzes').doc(quizId).get()
     ]).then(([userQuizDoc, quizDoc]) => {
         if (!userQuizDoc.exists || !quizDoc.exists) {
             hideLoading();
-            alert('Dados não encontrados para revisão.');
+            alert('Dados n?o encontrados para revis?o.');
             return;
         }
-        
+
         const userQuiz = userQuizDoc.data();
         const quiz = quizDoc.data();
-        
-        // Buscar questões
-        db.collection('questions').get().then(questionsSnapshot => {
+
+        if (quiz.allowReview === false) {
             hideLoading();
-            
-            const allQuestions = [];
-            questionsSnapshot.forEach(doc => {
-                allQuestions.push({ id: doc.id, ...doc.data() });
+            alert('A revis?o de respostas está bloqueada para este quiz.');
+            return;
+        }
+
+        const questionIds = Array.isArray(userQuiz.questionIds)
+            ? userQuiz.questionIds.filter(Boolean)
+            : [];
+
+        if (questionIds.length === 0) {
+            hideLoading();
+            alert('Não foi possível recuperar as questões originais deste quiz.');
+            return;
+        }
+
+        const questionFetches = questionIds.map(questionId => db.collection('questions').doc(questionId).get());
+
+        Promise.all(questionFetches).then(questionDocs => {
+            hideLoading();
+
+            const questions = [];
+            let missingQuestion = false;
+
+            questionDocs.forEach(doc => {
+                if (!doc.exists) {
+                    missingQuestion = true;
+                    return;
+                }
+                const data = doc.data();
+                if (!data || !data.text) {
+                    missingQuestion = true;
+                    return;
+                }
+                questions.push({ id: doc.id, ...data });
             });
-            
-            // Selecionar questões aleatórias (simulando o quiz original)
-            const shuffledQuestions = [...allQuestions];
-            for (let i = shuffledQuestions.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+
+            if (missingQuestion || questions.length !== questionIds.length) {
+                alert('Não foi possível recuperar todas as questões originais deste quiz.');
+                return;
             }
-            
-            currentQuestions = shuffledQuestions.slice(0, quiz.questionsCount || 10);
-            userAnswers = userQuiz.answers || [];
-            
+
+            currentQuiz = { id: quizId, ...quiz };
+            currentQuestions = questions;
+            userAnswers = normalizeAnswers(userQuiz.answers || [], currentQuestions.length);
+            reviewDataQuizId = quizId;
+            reviewDataUserQuizId = userQuizId;
+
             showReviewModal();
-            
         }).catch(error => {
             hideLoading();
             console.error('Erro ao buscar questões:', error);
             alert('Erro ao carregar questões para revisão.');
         });
-        
+
     }).catch(error => {
         hideLoading();
         console.error('Erro ao carregar dados para revisão:', error);
